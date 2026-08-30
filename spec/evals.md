@@ -52,7 +52,7 @@ One per invariant in `CONTRACT.md`.
 | INV-1-T | Surrogate ≠ truth | No returned frame contains a column that is neither `true_*`, `pred_*`, nor in the declared metadata schema. Source grep: no assignment of a `pred_`-derived value into a `true_` column |
 | INV-2-T | Grouped splits | For every split produced by `qecscreen.splits`, `set(train.construction_program_id) ∩ set(test.construction_program_id) == ∅`. Source grep: `train_test_split` does not appear in `src/` |
 | INV-3-T | Censoring | Every row with `failures < 100` has `censored == True` and `true_ler is None`. Every row with `censored == False` has `failures >= 100` and finite CI bounds |
-| INV-4-T | LER formula | Golden values G-01..G-04. Source grep: `(1 - P_L) **` or equivalent appears only in `protocol.py` |
+| INV-4-T | LER formula | Golden values G-01..G-04. Source grep over `src/`, excluding `protocol.py`, for five patterns: `(1 - <anything>) **`; `... ** (1 / ...)`, which catches a base containing its own parentheses; `np.power`/`numpy.power`/`math.pow` with a `1 - ` first argument; `expm1(`; `log1p(`. **The grep is itself tested** against seven known violation spellings and one benign file — `test_inv4_grep_catches_known_violations` |
 | INV-5-T | Distance provenance | No row has both `d_exact` and `d_upper` null. Where both present, `d_exact <= d_upper` |
 | INV-6-T | Single protocol | `assert_single_protocol()` raises `ValueError` on a frame with two distinct `protocol_hash` values. Every ranking and training entry point calls it |
 | INV-7-T | Regenerable | For 20 sampled rows, `regenerate(row)` yields bit-identical `H_X`, `H_Z` |
@@ -61,6 +61,8 @@ One per invariant in `CONTRACT.md`.
 | INV-10-T | Publish before polish | Not automatable. Manual item in `spec/smoke.md` |
 
 The four **source-grep tests** matter more than they look. They catch the reasonable-looking mistake at the moment it is written, rather than three weeks later in a results table.
+
+They also have a failure mode of their own: a grep that matches nothing passes whether or not it would ever fire, so a weak pattern is indistinguishable from a clean codebase. The INV-4 grep was exactly that — it required a lowercase `p` in the base variable name, so it missed `(1 - P_L) **`, this file's own notation. **A guard nobody has tested is a guard that does not exist**, so INV-4-T now asserts against known violations in a temp file. Any grep test added here should do the same.
 
 ## 4. Negative tests
 

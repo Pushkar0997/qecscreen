@@ -6,6 +6,30 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (m) — Claude Opus 5 / Claude Code — item 6: the INV-4 grep, and testing the guard
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision item 6
+**Landed:** the INV-4 source-grep rewritten from one pattern to five, and — the part that matters more — **the guard is now itself tested**.
+
+Patterns: `(1 - <anything>) **` for any base and any case; `... ** (1 / ...)`, which catches a base containing its own parentheses; `np.power`/`numpy.power`/`math.pow` with a `1 - ` first argument; `expm1(`; `log1p(`. The old single pattern required a lowercase `p` in the base variable name, so it missed `(1 - P_L) **` — the notation CONTRACT and `spec/evals.md` both use to *describe* the thing it was meant to catch.
+
+Eight new tests: seven known violation spellings written to a temp file and asserted flagged, plus a benign file (`base ** exponent`, `(width - 1) * (height - 1)`) asserted **not** flagged, because a guard that fires on ordinary arithmetic gets deleted by the next person it annoys. 42 passed.
+
+`spec/evals.md` INV-4-T now describes what the check actually does rather than what it was hoped to do, and the section gained a paragraph on why grep tests need their own tests: a grep matching nothing passes whether or not it would ever fire, so a weak pattern is indistinguishable from a clean codebase. Any future grep test in that section should carry the same self-test.
+
+**Did not land:** nothing outstanding. All six approved items are now landed.
+**Blockers:** none.
+
+**Noticed, did not fix:**
+- The `(1 - x) **` pattern uses `[^()]+` for the base, so a base with nested parentheses is caught only by the exponent-shape pattern `) ** (1 /`. Something like `(1 - f(x)) ** 0.5` — same shape, different exponent — would slip through. Narrow enough to accept; recorded so it is a known limit rather than a surprise.
+- `expm1(` and `log1p(` are matched bare, anywhere outside `protocol.py`. They are the numerically-stable rearrangement of this exact formula, so flagging them is intended, but a future module with a legitimate unrelated use will trip it. The right response then is to move the computation, not to loosen the pattern.
+- The other three grep tests (INV-2, INV-8, torch) are still untested guards. They use plain substring matching so the risk is much lower, but the same argument applies if any of them ever grows a regex.
+**Spec changes:** `spec/evals.md` (INV-4-T row, and a new paragraph on testing grep guards).
+**Next action:** `M0-CODES-01` — the BB generator. Not started, as instructed.
+
+---
+
 ## 2026-08-30 (l) — Claude Opus 5 / Claude Code — items 4 and 5: CONTRACT change, D-014; M0-CORE-01 closed
 
 **Milestone:** M0 — Falsification
