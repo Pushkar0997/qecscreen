@@ -1,0 +1,56 @@
+name: CI
+
+# Tests only. Never bulk data generation here — wrong tool, and against the
+# spirit of the free tier (AGENTS.md §7).
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# The repo is private through M0 (D-013), so Actions minutes are metered against
+# the free allowance. Cancel superseded runs and cap the job rather than letting
+# a hung run quietly eat the budget (INV-9).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the pinned interpreter (spec/architecture.md §1). 3.13 is what
+        # the current dev venv runs. The two resolve *different* sinter versions
+        # — 1.15.0 vs 1.16.0, because sinter 1.16 requires >=3.12 — so testing
+        # only one would miss a break in the other. See M0-SETUP-01 in AGENT_LOG.
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        # --only-binary=:all: enforces the constraint from AGENTS.md §3: every
+        # dependency must install without a compiler, because Kaggle and Colab
+        # must install this in one cell. If a dependency ever stops shipping a
+        # wheel, this fails here rather than on a Kaggle runtime at hour six.
+        run: |
+          python -m pip install --upgrade pip
+          pip install --only-binary=:all: -r requirements.txt
+
+      - name: Record resolved versions
+        # stim/sinter/ldpc versions enter protocol_hash (INV-6), so a run's log
+        # has to say which ones it actually used.
+        run: pip list
+
+      - name: Run tests
+        run: pytest

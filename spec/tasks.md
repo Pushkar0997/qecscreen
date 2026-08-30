@@ -13,7 +13,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 ### SETUP
 
 - [x] **M0-SETUP-01** Create `requirements.txt` with the pinned versions from `spec/architecture.md §1`; verify `pip install -r requirements.txt` succeeds in a clean Colab cell — verified in a clean local venv on 3.11.9 and 3.13.7, wheels only, no compiler; `stim`/`sinter`/`ldpc` upper-bounded because they enter `protocol_hash`. Colab leg is **pending a human run** of `notebooks/verify_env_colab.ipynb` — the notebook exists and is locally exercised, but nobody has executed it on a Colab runtime yet
-- [ ] **M0-SETUP-02** Add `pytest.ini` and `.github/workflows/ci.yml` running `pytest` on push; confirm the badge is green
+- [x] **M0-SETUP-02** Add `pytest.ini` and `.github/workflows/ci.yml` running `pytest` on push; confirm the badge is green — `pytest.ini` already present; `ci.yml` added, YAML-validated, matrix on 3.11 + 3.13 because they resolve different `sinter` versions, install forced to `--only-binary=:all:`. Badge added to README but **green not yet confirmed** — needs a push, which is the owner's call
 - [ ] **M0-SETUP-03** Add `.gitignore` excluding `data/`, `*.parquet`, `__pycache__`, `.ipynb_checkpoints`
 
 ### CORE — protocol and linear algebra

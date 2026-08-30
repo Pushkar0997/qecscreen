@@ -6,6 +6,30 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (e) — Claude Opus 5 / Claude Code — M0-SETUP-02
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-SETUP-02` — CI
+**Landed:** `.github/workflows/ci.yml`, plus a CI badge in `README.md`. `pytest.ini` already existed from the skeleton commit and was left alone.
+
+Three choices worth recording:
+- **Matrix on 3.11 and 3.13.** They resolve *different* `sinter` versions (1.15.0 vs 1.16.0), so a single-version CI would miss a break in the other. Costs about two extra minutes per push.
+- **`pip install --only-binary=:all:`.** Turns `AGENTS.md §3`'s "does it install on Kaggle without a compiler" from a review question into a build failure. If a dependency ever stops shipping a wheel, CI says so instead of a Kaggle runtime discovering it at hour six.
+- **`concurrency` + `timeout-minutes: 10`.** The repo is private through M0 (D-013), so Actions minutes are metered against the free allowance. Superseded runs cancel and a hung job cannot quietly eat the budget (INV-9). Well inside the free tier at this size, but bounded rather than assumed.
+
+YAML validated by parsing. The `on:` key parses as boolean `True` under YAML 1.1 — that is the standard gotcha, not a defect; GitHub's own parser reads it correctly.
+
+**Did not land:** confirmation that the badge is green. That needs a push, which is the owner's decision, so `spec/tasks.md` records it as explicitly unconfirmed rather than assumed.
+**Blockers:** none.
+**Noticed, did not fix:**
+- The repo URL assumed in entry (b) — `github.com/Pushkar0997/qecscreen` — is **confirmed correct**: it is the configured `origin`. `CITATION.cff` and `BRIEF.md` can stop carrying that caveat.
+- The badge will not render for anyone outside the repo while it is private (D-013). It renders for the owner, and becomes public at M1.
+- CI does not enforce DCO sign-off. Entry (b) already flagged this as an M1 item, once there are external contributors.
+**Spec changes:** `spec/tasks.md` (checkbox + note).
+**Next action:** `M0-SETUP-03`.
+
+---
+
 ## 2026-08-30 (d) — Claude Opus 5 / Claude Code — M0-SETUP-01 (Colab leg)
 
 **Milestone:** M0 — Falsification

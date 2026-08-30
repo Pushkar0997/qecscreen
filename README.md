@@ -1,5 +1,7 @@
 # qecscreen
 
+[![CI](https://github.com/Pushkar0997/qecscreen/actions/workflows/ci.yml/badge.svg)](https://github.com/Pushkar0997/qecscreen/actions/workflows/ci.yml)
+
 **Status: pre-M0. No results yet. Nothing here has been validated.**
 
 Screening for quantum LDPC code search: predicting which codes will perform well
