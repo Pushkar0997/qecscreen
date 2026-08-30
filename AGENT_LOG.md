@@ -6,6 +6,35 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (t) — Claude Opus 5 / Claude Code — decision 6: freeze the run, rebuild the template
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision 6
+**Landed:** two notebooks, doing two different jobs.
+
+- **`notebooks/runs/2026-08-30-verify-env-colab.ipynb`** — the owner's executed copy, **outputs intact**, frozen as dated evidence. 11 cells, 9 with outputs. This file is why the `sinter` wheel error was caught, so the convention is worth keeping: executed runs go to `notebooks/runs/<date>-verify-env-<host>.ipynb`.
+- **`notebooks/verify_env_colab.ipynb`** — the clean template. 9 cells, **zero outputs, all execution counts null**.
+
+Template changes beyond stripping:
+- **Drive mount is now the primary path.** Cell 3 checks a `QECSCREEN_REPO` override, then walks up from the working directory, then mounts Drive and searches the usual layouts including the nested `MyDrive/qecscreen/qecscreen`. `files.upload()` is **removed from the automatic path** and demoted to an optional snippet at the bottom, explicitly labelled browser-Colab-only, with a warning that it is refused under Colab-in-VS-Code. The header documents this rather than leaving the next person to discover it as the owner did.
+- **Cell 4 now checks all three machine-checkable criteria and asserts on each**, instead of printing lines for a human to scan: `pip` exit code; **no ambient downgrade** (any `Attempting uninstall` naming numpy/pandas/scipy/scikit-learn); and **no compiler invocation**, using the same regex as the CI guard from decision 1, so the notebook and CI cannot drift apart on what "installs without a compiler" means.
+- The old "no `Building wheel`" criterion is gone — it was the wrong test, and it is what made entry (h) record a false PASS. A pure-Python sdist build is now explicitly called fine and expected.
+- The fourth criterion, **no manual fixes**, is printed as something only the human can answer, with the instruction to add the constraint to `requirements.txt` rather than soften the criterion.
+- The closing section records that Kaggle has still never been run.
+
+Verified by executing every code cell of the template locally: all pass, including the three new assertions. 42 passed.
+
+**Did not land:** nothing outstanding for this decision.
+**Blockers:** none.
+**Noticed, did not fix:**
+- The frozen run contains the owner's two manual cells (`pip install "pyparsing<3.2"`, `pip install -U matplotlib`) exactly as executed. Left verbatim — it is evidence, and editing evidence to look tidier is the opposite of the point.
+- The ambient-downgrade check reads `Attempting uninstall` lines, so it only catches a downgrade pip performs during *this* install. A manual fix cell run afterwards — which is what happened on 2026-08-30 — is invisible to it. That is why criterion 4 is explicitly handed to the human.
+- `notebooks/runs/` will accumulate. Fine at one file per environment per milestone; worth a prune rule if it ever gets past a dozen.
+**Spec changes:** none.
+**Next action:** decision 7 — "Pushed to origin" in the definition of done.
+
+---
+
 ## 2026-08-30 (s) — Claude Opus 5 / Claude Code — decision 5: cap data-path deps to the execution environment (D-015)
 
 **Milestone:** M0 — Falsification
