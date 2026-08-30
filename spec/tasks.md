@@ -18,10 +18,10 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 
 ### CORE — protocol and linear algebra
 
-- [ ] **M0-CORE-01** Implement `src/qecscreen/protocol.py`: frozen constants from `CONTRACT.md`, `logical_error_rate`, `wilson_interval`, `protocol_hash`. No other module may compute an LER
-- [ ] **M0-CORE-02** Write `tests/test_protocol.py` asserting the four LER golden values and two Wilson golden values from `CONTRACT.md` exactly
-- [ ] **M0-CORE-03** Implement `src/qecscreen/linalg.py`: `gf2_rank`, `gf2_rref`, `gf2_nullspace`, all on `uint8`
-- [ ] **M0-CORE-04** Write `tests/test_linalg.py` including a matrix whose GF(2) rank differs from its real rank, asserting we get the GF(2) answer
+- [ ] **M0-CORE-01** Implement `src/qecscreen/protocol.py`: frozen constants from `CONTRACT.md`, `logical_error_rate`, `wilson_interval`, `protocol_hash`. No other module may compute an LER — **NOT CLOSED.** Constants and both formulas verified correct against `CONTRACT.md`. Blocked on three things: no `protocol_hash` (only `Protocol.hash()`); `Protocol.decoder_version` defaults to `"unset"`, so an INV-6 hash can omit the decoder version it claims to carry; and `rounds` is in the hash payload while D-006 varies it per code, which makes `assert_single_protocol()` raise on the pilot frame. The last needs a CONTRACT decision
+- [x] **M0-CORE-02** Write `tests/test_protocol.py` asserting the four LER golden values and two Wilson golden values from `CONTRACT.md` exactly — all six literals verified byte-identical across `CONTRACT.md`, `spec/evals.md` and the test, and independently recomputed at 50-digit precision; `math.isclose(rel_tol=1e-12)` per CONTRACT, which outranks the word "exactly" here
+- [ ] **M0-CORE-03** Implement `src/qecscreen/linalg.py`: `gf2_rank`, `gf2_rref`, `gf2_nullspace`, all on `uint8` — **NOT CLOSED.** `gf2_rank`/`gf2_rref` verified correct against an independent implementation over 400 random matrices, but `gf2_nullspace` does not exist — only `gf2_nullspace_dim`, which returns a dimension, not a basis. `M0-CODES-04` needs the basis to find logical operators. Separately, `_as_gf2` casts to `uint8` *before* the {0,1} check, so a float matrix containing `0.5` is silently truncated to `0` instead of raising, and bool is accepted — both banned by CONTRACT's matrix-field convention
+- [x] **M0-CORE-04** Write `tests/test_linalg.py` including a matrix whose GF(2) rank differs from its real rank, asserting we get the GF(2) answer — `test_n06_gf2_rank_differs_from_real_rank` is exactly N-06: real rank 3, GF(2) rank 2, and it asserts the float answer is 3 so the test itself would fail if the premise ever stopped holding
 
 ### CODES — BB generator
 
