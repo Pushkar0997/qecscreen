@@ -6,6 +6,26 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (k) — Claude Opus 5 / Claude Code — item 3: module-level protocol_hash()
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision item 3
+**Landed:** `protocol_hash(protocol)` in `protocol.py`, a thin wrapper over `Protocol.hash()`. The dataclass is kept, as instructed. Deliberately a wrapper and not a second implementation — two implementations of a hash eventually disagree, and the disagreement would be invisible.
+
+The point is that the function name now matches the **stored column name** and the task that names it (`M0-EVAL-03`), so nobody writing `df["protocol_hash"]` has to know it comes from a method with a different name.
+
+Also folded in: `__all__` gained `protocol_hash` and `is_censored`. `is_censored` was flagged in entry (g) as defined-but-unexported while already imported by the tests. One-word fix to the same `__all__` this item was already editing; splitting it into its own commit would have been noise. Recorded here so it is not invisible.
+
+29 passed.
+
+**Did not land:** `M0-CORE-01` stays open — items 4 and 5 are the rest of it.
+**Blockers:** none.
+**Noticed, did not fix:** nothing new.
+**Spec changes:** none.
+**Next action:** items 4 and 5 — the CONTRACT changes, with D-014.
+
+---
+
 ## 2026-08-30 (j) — Claude Opus 5 / Claude Code — item 2: _as_gf2 validation order; M0-CORE-03 closed
 
 **Milestone:** M0 — Falsification

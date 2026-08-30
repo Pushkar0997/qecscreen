@@ -26,8 +26,10 @@ __all__ = [
     "DECODER_PARAMS",
     "SCHEDULING",
     "Protocol",
+    "protocol_hash",
     "logical_error_rate",
     "wilson_interval",
+    "is_censored",
     "assert_single_protocol",
 ]
 
@@ -73,6 +75,17 @@ class Protocol:
         payload["decoder_params"] = DECODER_PARAMS
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def protocol_hash(protocol: Protocol) -> str:
+    """The value of the ``protocol_hash`` column for ``protocol`` (INV-6).
+
+    Exists so that the function name matches the column name in the stored
+    schema and the task that names it (M0-EVAL-03). A thin wrapper over
+    ``Protocol.hash()`` — there is still exactly one implementation, because two
+    would eventually disagree.
+    """
+    return protocol.hash()
 
 
 # --- The one LER formula (INV-4) --------------------------------------------

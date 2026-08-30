@@ -13,6 +13,7 @@ from qecscreen.protocol import (
     assert_single_protocol,
     is_censored,
     logical_error_rate,
+    protocol_hash,
     wilson_interval,
 )
 
@@ -85,3 +86,13 @@ def test_inv6_single_protocol_guard():
 
 def test_protocol_hash_is_stable():
     assert Protocol(p=0.005, rounds=6).hash() == Protocol(p=0.005, rounds=6).hash()
+
+
+def test_protocol_hash_function_matches_the_method():
+    """One implementation, two names — the column is called protocol_hash."""
+    import qecscreen.protocol as module
+
+    proto = Protocol(p=0.005, rounds=6)
+    assert protocol_hash(proto) == proto.hash()
+    assert "protocol_hash" in module.__all__
+    assert "is_censored" in module.__all__
