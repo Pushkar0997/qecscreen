@@ -5,9 +5,9 @@
 | Layer | Choice | Version | Why |
 |---|---|---|---|
 | Language | Python | 3.11 | Matches Kaggle and Colab defaults; every QEC library targets it. |
-| Circuit simulation | `stim` | ≥1.14 | The field standard. Fast enough that decoding, not sampling, is the bottleneck. |
-| Sampling orchestration | `sinter` | ≥1.14 | Ships with Stim, does parallel batched Monte Carlo with stopping rules. Saves writing a job runner. |
-| Decoder | `ldpc` (Roffe) | ≥2.1 | `BpOsdDecoder` is the qLDPC baseline everyone reports against. Comparability matters more than speed here. |
+| Circuit simulation | `stim` | ≥1.14,<2 | The field standard. Fast enough that decoding, not sampling, is the bottleneck. Upper-bounded: the version enters `protocol_hash`. |
+| Sampling orchestration | `sinter` | ≥1.14,<2 | Ships with Stim, does parallel batched Monte Carlo with stopping rules. Saves writing a job runner. Upper-bounded: the version enters `protocol_hash`. |
+| Decoder | `ldpc` (Roffe) | ≥2.1,<3 | `BpOsdDecoder` is the qLDPC baseline everyone reports against. Comparability matters more than speed here. Upper-bounded: the version enters `protocol_hash`. |
 | Arrays | `numpy` | ≥1.26,<3 | Upper bound because NumPy 3 will break dtype behaviour we rely on. |
 | Tables / storage | `pandas` + `pyarrow` | ≥2.2 / ≥15 | Parquet is columnar, compresses well, and HuggingFace Datasets reads it natively. |
 | Graphs | `networkx` | ≥3.2 | Tanner-graph features and edge colouring. Pure Python, installs anywhere. |
@@ -18,6 +18,19 @@
 | Environment | `pip` + `requirements.txt` | — | Kaggle and Colab are pip environments; the project must install in one cell. |
 
 Versions, not just names. Agents trained at different times generate different API shapes otherwise.
+
+The three label-determining libraries — `stim`, `sinter`, `ldpc` — carry major-version upper bounds because their versions are part of `protocol_hash` (INV-6). A major release that changed decoding or sampling behaviour would silently invalidate every label already generated; the bound makes that fail at install time instead. The rest keep lower bounds only, because Kaggle and Colab ship their own numpy/pandas/scipy and a tighter pin breaks the one-cell install.
+
+**Verified at M0-SETUP-01** — clean venv, wheels only (`--only-binary=:all:`), no compiler, `pytest` green on both:
+
+| Interpreter | Resolves to |
+|---|---|
+| 3.11.9 (pinned) | `stim` 1.16.0, `sinter` **1.15.0**, `ldpc` 2.4.1, `numpy` 2.4.6, `pandas` 3.0.5, `scipy` 1.17.1 |
+| 3.13.7 (current dev venv) | `stim` 1.16.0, `sinter` **1.16.0**, `ldpc` 2.4.1, `numpy` 2.5.2, `pandas` 3.0.5, `scipy` 1.18.1 |
+
+`sinter` 1.16.0 requires Python ≥3.12, so the pinned 3.11 interpreter resolves one minor version behind `stim`, which is normally released in lockstep with it. Both combinations install and pass. Because `sinter` runs the sampling loop, its resolved version must be recorded alongside any generated labels — and the interpreter used for the pilot should be chosen deliberately rather than inherited, since the dev venv is currently 3.13 and not the pinned 3.11.
+
+`sinter` pulls `matplotlib`, and `ldpc` pulls `pymatching`. Neither is imported by this project; both are transitive and unpinned.
 
 ## 2. Structure
 

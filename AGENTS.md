@@ -56,9 +56,9 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 | Layer | Choice | Version |
 |---|---|---|
 | Language | Python | 3.11 |
-| Circuit simulation | `stim` | ≥1.14 |
-| Sampling orchestration | `sinter` | ≥1.14 |
-| Decoder | `ldpc` (Roffe) | ≥2.1 |
+| Circuit simulation | `stim` | ≥1.14,<2 |
+| Sampling orchestration | `sinter` | ≥1.14,<2 |
+| Decoder | `ldpc` (Roffe) | ≥2.1,<3 |
 | Arrays | `numpy` | ≥1.26,<3 |
 | Tables | `pandas` + `pyarrow` | ≥2.2 / ≥15 |
 | Graphs | `networkx` | ≥3.2 |
