@@ -6,6 +6,27 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (f) — Claude Opus 5 / Claude Code — M0-SETUP-03
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-SETUP-03` — `.gitignore`
+**Landed:** `.gitignore` with the four patterns the task names, one of them reshaped.
+
+`data/` is written as `data/*` with `!data/LICENSE`. Git **cannot** re-include a file whose parent directory is excluded, so the literal `data/` from the task text would have made the CC-BY-4.0 dataset licence uncommittable at M1 — a trap that would have surfaced months later as a confusing `git add` that silently does nothing. Entry (b) already flagged `data/LICENSE` as an M1 item, which is how this was caught.
+
+Verified behaviourally, not by inspection: created `data/LICENSE`, `data/scratch.parquet` and `data/notes.txt`, confirmed git offered **only** `data/LICENSE`, then removed all three. Working tree is now clean.
+
+`venv/` and `.pytest_cache/` were deliberately **not** added — each already contains a `.gitignore` written by the tool that created it, which is why `venv/` never showed up as untracked despite sitting in the tree. A differently-named environment directory would need adding, and the file says so.
+
+**Did not land:** nothing outstanding for this task.
+**Blockers:** none.
+**Noticed, did not fix:**
+- `data/`, `notebooks/` and `scripts/` are empty and therefore absent from git entirely. A fresh clone will not have `data/`. Any script writing there must create it; worth a `.gitkeep` if that ever bites.
+**Spec changes:** `spec/tasks.md` (checkbox + note).
+**Next action:** reconcile `M0-CORE-01` … `M0-CORE-04`.
+
+---
+
 ## 2026-08-30 (e) — Claude Opus 5 / Claude Code — M0-SETUP-02
 
 **Milestone:** M0 — Falsification

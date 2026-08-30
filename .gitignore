@@ -1,0 +1,18 @@
+# Generated data. Local and regenerable from the construction programs (INV-7);
+# releases go to Zenodo, not to git (spec/architecture.md §2).
+#
+# Written as `data/*` rather than `data/` deliberately: git cannot re-include a
+# file whose parent directory is excluded, and `data/LICENSE` (CC-BY-4.0) has to
+# be committable at M1.
+data/*
+!data/LICENSE
+
+*.parquet
+
+# Python and notebook scratch.
+__pycache__/
+.ipynb_checkpoints/
+
+# Not listed, because they already exclude themselves: `venv/` and
+# `.pytest_cache/` each contain a `.gitignore` written by the tool that made
+# them. A differently-named environment directory would need adding here.
