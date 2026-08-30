@@ -39,13 +39,26 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Install dependencies
-        # --only-binary=:all: enforces the constraint from AGENTS.md §3: every
-        # dependency must install without a compiler, because Kaggle and Colab
-        # must install this in one cell. If a dependency ever stops shipping a
-        # wheel, this fails here rather than on a Kaggle runtime at hour six.
+        # AGENTS.md §3 requires every dependency to install without a compiler,
+        # because Kaggle and Colab must install this in one cell.
+        #
+        # This guard used to be `--only-binary=:all:`, which was the wrong test.
+        # That flag demands a *wheel*, and `sinter` 1.16.0 is sdist-only on PyPI
+        # — so it silently pinned CI to `sinter` 1.15.0 while every real install
+        # builds 1.16.0 from the sdist. CI was not testing what users run, and
+        # `sinter`'s version enters `protocol_hash` (INV-6).
+        #
+        # Building a pure-Python sdist is fine. Invoking a C toolchain is not.
+        # So: install normally, then fail if a compiler actually ran.
+        shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install --only-binary=:all: -r requirements.txt
+          pip install -r requirements.txt 2>&1 | tee pip-install.log
+          if grep -Eiq 'x86_64-linux-gnu-gcc|(^|[[:space:]])(gcc|clang|cc1)[[:space:]]+-|Microsoft Visual C\+\+|error: command .* failed with exit' pip-install.log; then
+            echo "::error::a C toolchain was invoked during install - this will not install in one cell on Kaggle or Colab"
+            exit 1
+          fi
+          echo "no compiler invocation detected"
 
       - name: Record resolved versions
         # stim/sinter/ldpc versions enter protocol_hash (INV-6), so a run's log

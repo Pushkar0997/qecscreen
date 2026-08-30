@@ -6,6 +6,34 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (p) — Claude Opus 5 / Claude Code — decision 1: CI guard tests for a compiler, not a wheel
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision 1, against `M0-SETUP-02`
+**Landed:** `.github/workflows/ci.yml` no longer installs with `--only-binary=:all:`. It installs normally, tees the pip output, and fails the step if a **C toolchain was actually invoked**. `shell: bash` is set explicitly so the step gets `pipefail` and a pip failure is not masked by the `tee`.
+
+The old flag was the wrong test. It demanded a *wheel*; `sinter` 1.16.0 is sdist-only, so CI was pinned to `sinter` 1.15.0 while every real install builds 1.16.0 from a pure-Python sdist — and `sinter`'s version enters `protocol_hash` (INV-6). CI was not testing what anyone runs.
+
+The grep was validated against five logs before committing, rather than assumed — the same discipline item 6 applied to the INV-4 guard:
+
+| log | result |
+|---|---|
+| the **real Colab log** (`Building wheel for sinter (setup.py)`, plus a `Collecting pygccxml` false-positive probe) | clean |
+| `x86_64-linux-gnu-gcc -pthread -B /usr/bin …` | flagged |
+| `gcc -pthread -shared build/temp.linux/foo.o` | flagged |
+| `error: command '/usr/bin/gcc' failed with exit code 1` | flagged |
+| `error: Microsoft Visual C++ 14.0 or greater is required.` | flagged |
+
+**Did not land:** the false `sinter` claim still stands in the matrix comment, `requirements.txt` and `spec/architecture.md §1` — that is decision 2/3, landing next.
+**Blockers:** none.
+**Noticed, did not fix:**
+- The guard is a grep over pip's output, so it depends on pip's log format. If pip ever quiets build output by default, the guard silently stops guarding — the same failure mode as an untested regex. A stronger version would assert on the absence of a compiler on `PATH` during install; not done, because it would also break any future legitimate need.
+- CI still cannot detect the *other* half of the one-cell requirement — that nothing in the ambient environment gets downgraded. On a bare runner there is no ambient stack to disturb. Only a real Colab or Kaggle run tests that, which is why `spec/smoke.md §1` keeps it as a manual item.
+**Spec changes:** none.
+**Next action:** decisions 2 and 3 — correct the `sinter` claim and the interpreter rationale.
+
+---
+
 ## 2026-08-30 (o) — Claude Opus 5 / Claude Code — M0-SETUP-01 reopened as PARTIAL
 
 **Milestone:** M0 — Falsification
