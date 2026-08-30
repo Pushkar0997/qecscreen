@@ -12,7 +12,14 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["gf2_rref", "gf2_rank", "gf2_nullspace_dim", "check_css_commutation"]
+__all__ = [
+    "gf2_rref",
+    "gf2_rank",
+    "gf2_nullspace",
+    "gf2_nullspace_dim",
+    "check_css_commutation",
+    "logical_qubit_count",
+]
 
 
 def _as_gf2(m: np.ndarray) -> np.ndarray:
@@ -56,6 +63,31 @@ def gf2_rank(m: np.ndarray) -> int:
 def gf2_nullspace_dim(m: np.ndarray) -> int:
     a = _as_gf2(m)
     return a.shape[1] - gf2_rank(a)
+
+
+def gf2_nullspace(m: np.ndarray) -> np.ndarray:
+    """Basis for the nullspace ``{x : m @ x == 0 (mod 2)}``, one vector per row.
+
+    Returns a ``(n - gf2_rank(m), n)`` uint8 array. Rows rather than columns, so
+    that a basis vector is indexed the same way a check-matrix row is — by qubit
+    (CONTRACT.md, check matrix orientation).
+
+    ``gf2_nullspace_dim`` answers the cheaper question and is all that ``k``
+    needs. This returns the actual vectors, which is what a search for low-weight
+    logical operators needs (M0-CODES-04).
+    """
+    a = _as_gf2(m)
+    n = a.shape[1]
+    rref, pivots = gf2_rref(a)
+    pivot_set = set(pivots)
+    free = [c for c in range(n) if c not in pivot_set]
+
+    basis = np.zeros((len(free), n), dtype=np.uint8)
+    for i, f in enumerate(free):
+        basis[i, f] = 1
+        for row, piv in enumerate(pivots):
+            basis[i, piv] = rref[row, f]
+    return basis
 
 
 def check_css_commutation(h_x: np.ndarray, h_z: np.ndarray) -> None:

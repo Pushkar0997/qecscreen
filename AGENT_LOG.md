@@ -6,6 +6,24 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (i) — Claude Opus 5 / Claude Code — item 1: gf2_nullspace
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision item 1, against `M0-CORE-03`
+**Landed:** `gf2_nullspace(m)` in `linalg.py`, returning a `(n - rank, n)` uint8 basis built from the existing `gf2_rref` pivots. Basis vectors are **rows**, so a vector is indexed by qubit exactly as a check-matrix row is (CONTRACT check-matrix orientation). `gf2_nullspace_dim` kept unchanged, as instructed — it answers the cheaper question that `k` needs.
+
+`__all__` also gained `logical_qubit_count`, which was already public in practice because the tests import it (flagged in entry (g)).
+
+Three tests added: 200 random matrices asserting every returned row is genuinely annihilated **and** that the rows are independent (a basis, not merely a spanning set); the two degenerate shapes (full column rank → `(0, n)`, zero matrix → identity); and the `[7,4,3]` Hamming matrix, whose nullspace is the Hamming code itself. 26 passed.
+
+**Did not land:** `M0-CORE-03` stays open until item 2 lands — the other half of that task.
+**Blockers:** none.
+**Noticed, did not fix:** nothing new.
+**Spec changes:** none — the task line already named `gf2_nullspace`, so this closes a gap rather than changing the spec.
+**Next action:** item 2 — `_as_gf2` validation order.
+
+---
+
 ## 2026-08-30 (h) — Claude Opus 5 / Claude Code — M0-SETUP-01 closed (Colab verified)
 
 **Milestone:** M0 — Falsification
