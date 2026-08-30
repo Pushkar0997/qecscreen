@@ -9,7 +9,12 @@ from __future__ import annotations
 import sys
 
 from qecscreen import __version__
-from qecscreen.protocol import Protocol, logical_error_rate, wilson_interval
+from qecscreen.protocol import (
+    Protocol,
+    installed_decoder_version,
+    logical_error_rate,
+    wilson_interval,
+)
 
 
 def main() -> int:
@@ -21,7 +26,9 @@ def main() -> int:
     low, high = wilson_interval(100, 10_000)
     checks.append(("Wilson golden G-05", abs(low - 0.008229336148148417) < 1e-15))
     checks.append(("Wilson bounds ordered", low < high))
-    checks.append(("protocol hash stable", Protocol(p=0.005, rounds=6).hash() == Protocol(p=0.005, rounds=6).hash()))
+    proto = Protocol(p=0.005, decoder_version=installed_decoder_version())
+    checks.append(("protocol hash stable", proto.hash() == Protocol(
+        p=0.005, decoder_version=installed_decoder_version()).hash()))
 
     print(f"qecscreen {__version__}")
     failed = 0

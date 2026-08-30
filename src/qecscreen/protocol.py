@@ -14,6 +14,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass, asdict
+from importlib.metadata import PackageNotFoundError, version
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -25,6 +26,8 @@ __all__ = [
     "NOISE_MODEL",
     "DECODER_PARAMS",
     "SCHEDULING",
+    "ROUNDS_RULE",
+    "installed_decoder_version",
     "Protocol",
     "protocol_hash",
     "logical_error_rate",
@@ -58,17 +61,55 @@ DECODER_PARAMS = {
 
 SCHEDULING = "tanner_edge_colouring_v1"
 
+# D-006 chooses the number of rounds per code. INV-6 hashes this *rule*, never
+# the concrete r that it produces — see D-014 for why the obvious alternative
+# (dropping rounds from the hash) is wrong.
+ROUNDS_RULE = "r = d_upper"
+
+
+def installed_decoder_version() -> str:
+    """Version of the installed decoder library, for INV-6.
+
+    Read at call time, not at import time, so a hash always describes the
+    library that actually did the decoding rather than whatever happened to be
+    present when the module was first imported.
+    """
+    library = DECODER_PARAMS["library"]
+    try:
+        return version(library)
+    except PackageNotFoundError as exc:  # pragma: no cover - environment error
+        raise RuntimeError(
+            f"{library} is not installed, so no protocol hash can honestly record "
+            "a decoder version (CONTRACT.md INV-6)."
+        ) from exc
+
 
 @dataclass(frozen=True)
 class Protocol:
-    """The frozen tuple that makes two measurements comparable (INV-6)."""
+    """The frozen tuple that makes two measurements comparable (INV-6).
+
+    Note what is deliberately *absent*: the concrete number of rounds. ``r``
+    varies per code under D-006, so hashing it made ``protocol_hash`` a per-code
+    identifier and ``assert_single_protocol`` fired on every legitimate
+    cross-code ranking. ``rounds_rule`` records how ``r`` is chosen; the value
+    for a given code is a per-row stored column. See D-014.
+    """
 
     p: float
-    rounds: int
+    decoder_version: str
     noise_model: str = NOISE_MODEL
     scheduling: str = SCHEDULING
-    decoder_version: str = "unset"  # filled from the installed ldpc version
+    rounds_rule: str = ROUNDS_RULE
     schema_version: int = SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if not self.decoder_version or self.decoder_version == "unset":
+            raise ValueError(
+                "decoder_version must be the version actually installed; got "
+                f"{self.decoder_version!r}. A hash that silently omits the thing it "
+                "claims to carry is worse than no hash (CONTRACT.md INV-6). Use "
+                "installed_decoder_version()."
+            )
 
     def hash(self) -> str:
         payload = asdict(self)

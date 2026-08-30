@@ -79,9 +79,13 @@ where `P_L` is the fraction of shots in which **any** logical observable was inc
 
 ### INV-6 — Every row stores a protocol hash, and rows with different hashes are never compared
 
-**Rule:** Each measurement row carries `protocol_hash`, a SHA-256 over the canonical JSON of: noise model name and version, `p`, rounds `r`, decoder name, decoder version, decoder parameters, syndrome-extraction scheduling method, and the schema version. Any function that ranks, plots, correlates or trains across rows asserts a single distinct `protocol_hash` in its input, or raises.
+**Rule:** Each measurement row carries `protocol_hash`, a SHA-256 over the canonical JSON of: noise model name and version, `p`, the **rule** for choosing the number of rounds (`rounds_rule`, pinned to `"r = d_upper"`), decoder name, decoder version, decoder parameters, syndrome-extraction scheduling method, and the schema version. Any function that ranks, plots, correlates or trains across rows asserts a single distinct `protocol_hash` in its input, or raises.
+
+The **concrete value of `r` is deliberately not in the hash.** It is a per-row stored column instead. The decoder version is the version actually installed at the time of the run — a placeholder such as `"unset"` is never acceptable, because a hash that silently omits the thing it claims to carry is worse than no hash at all.
 
 **Why:** LERs measured under different noise models or decoders are not comparable, and the difference is often larger than the difference between codes. Silently mixing them makes the entire dataset noise while every individual number remains correct.
+
+**Why the rule and not the value:** `r = d_upper` (D-006) varies from code to code, so hashing the concrete `r` made `protocol_hash` a per-code identifier — `assert_single_protocol()` then fired on every legitimate cross-code ranking, which is the metric this project exists to compute. Dropping rounds from the hash altogether would be wrong in the opposite direction: a fixed-`r = 12` dataset and a variable-`r = d_upper` dataset would hash identically while being incomparable. The rule is the protocol decision; the value is a per-row fact that INV-4's per-round normalisation already accounts for. See D-014.
 
 **Violated by:** Appending a re-run with `osd_order=5` to a table generated with `osd_order=10` because "it's the same decoder."
 
@@ -145,7 +149,7 @@ Every choice below could reasonably go two ways. Each is pinned. Divergence is a
 | Check matrix orientation | Rows are checks, columns are qubits. `H_X` has shape `(m_x, n)`. |
 | LER units | Per round, per logical qubit. Formula in INV-4. Column `true_ler`. |
 | Error rate `p` | Float, the physical error rate of the noise model. Stored to 6 decimal places. |
-| Rounds `r` | `r = d_upper` (field convention, matches published BB numbers). Stored explicitly per row. **Provisional — revisit at M2**, see D-006. |
+| Rounds `r` | `r = d_upper` (field convention, matches published BB numbers). Stored explicitly per row. The **rule** goes in `protocol_hash`, never the value — see D-014. **Provisional — revisit at M2**, see D-006. |
 | Random seeds | Every generator and sampler takes an explicit `seed: int`. No implicit global RNG. |
 | IDs | `construction_program_id` is a slug: `bb_v1`, `gb_v1`, `hgp_v1`. `code_id` is `{program_id}-{sha256(params_json)[:12]}`. |
 | Dataset format | Parquet, one row per (code, protocol) pair. Schema version in every row. |
@@ -178,6 +182,9 @@ DECODER                 = "bposd"
 
 SCHEDULING              = "tanner_edge_colouring_v1"
   (BB codes additionally have "bravyi2024_8step" available; record which was used)
+
+ROUNDS_RULE             = "r = d_upper"   # D-006. The rule is hashed, never the
+                                          # concrete r (INV-6, D-014).
 
 MIN_FAILURES            = 100          # below this the row is censored (INV-3)
 MAX_SHOTS               = 200_000      # hard cap per (code, p)

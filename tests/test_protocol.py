@@ -9,8 +9,10 @@ import math
 import pytest
 
 from qecscreen.protocol import (
+    ROUNDS_RULE,
     Protocol,
     assert_single_protocol,
+    installed_decoder_version,
     is_censored,
     logical_error_rate,
     protocol_hash,
@@ -18,6 +20,13 @@ from qecscreen.protocol import (
 )
 
 REL = 1e-12
+
+
+def _protocol(**overrides):
+    """A Protocol with the required decoder_version supplied."""
+    kwargs = {"p": 0.005, "decoder_version": installed_decoder_version()}
+    kwargs.update(overrides)
+    return Protocol(**kwargs)
 
 
 @pytest.mark.parametrize(
@@ -74,8 +83,8 @@ def test_wilson_lower_bound_never_negative():
 
 def test_inv6_single_protocol_guard():
     """N-02: refuse to combine rows from two protocols."""
-    a = Protocol(p=0.005, rounds=6).hash()
-    b = Protocol(p=0.010, rounds=6).hash()
+    a = _protocol(p=0.005).hash()
+    b = _protocol(p=0.010).hash()
     assert a != b
     assert assert_single_protocol([a, a, a]) == a
     with pytest.raises(ValueError):
@@ -85,14 +94,71 @@ def test_inv6_single_protocol_guard():
 
 
 def test_protocol_hash_is_stable():
-    assert Protocol(p=0.005, rounds=6).hash() == Protocol(p=0.005, rounds=6).hash()
+    assert _protocol().hash() == _protocol().hash()
 
 
 def test_protocol_hash_function_matches_the_method():
     """One implementation, two names — the column is called protocol_hash."""
     import qecscreen.protocol as module
 
-    proto = Protocol(p=0.005, rounds=6)
+    proto = _protocol()
     assert protocol_hash(proto) == proto.hash()
     assert "protocol_hash" in module.__all__
     assert "is_censored" in module.__all__
+
+
+# --- D-014: the hash carries the rounds rule, never the value of r ----------
+
+
+def test_d014_rounds_value_is_not_in_the_hash():
+    """The blocker D-014 fixes.
+
+    Under D-006 r = d_upper varies per code. If r were hashed, every distance
+    would be its own protocol and assert_single_protocol would raise on every
+    legitimate cross-code ranking — M0-RUN-04 could not run.
+    """
+    # r is not a protocol attribute at all, so it cannot leak into the hash.
+    assert "rounds" not in Protocol.__dataclass_fields__
+
+    # Three codes of different d_upper, and therefore different r, share one
+    # protocol. A frame mixing them now passes the INV-6 guard instead of
+    # raising, which is what M0-RUN-04 needs.
+    proto = _protocol()
+    rows = [
+        {"d_upper": 4, "rounds": 4},
+        {"d_upper": 6, "rounds": 6},
+        {"d_upper": 8, "rounds": 8},
+    ]
+    hashes = [proto.hash() for _ in rows]
+    assert len(set(hashes)) == 1
+    assert assert_single_protocol(hashes) == proto.hash()
+
+
+def test_d014_rounds_rule_is_in_the_hash():
+    """And the other direction: a different rounds rule is a different protocol.
+
+    Dropping rounds from the hash entirely would make a fixed-r dataset and a
+    variable-r dataset hash identically despite being incomparable.
+    """
+    assert ROUNDS_RULE == "r = d_upper"
+    assert _protocol().hash() != _protocol(rounds_rule="r = 12").hash()
+
+
+def test_inv6_decoder_version_is_required_and_real():
+    """A hash that omits the version it claims to carry is worse than no hash."""
+    with pytest.raises(TypeError):
+        Protocol(p=0.005)  # decoder_version has no default any more
+    with pytest.raises(ValueError):
+        Protocol(p=0.005, decoder_version="unset")
+    with pytest.raises(ValueError):
+        Protocol(p=0.005, decoder_version="")
+
+
+def test_inv6_decoder_version_changes_the_hash():
+    assert _protocol().hash() != _protocol(decoder_version="0.0.0-fake").hash()
+
+
+def test_installed_decoder_version_matches_the_installed_ldpc():
+    from importlib.metadata import version
+
+    assert installed_decoder_version() == version("ldpc")

@@ -187,6 +187,26 @@ The option only survives if **the copyright stays consolidated**. Once a third p
 
 ---
 
+## D-014 — `protocol_hash` records the rounds *rule*, not the value of `r`
+
+**Status:** decided
+**Decision:** The `rounds_rule` string (`"r = d_upper"`, per D-006) is part of `protocol_hash`. The concrete number of rounds `r` is **not** — it stays a per-row stored column. Separately, `Protocol.decoder_version` loses its `"unset"` default and becomes a required field, populated from the installed `ldpc` version at call time.
+**Rationale:** INV-6 originally hashed `r` itself. Because D-006 sets `r = d_upper`, and `d_upper` varies from code to code, every distinct distance produced a distinct `protocol_hash` — so `assert_single_protocol()` raised on any frame containing codes of different distance. That is *every* legitimate cross-code ranking, which is the single metric M0 exists to produce; `M0-RUN-04` could not have run. The bug was in CONTRACT, not in the code that obeyed it.
+
+Hashing the rule preserves what INV-6 is actually for — two rows share a hash exactly when they were measured under the same recipe — while letting `r` vary as that recipe says it should. INV-4's per-round-per-logical-qubit normalisation is what makes rows with different `r` comparable in the first place, so the concrete value carries no comparability information the normalisation has not already handled.
+
+On `decoder_version`: a default of `"unset"` meant a hash could be produced that claimed to encode the decoder version and did not. Two runs on different `ldpc` versions would hash identically — precisely the silent incomparability INV-6 exists to prevent.
+
+**Rejected:**
+- *Drop rounds from the hash entirely* — the obvious fix, and wrong. A fixed-`r = 12` dataset and a variable-`r = d_upper` dataset would then hash identically while being incomparable, so the hash would stop detecting a real protocol difference. The choice of rounds rule **is** a protocol decision; only the per-code value is not.
+- *Keep `r` in the hash and relax `assert_single_protocol` to ignore it* — pushes the exception into every call site, so the guard weakens wherever someone forgets to apply it. INV-6's value comes from being unconditional.
+- *Fix `r = 12` for every code so the value is constant* — already rejected in D-006 for breaking comparability with published BB numbers; it would trade a bookkeeping problem for a scientific one.
+- *Leave `decoder_version` defaulted and fill it by convention* — conventions are not enforced, and the field is load-bearing for INV-6.
+
+**Revisit if:** D-006 is revisited at M2. If `r` becomes fixed, `rounds_rule` changes value and `protocol_hash` changes with it — which is correct, because labels genuinely are not comparable across that change.
+
+---
+
 ## Template
 
 ```

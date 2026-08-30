@@ -6,6 +6,38 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (l) — Claude Opus 5 / Claude Code — items 4 and 5: CONTRACT change, D-014; M0-CORE-01 closed
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision items 4 and 5, closing `M0-CORE-01`
+**Landed:** the first CONTRACT change of the project, with human approval.
+
+- **INV-6 field list** now hashes `rounds_rule` (pinned `"r = d_upper"`) instead of the concrete `r`, and states that a placeholder decoder version is never acceptable. Added the "why the rule and not the value" paragraph so the next reader does not re-derive the trap.
+- **"Exact values"** gained `ROUNDS_RULE = "r = d_upper"`.
+- **Pinned conventions**, `Rounds r` row, now points at D-014 alongside D-006.
+- **D-014 added**, with the rejected alternatives — including the obvious one, dropping rounds from the hash entirely, which fails in the opposite direction because a fixed-`r` and a variable-`r` dataset would then hash identically.
+- **`protocol.py`:** `ROUNDS_RULE` constant; `installed_decoder_version()` reading `importlib.metadata` at call time, not import time; `Protocol` loses the `rounds` field, gains `rounds_rule`, and `decoder_version` becomes required with a `__post_init__` that rejects `""` and `"unset"`.
+- `selfcheck.py` updated to the new constructor. 34 passed, selfcheck green.
+
+**This unblocks `M0-RUN-04`.** Before: `r = d_upper` varies per code, `r` was hashed, so every distance was its own protocol and `assert_single_protocol()` raised on any cross-code frame — the exact metric M0 exists to compute. There is now a test asserting three codes of different `d_upper` share one hash, and a second asserting a *different* rounds rule still produces a different hash, so the guard has not simply been weakened.
+
+**Note on process:** the owner asked for CONTRACT changes in their own commit. Items 4 and 5 are shipped together with `protocol.py` and the tests, because `AGENTS.md §4` requires the spec and the code to move in one change, and splitting them would have left a commit where CONTRACT and the implementation disagreed. Both items touch the same dataclass, so separating them would also have meant editing the same lines twice.
+
+**Did not land:** nothing outstanding.
+**Blockers:** none.
+
+**Noticed, did not fix:**
+- I **rewrote one of my own new tests before committing.** `test_d014_rounds_value_is_not_in_the_hash` originally hashed the same protocol three times and called them "codes of different distance" — a comment claiming more than the assertion proved. It now checks that `rounds` is absent from the dataclass fields and walks explicit `d_upper` 4/6/8 rows. Flagging it because a test whose comment lies is worse than no test, which is this project's entire thesis.
+- **`p` is still not canonicalised for hashing.** The conventions table says `p` is stored to 6dp, but `hash()` serialises the raw float. Not touched — it was not among the approved items, and `hash()` is contract-governed. Worth a decision.
+- `DECODER_PARAMS["decoder"]` is still `"BpOsdDecoder"` where CONTRACT pins `DECODER = "bposd"`. Unchanged, still cosmetic, still a CONTRACT literal not reproduced.
+- Both `decisions.md` and `spec/decisions.md` were updated identically so they stay byte-identical. That duplication is still a drift hazard and still wants deleting; doing it needs a decision, since `AGENTS.md` read order names `spec/decisions.md`.
+- `Protocol` construction is now more verbose at every call site. A `Protocol.current(p)` classmethod would remove the boilerplate without reintroducing a default. Not added — not asked for.
+
+**Spec changes:** `CONTRACT.md` (INV-6, Exact values, conventions table), `spec/decisions.md` and `decisions.md` (D-014), `spec/tasks.md` (M0-CORE-01 ticked).
+**Next action:** item 6 — the INV-4 grep.
+
+---
+
 ## 2026-08-30 (k) — Claude Opus 5 / Claude Code — item 3: module-level protocol_hash()
 
 **Milestone:** M0 — Falsification
