@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+title: "qecscreen: circuit-level screening for quantum LDPC code search"
+message: "If you use this software or its dataset, please cite it."
+type: software
+authors:
+  - family-names: Kumar
+    given-names: Pushkar
+    affiliation: "MIT Art, Design and Technology University, Pune, India"
+    # FILL: add your ORCID once registered at https://orcid.org (free, 2 minutes).
+    # An ORCID is what disambiguates you from every other Pushkar Kumar in the
+    # literature, and it is the single cheapest thing you can do for credit.
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    # FILL: email you are willing to publish
+    # email: ""
+repository-code: "https://github.com/Pushkar0997/qecscreen"  # FILL if renamed
+license: Apache-2.0
+version: 0.0.1
+date-released: "2026-08-30"
+keywords:
+  - quantum error correction
+  - quantum LDPC codes
+  - machine learning
+  - benchmark
+  - surrogate model
+abstract: >-
+  A labelled dataset and ranking model for screening candidate quantum LDPC
+  codes by predicted circuit-level logical error rate, intended to replace the
+  kd^2/n code-level proxy used in automated code-discovery loops.
+
+# Once a Zenodo DOI exists (M1), add:
+# doi: "10.5281/zenodo.XXXXXXX"
+# and once a preprint exists (M2), add a preferred-citation block pointing at it.

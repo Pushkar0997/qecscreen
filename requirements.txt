@@ -1,0 +1,17 @@
+# Pinned per spec/architecture.md section 1.
+# Must install in a single Colab/Kaggle cell with no compiler and no API key.
+numpy>=1.26,<3
+scipy>=1.12
+pandas>=2.2
+pyarrow>=15
+networkx>=3.2
+stim>=1.14
+sinter>=1.14
+ldpc>=2.1
+scikit-learn>=1.4
+lightgbm>=4.3
+pytest>=8.0
+
+# NOT included, deliberately:
+#   torch / torch-geometric  -> M3 only, optional, see AGENTS.md section 3
+#   anything needing an API key or a paid tier -> banned by CONTRACT.md INV-9
