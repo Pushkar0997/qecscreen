@@ -6,6 +6,28 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (h) — Claude Opus 5 / Claude Code — M0-SETUP-01 closed (Colab verified)
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-SETUP-01` — final acceptance criterion
+**Landed:** `M0-SETUP-01` is **closed**. The owner executed `notebooks/verify_env_colab.ipynb` on a Colab runtime. Result: **pass.** Cells 4 and 5 both passed — `pip install -r requirements.txt` succeeded, **no downgrade of Colab's preinstalled numpy/pandas/scipy/scikit-learn**, and **no from-source build**. Those were the two failure modes a local venv structurally cannot detect (entry (d)), so the one-cell install claim in `requirements.txt` and `AGENTS.md §3` now rests on a real observation rather than an inference.
+
+`M0-SETUP-02` and `M0-SETUP-03` were already logged in entries (e) and (f), including the `.gitignore` deviation and its reasoning; not duplicated here. That deviation — `data/*` plus `!data/LICENSE` instead of the literal `data/` from the task text — has since been **reviewed and approved by the owner**, who confirmed the task text was wrong. `spec/tasks.md` M0-SETUP-03 already records the reasoning.
+
+**Did not land:** nothing outstanding for this task.
+**Blockers:** none.
+
+**Noticed, did not fix:**
+- **The notebook's upload path does not work under Colab-in-VS-Code.** Cell 3 falls back to `google.colab.files.upload()` when `requirements.txt` is not reachable by walking up from the working directory. That fallback was **refused** in the VS Code Colab kernel — the file picker is a browser-side widget and does not function in that host. The owner worked around it by **mounting Google Drive and running from there**, which succeeded.
+- **This makes the notebook's own instructions wrong for the VS Code path**, which is the path this project actually uses — the owner runs Colab as a VS Code kernel rather than in a browser tab, so the documented fallback is the one route that is guaranteed to fail here. Anyone reproducing the environment check from the notebook as written will hit the same wall.
+- **`verify_env_colab.ipynb` should be updated to document the Drive route** — my assessment is yes, and it should become the *primary* documented path rather than a footnote, with `files.upload()` demoted to a browser-Colab-only fallback. Concretely: add a Drive-mount branch to cell 3 (`google.colab.drive.mount`, then search a configurable repo path under `/content/drive`), and correct the markdown in cell 1. **Not done this session — the owner asked for the assessment only, not the edit.** Worth doing before anyone else runs it, and before `M0-RUN-02` writes `m0_kaggle.ipynb`, which will face the same host question.
+- The Colab runtime's Python version and resolved `sinter` version were not captured in what was reported back. Cell 2 prints both, and they decide whether Colab resolves `sinter` 1.15 or 1.16. Worth grabbing on the next run, because `sinter`'s version enters `protocol_hash` (INV-6) and Colab is a candidate host for pilot generation.
+
+**Spec changes:** `spec/tasks.md` (M0-SETUP-01 note; box was already ticked, the Colab caveat is now replaced by the verified result).
+**Next action:** items 1, 2, 3, 4, 5 and 6 from the owner's decisions — `gf2_nullspace`, `_as_gf2` validation order, module-level `protocol_hash()`, required `decoder_version`, `rounds_rule` in the hash with D-014, and the INV-4 grep repair.
+
+---
+
 ## 2026-08-30 (g) — Claude Opus 5 / Claude Code — M0-CORE-01..04 reconciliation
 
 **Milestone:** M0 — Falsification
