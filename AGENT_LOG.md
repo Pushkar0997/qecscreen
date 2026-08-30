@@ -6,6 +6,30 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (o) — Claude Opus 5 / Claude Code — M0-SETUP-01 reopened as PARTIAL
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-SETUP-01`, **reopened**
+**Landed:** the checkbox is **unticked** and the criterion recorded as PARTIAL in `spec/evals.md §7`.
+
+Entry (h) closed the Colab leg on the owner's summary. It should not have. Two manual cells were run — `pip install "pyparsing<3.2"` and `pip install -U matplotlib` — and `spec/smoke.md §1` requires the install to succeed "**no manual fixes**". Whether those two were required or were leftover debugging from the VS Code upload problem is being determined by the owner. Until then the criterion is not met, and per `spec/evals.md §7` a PARTIAL is not rounded up.
+
+If they turn out to be required, the fix is to **add the necessary constraints to `requirements.txt`** so a single cell suffices — not to reword the criterion.
+
+The §7 record also downgrades a second line that entry (h) got wrong: **no from-source build is FAIL**, not pass. `Building wheel for sinter (setup.py)` appears in the run. Harmless in substance — `sinter` is pure Python and no compiler was invoked — but the criterion as written is unmet, and the criterion is a proxy for "needs a C toolchain" that does not actually hold. Restating it is decision 1, landing separately.
+
+A third line is recorded as **NOT RUN**: `spec/smoke.md §1` also requires the same check on **Kaggle**, which has never been measured. Kaggle is the workhorse for bulk generation, so that gap matters more than the Colab one.
+
+**Did not land:** closure of `M0-SETUP-01`. Deliberately.
+**Blockers:** owner's determination on the two manual cells.
+**Noticed, did not fix:**
+- A plausible reading of the two cells: something in Colab's ambient stack constrains `pyparsing<3.2`, and the `matplotlib` upgrade was pulled in by `sinter`'s dependency on it. If so, the constraint belongs in `requirements.txt` and neither cell is optional. Speculation, recorded so the owner's investigation has a hypothesis to confirm or kill — not evidence.
+- `spec/evals.md §7` was written for milestone verdicts. This is an interim task-level record and is labelled as such; if that pattern recurs, §7 may want an explicit "interim records" subsection.
+**Spec changes:** `spec/tasks.md` (unticked, PARTIAL), `spec/evals.md §7` (interim record).
+**Next action:** decisions 1 through 7.
+
+---
+
 ## 2026-08-30 (n) — Claude Opus 5 / Claude Code — CORRECTION to (c), (e), (h): the sinter finding was wrong
 
 **Milestone:** M0 — Falsification

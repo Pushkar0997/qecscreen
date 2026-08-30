@@ -117,6 +117,26 @@ Written **after** a milestone, not before. Criteria alone are aspiration; a verd
 **Caveats carried forward:** <...>
 ```
 
+### 2026-08-30 — M0-SETUP-01 environment verification (interim, not a milestone verdict)
+
+Recorded here rather than in `AGENT_LOG.md` alone because a criterion is **unmet** and the log is not where unmet criteria go to be found.
+
+| Criterion | Verdict | Evidence |
+|---|---|---|
+| `pip install -r requirements.txt` succeeds in a clean local venv | PASS | Fresh venvs on 3.11.9 and 3.13.7, wheels only, no compiler |
+| `pytest` passes on both pinned interpreters | PASS | 42 passed on 3.13.7 and on 3.11.9 |
+| `pip install` succeeds in a fresh Colab cell (`spec/smoke.md §1`) | PASS | `notebooks/runs/2026-08-30-verify-env-colab.ipynb`, cell 4, `pip exit code: 0` |
+| No downgrade of Colab's preinstalled numpy/pandas/scipy/sklearn | PASS | Same run: only `ldpc`, `pymatching`, `sinter`, `stim` installed |
+| …with **no manual fixes** (`spec/smoke.md §1`) | **PARTIAL** | Two manual cells were run: `pip install "pyparsing<3.2"` and `pip install -U matplotlib`. Whether they were **required** or were leftover debugging from the VS Code upload problem is **not yet determined** |
+| No from-source build | **FAIL** | `Building wheel for sinter (setup.py)`. `sinter` 1.16.0 is sdist-only on PyPI. Harmless — it is pure Python, no compiler — but the criterion as written is not met, and the criterion is a proxy for "needs a C toolchain" that does not hold |
+| Same on Kaggle (`spec/smoke.md §1`) | **NOT RUN** | Kaggle's stack has never been measured. It is the workhorse for bulk generation, so this matters more than the Colab leg |
+
+**Closes?** **No.** Two things must resolve first: (1) the owner determines whether the two manual cells were required — if they were, the fix is to add the constraints to `requirements.txt` so one cell suffices, **not** to soften the criterion; (2) the from-source-build criterion is restated in terms of a compiler invocation rather than wheel availability, since that is what it was ever about.
+
+**Caveats carried forward:** Colab runs Python 3.13.15 with a materially older stack than the dev box — `pandas` 2.2.3 vs 3.0.5, `pyarrow` 18.1.0 vs 25.0.1. Kaggle is unmeasured and is the environment that will actually do the bulk generation.
+
+---
+
 ### M0 verdict
 
 *Not yet run.*
