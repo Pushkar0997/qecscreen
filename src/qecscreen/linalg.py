@@ -23,12 +23,31 @@ __all__ = [
 
 
 def _as_gf2(m: np.ndarray) -> np.ndarray:
-    a = np.asarray(m, dtype=np.uint8)
+    a = np.asarray(m)
+
+    # Order matters, and getting it wrong is the exact failure INV-8 exists to
+    # catch. Casting first and validating afterwards means
+    # np.asarray([[0.5, 0.0]], dtype=np.uint8) truncates to [[0, 0]], sails
+    # through a {0, 1} check, and returns a confidently wrong rank — which
+    # becomes a wrong k, which becomes a wrong label. An out-of-range integer
+    # wraps modulo 256 the same way. So the dtype is rejected before any cast.
+    if a.dtype == np.bool_:
+        raise ValueError(
+            "matrix is bool; GF(2) matrices are uint8 with values in {0, 1} "
+            "(CONTRACT.md, matrix field convention). Cast explicitly if that is "
+            "what you meant."
+        )
+    if not np.issubdtype(a.dtype, np.integer):
+        raise ValueError(
+            f"matrix has dtype {a.dtype}; GF(2) matrices are integer-typed, never "
+            "float (CONTRACT.md, matrix field convention). A float matrix would be "
+            "silently truncated, which is how a wrong rank becomes a wrong k."
+        )
     if a.ndim != 2:
         raise ValueError(f"expected a 2-D matrix; got shape {a.shape}")
     if not np.isin(a, (0, 1)).all():
         raise ValueError("matrix must contain only 0 and 1 over GF(2)")
-    return a.copy()
+    return a.astype(np.uint8, copy=True)
 
 
 def gf2_rref(m: np.ndarray) -> tuple[np.ndarray, list[int]]:

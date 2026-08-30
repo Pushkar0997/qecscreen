@@ -84,6 +84,28 @@ def test_gf2_rejects_non_binary():
         gf2_rank(np.array([[2, 0], [0, 1]], dtype=np.uint8))
 
 
+def test_float_matrix_raises_rather_than_truncating():
+    """The named regression: [[0.5, 0.0]] must raise, not return rank 0.
+
+    With the {0, 1} check on the wrong side of the cast, this matrix truncated
+    to [[0, 0]] and gf2_rank returned 0 — a wrong rank that looks entirely
+    reasonable, becomes a wrong k, and corrupts every label downstream. That is
+    precisely the failure shape INV-8 exists to prevent.
+    """
+    with pytest.raises(ValueError):
+        gf2_rank(np.array([[0.5, 0.0]]))
+
+
+def test_gf2_rejects_float_and_bool_dtypes():
+    """CONTRACT.md matrix field convention: uint8 in {0, 1}, never bool, never float."""
+    with pytest.raises(ValueError):
+        gf2_rank(np.array([[1.0, 0.0]]))  # rejected even though the values are integral
+    with pytest.raises(ValueError):
+        gf2_rank(np.array([[True, False]]))
+    with pytest.raises(ValueError):
+        gf2_rank(np.array([[256, 0]]))  # would previously have wrapped to 0 mod 256
+
+
 def test_steane_code_has_k_one():
     """The [[7,1,3]] Steane code: H_X = H_Z = the [7,4,3] Hamming matrix."""
     h = np.array(

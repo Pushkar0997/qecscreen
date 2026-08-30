@@ -6,6 +6,37 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (j) — Claude Opus 5 / Claude Code — item 2: _as_gf2 validation order; M0-CORE-03 closed
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision item 2, closing `M0-CORE-03`
+**Landed:** `_as_gf2` now rejects the dtype **before** any cast. bool gets its own message; anything non-integer (float, object) is refused; the {0, 1} check then runs on the un-truncated values and only afterwards does it cast to uint8.
+
+Behaviour change, verified directly:
+
+| input | before | after |
+|---|---|---|
+| `[[0.5, 0.0]]` | rank **0** | `ValueError: matrix has dtype float64` |
+| `[[1.0, 0.0]]` | rank 1 | `ValueError` — refused even though the values are integral |
+| `[[True, False]]` | rank 1 | `ValueError: matrix is bool` |
+| `[[256, 0]]` | rank **0** (wrapped mod 256) | `ValueError: must contain only 0 and 1` |
+| `[[1, 0]]` uint8, and plain int lists | works | works |
+
+The 256 case was not in the original report and fell out of the same fix: an out-of-range integer wrapped modulo 256 during the cast, silently, by the same mechanism. Python lists of ints still work, so nothing that was legitimate got stricter.
+
+Three tests added, including the named regression `[[0.5, 0.0]]` must raise, not return rank 0. 28 passed.
+
+`M0-CORE-03` is now **closed** — items 1 and 2 were its two halves.
+
+**Did not land:** nothing outstanding.
+**Blockers:** none.
+**Noticed, did not fix:**
+- Empty float arrays such as `np.zeros((0, 3))` now raise, because their default dtype is float64. Correct under the convention, but if a caller ever wants a genuinely empty check matrix it must say `dtype=np.uint8`.
+**Spec changes:** `spec/tasks.md` (M0-CORE-03 ticked). No CONTRACT change needed — CONTRACT already said "never bool, never float"; the code simply did not enforce it.
+**Next action:** item 3 — module-level `protocol_hash()`.
+
+---
+
 ## 2026-08-30 (i) — Claude Opus 5 / Claude Code — item 1: gf2_nullspace
 
 **Milestone:** M0 — Falsification
