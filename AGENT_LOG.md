@@ -6,6 +6,30 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (q) — Claude Opus 5 / Claude Code — decisions 2 and 3: correct the sinter claim, state the real interpreter rationale
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decisions 2 and 3
+**Landed:** the false claim is gone from all three artifacts, and the 3.11/3.13 matrix now carries the reason it actually has.
+
+- **`requirements.txt`** — header now says both interpreters are supported and why; the resolution block says plainly that the 1.15/1.16 split is **wheel availability, not interpreter version**, and that a plain install gives 1.16.0 everywhere.
+- **`spec/architecture.md §1`** — the Language row reads "3.11 **and** 3.13" with the reason, replacing a pin that read as singular. The verification block is rewritten, and explicitly says the earlier claim was an artifact of measuring with `--only-binary=:all:`, pointing at entry (n) rather than quietly deleting it.
+- **`.github/workflows/ci.yml`** — the matrix comment now gives the real justification: Kaggle runs 3.11 and does the bulk generation, Colab runs 3.13 and is used interactively. Both are execution environments; code that works on only one is broken. The old comment is named as wrong rather than silently replaced.
+
+Decisions 2 and 3 were landed as one commit: they edit the same three comment blocks, and splitting them would have meant rewriting the same lines twice with an intermediate state that was half-corrected. Same principle as items 4+5 and now written into `AGENTS.md §4` by decision 4.
+
+Verified: a repo-wide grep finds no surviving instance of the false claim outside `AGENT_LOG.md`, where it stands with its correction because the log is append-only. YAML re-validated. 42 passed.
+
+**Did not land:** nothing outstanding for these two.
+**Blockers:** none.
+**Noticed, did not fix:**
+- **"Kaggle runs 3.11" is the owner's statement, not something this session measured.** The Colab figure (3.13.15) is from a real run; the Kaggle one is not. `spec/evals.md §7` already records the Kaggle leg as NOT RUN. The rationale is sound either way — but if Kaggle has moved to 3.12 or 3.13, the matrix should follow.
+- The architecture table now says "3.11 **and** 3.13" while `AGENTS.md §3` still says "3.11" alone. Left alone on purpose: `AGENTS.md` is edited by decision 4 and decision 7 in their own commits, and I did not want a fourth commit touching the same file. Corrected there.
+**Spec changes:** `spec/architecture.md §1`, `requirements.txt`, `.github/workflows/ci.yml`.
+**Next action:** decision 4 — the AGENTS.md §4 precedence line.
+
+---
+
 ## 2026-08-30 (p) — Claude Opus 5 / Claude Code — decision 1: CI guard tests for a compiler, not a wheel
 
 **Milestone:** M0 — Falsification

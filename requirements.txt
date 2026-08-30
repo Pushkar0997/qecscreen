@@ -1,8 +1,10 @@
 # Pinned per spec/architecture.md section 1.
 # Must install in a single Colab/Kaggle cell with no compiler and no API key.
 #
-# Interpreter: Python 3.11 (spec/architecture.md section 1). Verified to install
-# from wheels only and pass pytest on 3.11.9 and on 3.13.7.
+# Interpreters: Python 3.11 AND 3.13, both supported, both target execution
+# environments - Kaggle runs 3.11, Colab runs 3.13 (spec/architecture.md
+# section 1). Verified to install with no compiler invoked and pass pytest on
+# 3.11.9 and on 3.13.7.
 #
 # Bound style: lower bounds for the ambient scientific stack, because Kaggle and
 # Colab ship their own numpy/pandas/scipy and an exact pin forces a downgrade
@@ -31,10 +33,15 @@ pytest>=8.0
 #   matplotlib  <- sinter
 #   pymatching  <- ldpc
 #
-# Resolution differs by interpreter and both are supported:
-#   3.11 -> stim 1.16.0 + sinter 1.15.0, numpy 2.4.6   (sinter 1.16 needs >=3.12)
-#   3.13 -> stim 1.16.0 + sinter 1.16.0, numpy 2.5.2
-# Record the resolved versions alongside any generated labels; see AGENT_LOG.
+# On sinter 1.15 vs 1.16: that split is WHEEL AVAILABILITY, not interpreter
+# version. sinter 1.16.0 is sdist-only on PyPI - no wheel for any Python. A
+# plain `pip install` builds it from the sdist (pure Python, no compiler) and
+# gives 1.16.0 on 3.11 and 3.13 alike. Only a wheels-only install
+# (--only-binary=:all:) falls back to 1.15.0, and it does so on every
+# interpreter. See AGENT_LOG (n).
+#
+# sinter's version enters protocol_hash (INV-6), so record the resolved
+# versions alongside any generated labels.
 #
 # NOT included, deliberately:
 #   torch / torch-geometric  -> M3 only, optional, see AGENTS.md section 3

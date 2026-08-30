@@ -4,7 +4,7 @@
 
 | Layer | Choice | Version | Why |
 |---|---|---|---|
-| Language | Python | 3.11 | Matches Kaggle and Colab defaults; every QEC library targets it. |
+| Language | Python | 3.11 **and** 3.13 | Both are target execution environments — Kaggle runs 3.11, Colab runs 3.13. CI tests both; code that works on only one is broken. |
 | Circuit simulation | `stim` | ≥1.14,<2 | The field standard. Fast enough that decoding, not sampling, is the bottleneck. Upper-bounded: the version enters `protocol_hash`. |
 | Sampling orchestration | `sinter` | ≥1.14,<2 | Ships with Stim, does parallel batched Monte Carlo with stopping rules. Saves writing a job runner. Upper-bounded: the version enters `protocol_hash`. |
 | Decoder | `ldpc` (Roffe) | ≥2.1,<3 | `BpOsdDecoder` is the qLDPC baseline everyone reports against. Comparability matters more than speed here. Upper-bounded: the version enters `protocol_hash`. |
@@ -21,14 +21,18 @@ Versions, not just names. Agents trained at different times generate different A
 
 The three label-determining libraries — `stim`, `sinter`, `ldpc` — carry major-version upper bounds because their versions are part of `protocol_hash` (INV-6). A major release that changed decoding or sampling behaviour would silently invalidate every label already generated; the bound makes that fail at install time instead. The rest keep lower bounds only, because Kaggle and Colab ship their own numpy/pandas/scipy and a tighter pin breaks the one-cell install.
 
-**Verified at M0-SETUP-01** — clean venv, wheels only (`--only-binary=:all:`), no compiler, `pytest` green on both:
+**Two supported interpreters, because there are two target execution environments.** Kaggle runs Python 3.11 and Colab runs 3.13, and both will run this code — Kaggle for bulk generation, Colab for interactive work. CI tests both. Neither is "the" version; a change that works on only one is broken.
 
-| Interpreter | Resolves to |
-|---|---|
-| 3.11.9 (pinned) | `stim` 1.16.0, `sinter` **1.15.0**, `ldpc` 2.4.1, `numpy` 2.4.6, `pandas` 3.0.5, `scipy` 1.17.1 |
-| 3.13.7 (current dev venv) | `stim` 1.16.0, `sinter` **1.16.0**, `ldpc` 2.4.1, `numpy` 2.5.2, `pandas` 3.0.5, `scipy` 1.18.1 |
+**Verified at M0-SETUP-01** — clean venvs, no compiler invoked, `pytest` green on both:
 
-`sinter` 1.16.0 requires Python ≥3.12, so the pinned 3.11 interpreter resolves one minor version behind `stim`, which is normally released in lockstep with it. Both combinations install and pass. Because `sinter` runs the sampling loop, its resolved version must be recorded alongside any generated labels — and the interpreter used for the pilot should be chosen deliberately rather than inherited, since the dev venv is currently 3.13 and not the pinned 3.11.
+| Interpreter | Where | Resolves to |
+|---|---|---|
+| 3.11.9 | Kaggle's version | `stim` 1.16.0, `sinter` 1.16.0, `ldpc` 2.4.1 |
+| 3.13.7 | dev box; Colab runs 3.13.15 | `stim` 1.16.0, `sinter` 1.16.0, `ldpc` 2.4.1 |
+
+**On `sinter` 1.15 vs 1.16 — this is wheel availability, not interpreter version.** `sinter` 1.16.0 is **sdist-only** on PyPI; there is no wheel for any Python version. A plain `pip install` builds it from that sdist — it is pure Python, so no compiler is involved — and yields 1.16.0 on 3.11 and 3.13 alike. Only a *wheels-only* install (`--only-binary=:all:`) falls back to `sinter` 1.15.0, and it does so on every interpreter. An earlier version of this section claimed 1.16.0 required Python ≥3.12; that was an artifact of measuring with `--only-binary=:all:` and is wrong. See AGENT_LOG (n).
+
+Because `sinter` runs the sampling loop and its version enters `protocol_hash` (INV-6), the resolved version must be recorded alongside any generated labels.
 
 `sinter` pulls `matplotlib`, and `ldpc` pulls `pymatching`. Neither is imported by this project; both are transitive and unpinned.
 

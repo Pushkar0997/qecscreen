@@ -23,10 +23,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.11 is the pinned interpreter (spec/architecture.md §1). 3.13 is what
-        # the current dev venv runs. The two resolve *different* sinter versions
-        # — 1.15.0 vs 1.16.0, because sinter 1.16 requires >=3.12 — so testing
-        # only one would miss a break in the other. See M0-SETUP-01 in AGENT_LOG.
+        # Both are target execution environments, which is the whole reason for
+        # the matrix: Kaggle runs 3.11 and does the bulk generation, Colab runs
+        # 3.13 and is used interactively. Code that works on only one is broken.
+        #
+        # An earlier comment here justified the matrix by claiming the two
+        # resolve different sinter versions. That was wrong — the 1.15/1.16
+        # split is wheel availability, not interpreter version. See AGENT_LOG (n).
         python-version: ["3.11", "3.13"]
 
     steps:
