@@ -9,7 +9,7 @@
 | Sampling orchestration | `sinter` | ≥1.14,<2 | Ships with Stim, does parallel batched Monte Carlo with stopping rules. Saves writing a job runner. Upper-bounded: the version enters `protocol_hash`. |
 | Decoder | `ldpc` (Roffe) | ≥2.1,<3 | `BpOsdDecoder` is the qLDPC baseline everyone reports against. Comparability matters more than speed here. Upper-bounded: the version enters `protocol_hash`. |
 | Arrays | `numpy` | ≥1.26,<3 | Upper bound because NumPy 3 will break dtype behaviour we rely on. |
-| Tables / storage | `pandas` + `pyarrow` | ≥2.2 / ≥15 | Parquet is columnar, compresses well, and HuggingFace Datasets reads it natively. |
+| Tables / storage | `pandas` + `pyarrow` | ≥2.2,<3 / ≥15,<19 | Parquet is columnar, compresses well, and HuggingFace Datasets reads it natively. Upper-bounded to what Colab ships (2.2.3 / 18.1.0): the dev box must not be newer than the machine that runs the generation — see D-015. |
 | Graphs | `networkx` | ≥3.2 | Tanner-graph features and edge colouring. Pure Python, installs anywhere. |
 | Baseline model | `scikit-learn` + `lightgbm` | ≥1.4 / ≥4.3 | Gradient-boosted trees on ~20 features is the right M0 model. Trains in seconds on CPU. |
 | Statistics | `scipy` | ≥1.12 | Spearman, Wilson intervals, bootstrap resampling. |
@@ -19,7 +19,11 @@
 
 Versions, not just names. Agents trained at different times generate different API shapes otherwise.
 
-The three label-determining libraries — `stim`, `sinter`, `ldpc` — carry major-version upper bounds because their versions are part of `protocol_hash` (INV-6). A major release that changed decoding or sampling behaviour would silently invalidate every label already generated; the bound makes that fail at install time instead. The rest keep lower bounds only, because Kaggle and Colab ship their own numpy/pandas/scipy and a tighter pin breaks the one-cell install.
+Upper bounds are added for two distinct reasons, and only for those two.
+
+**Label-determining libraries** — `stim`, `sinter`, `ldpc` — are bounded because their versions are part of `protocol_hash` (INV-6). A major release that changed decoding or sampling behaviour would silently invalidate every label already generated; the bound makes that fail at install time instead.
+
+**Data-path libraries newer here than in production** — `pandas`, `pyarrow` — are bounded to what the execution environments actually ship, so the dev box is never ahead of the machine doing the generation (D-015). Everything else keeps lower bounds only, because Kaggle and Colab ship their own numpy/scipy/scikit-learn and a tighter pin would force a downgrade of a preinstalled stack, breaking the one-cell install.
 
 **Two supported interpreters, because there are two target execution environments.** Kaggle runs Python 3.11 and Colab runs 3.13, and both will run this code — Kaggle for bulk generation, Colab for interactive work. CI tests both. Neither is "the" version; a change that works on only one is broken.
 

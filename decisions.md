@@ -207,6 +207,26 @@ On `decoder_version`: a default of `"unset"` meant a hash could be produced that
 
 ---
 
+## D-015 — Dependency upper bounds track the execution environment, not the dev box
+
+**Status:** decided
+**Decision:** `pandas` is capped at `<3` and `pyarrow` at `<19`, matching what Colab actually ships (2.2.3 and 18.1.0). Generally: where a **data-path** dependency is materially newer on the development machine than on the machines that will run the generation, the requirement is capped to the execution environment and the dev machine is brought down to meet it — never the reverse.
+**Rationale:** The M0-SETUP-01 Colab run measured a target environment's stack for the first time, and it is much older than the dev box — `pandas` 2.2.3 vs 3.0.5, `pyarrow` 18.1.0 vs 25.0.1. Development was therefore happening on a `pandas` **major version that the machine doing the bulk generation has never executed**.
+
+That gap does not fail fast. `pandas` 3 changed default dtypes and null handling, and `pyarrow` is the Parquet engine; a divergence surfaces as a dtype or schema difference at M1, hours into a Kaggle job, in a shard that is already half written. CONTRACT's nulls convention — "explicit null, never `NaN`-as-sentinel" — is precisely the behaviour that differs across a `pandas` major, so this is not a hypothetical class of bug for this project.
+
+Colab (Python 3.13) is the newer of the two target environments, so capping at Colab's versions is *expected* to be safe for Kaggle too. Expected, not measured — see the revisit condition.
+
+**Rejected:**
+- *Lower bounds only, and rely on discipline* — this is what was in place. It silently produced a two-major-version gap that nobody noticed until a Colab log was read line by line.
+- *Cap everything at Colab's exact versions* — over-constrains. `numpy` (2.1.3 vs 2.5.2), `scipy` (1.16.3 vs 1.18.1) and `scikit-learn` (1.6.1 vs 1.9.0) differ only *within* a major. Tightening those would start forcing downgrades of a preinstalled stack for no measured benefit, which breaks the one-cell install (`spec/smoke.md §1`).
+- *Cap `pytest` at `<9`* — considered and rejected, even though the gap is a full major (Colab 8.4.2, dev 9.1.1). `pytest` is a development tool, not a data-path dependency, and a runner mismatch fails loudly at test time rather than silently inside a Parquet file. Both versions are known to pass this suite.
+- *Pin exact versions* — forces a downgrade of whatever the host already has, which is the failure mode this decision exists to avoid.
+
+**Revisit if:** **Kaggle is measured.** Kaggle has never been run, and it is the workhorse for bulk generation. If it ships `pyarrow` ≥19 or `pandas` ≥3, these caps would force a downgrade *there* — the very thing they exist to prevent — and must be raised. Run `notebooks/verify_env_colab.ipynb` on Kaggle before the M1 bulk run. Also revisit whenever a target environment's version of a data-path dependency overtakes its cap.
+
+---
+
 ## Template
 
 ```

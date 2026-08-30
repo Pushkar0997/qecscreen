@@ -6,6 +6,37 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (s) — Claude Opus 5 / Claude Code — decision 5: cap data-path deps to the execution environment (D-015)
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision 5
+**Landed:** `pandas>=2.2,<3` and `pyarrow>=15,<19`, plus **D-015** recording the general rule and its rejected alternatives. `spec/architecture.md §1` now separates the *two* reasons an upper bound is allowed — label-determining (INV-6) and data-path-newer-than-production (D-015) — so the next person adding a cap has to say which one applies.
+
+**The dev venv was actually brought down, not just the file changed:**
+
+| | before | after | Colab |
+|---|---|---|---|
+| `pandas` | 3.0.5 | **2.3.3** | 2.2.3 |
+| `pyarrow` | 25.0.1 | **18.1.0** | 18.1.0 |
+
+42 passed afterwards, no compiler invoked. The `pandas` major-version gap is closed and `pyarrow` now matches Colab exactly. Editing the constraint without applying it would have left the same divergence with a comment claiming otherwise.
+
+**Applying the reasoning to the rest**, which is the part that needed judgement rather than instruction:
+- `pyarrow` **capped** — the largest gap by far (18 → 25, seven majors) and it is the Parquet engine, so it sits directly in the data path.
+- `numpy` (2.1.3 / 2.5.2), `scipy` (1.16.3 / 1.18.1), `scikit-learn` (1.6.1 / 1.9.0) — **not capped.** All differ within a major. Capping them starts forcing downgrades of a preinstalled stack for no measured benefit, which breaks the one-cell install.
+- `pytest` — **not capped**, despite a full major gap (8.4.2 vs 9.1.1). It is a dev tool, not a data-path dependency, and a runner mismatch fails loudly at test time rather than silently inside a Parquet file. Both are known to pass this suite. Recorded in D-015's rejected list rather than left unmentioned.
+
+**Did not land:** nothing outstanding.
+**Blockers:** none.
+**Noticed, did not fix:**
+- **These caps are set from Colab, and Kaggle has never been measured.** Kaggle is the workhorse. The argument that Colab is safe as a proxy — it runs the newer Python of the two, so it is likely the newer stack — is reasoning, not measurement. If Kaggle ships `pyarrow` ≥19 or `pandas` ≥3 these caps force a downgrade *there*, which is the exact failure they exist to prevent. This is D-015's revisit condition and it should be closed before the M1 bulk run, not after.
+- The dev box is now on `pandas` 2.3.3 against Colab's 2.2.3 — same major, minor gap remains. Acceptable; the class of bug D-015 targets is the major.
+- This retires the pandas-3 nulls concern from entry (c) for now: the CONTRACT nulls convention will be implemented against `pandas` 2.x, which is what will actually run it. It returns if the caps are ever raised.
+**Spec changes:** `requirements.txt`, `spec/architecture.md §1`, `spec/decisions.md` + `decisions.md` (D-015).
+**Next action:** decision 6 — the two notebooks.
+
+---
+
 ## 2026-08-30 (r) — Claude Opus 5 / Claude Code — decision 4: write the precedence rule down
 
 **Milestone:** M0 — Falsification
