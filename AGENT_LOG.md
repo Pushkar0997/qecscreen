@@ -6,6 +6,24 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (r) — Claude Opus 5 / Claude Code — decision 4: write the precedence rule down
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision 4
+**Landed:** `AGENTS.md §4` now states explicitly that when "update the spec in the same change as the code" collides with "one task per change, one commit", **spec-and-code-together wins** — with the reason (a split leaves a commit where spec and implementation disagree, and the next agent trusts the spec) and the obligation (name every task ID in the message, say why in the log, so the merge is visible rather than silent).
+
+This session hit that conflict twice — items 4+5, and decisions 2+3 — and resolved it correctly both times by argument. Writing it down means the next session does not have to re-derive it or, worse, split and produce an inconsistent commit.
+
+Also folded in: `AGENTS.md §3`'s stack table said Python `3.11` alone, which contradicted `spec/architecture.md §1` as of the previous commit. Now `3.11 **and** 3.13`. Named in the commit message rather than slipped in — it is the tail of decision 3, and leaving the two stack tables disagreeing for the sake of commit hygiene would have been exactly the failure the new rule describes.
+
+**Did not land:** nothing outstanding.
+**Blockers:** none.
+**Noticed, did not fix:** nothing new.
+**Spec changes:** `AGENTS.md` §3 and §4.
+**Next action:** decision 5 — pin `pandas<3` and record the reasoning as a decision.
+
+---
+
 ## 2026-08-30 (q) — Claude Opus 5 / Claude Code — decisions 2 and 3: correct the sinter claim, state the real interpreter rationale
 
 **Milestone:** M0 — Falsification

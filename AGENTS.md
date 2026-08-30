@@ -55,7 +55,7 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 
 | Layer | Choice | Version |
 |---|---|---|
-| Language | Python | 3.11 |
+| Language | Python | 3.11 **and** 3.13 |
 | Circuit simulation | `stim` | ≥1.14,<2 |
 | Sampling orchestration | `sinter` | ≥1.14,<2 |
 | Decoder | `ldpc` (Roffe) | ≥2.1,<3 |
@@ -85,6 +85,8 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 **Report what you changed.** Files created, files modified, public functions whose signature changed, spec files that now need updating, and anything you noticed but did not fix.
 
 **Update the spec in the same change as the code.** A spec that has drifted is worse than none, because the next agent trusts it.
+
+**When that rule conflicts with one-task-one-commit, spec-and-code-together wins.** A change that alters `CONTRACT.md` or a `spec/` document *and* the code implementing it ships as a single commit, even when it spans two task IDs or two approved items. Splitting them produces a commit in which the spec and the implementation disagree, and the next agent trusts the spec. When you merge for this reason, name every task ID in the commit message and say why in `AGENT_LOG.md` — the merge should be visible, not silent.
 
 **Do not invent values.** If you need a constant, a convention, or a capability and it is not in `CONTRACT.md` or `spec/architecture.md`, stop and ask. Do not pick one and proceed. This project is full of choices that look arbitrary and are not.
 
