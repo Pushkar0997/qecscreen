@@ -6,6 +6,48 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (n) — Claude Opus 5 / Claude Code — CORRECTION to (c), (e), (h): the sinter finding was wrong
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** none. This entry corrects earlier entries, per the append-only rule.
+
+**The executed `verify_env_colab.ipynb` was found in the working tree with the owner's real Colab outputs saved in it.** Reading them contradicted a claim I made in entries (c) and (e) and repeated in three committed artifacts.
+
+**What I claimed:** "`sinter` 1.16.0 requires Python ≥3.12, so a 3.11 environment resolves to `sinter` 1.15.0 with `stim` 1.16.0."
+
+**What is actually true:** `sinter` 1.16.0 **ships an sdist only — no wheel, for any Python version.** Verified directly: `pip download sinter==1.16.0 --only-binary=:all:` fails on Python 3.13 with "No matching distribution found", while the same command without that flag downloads `sinter-1.16.0.tar.gz`. Forcing the upgrade inside a **3.11** venv builds the sdist and installs 1.16.0 successfully. The Colab run shows the same thing from the other side: `Building wheel for sinter (setup.py)` on Python 3.13.15.
+
+My original evidence came from a `--only-binary=:all:` dry run, so what I actually measured was "wheels only", not "Python 3.11". The version I read off it was an artifact of the flag I passed. I then attributed it to the interpreter and repeated it without re-testing.
+
+**Corrected picture:**
+- With `--only-binary=:all:` → `sinter` 1.15.0, on **every** Python version.
+- With a plain `pip install` → `sinter` 1.16.0, on 3.11 and 3.13 alike, built from the sdist. `sinter` is pure Python, so no compiler is involved and the one-cell install claim survives.
+- **There is no interpreter-dependent sinter skew.** The skew is flag-dependent, and I introduced it into CI myself.
+
+**Consequences, none yet fixed:**
+1. **`.github/workflows/ci.yml` has a real defect.** `pip install --only-binary=:all:` pins CI to `sinter` 1.15.0 on *both* matrix legs, while anyone running a normal install gets 1.16.0. CI therefore does not test the `sinter` that users actually run — and `sinter`'s version enters `protocol_hash` (INV-6). The 3.11/3.13 matrix is still worth keeping, but not for the reason its comment gives.
+2. **`requirements.txt`** carries a false comment block, including a wrong 3.11-vs-3.13 resolution table.
+3. **`spec/architecture.md §1`** carries the same false claim and resolution table.
+
+**Proposed fix, not applied — the CI part is a judgement call:** drop `--only-binary=:all:` and instead assert no *compiler* was invoked (grep the pip log for `gcc`/`cc1`/`error: Microsoft Visual C++`), which is what the guard was actually for; a pure-Python sdist build is fine and a C build is not. Then correct the two comment blocks. Awaiting the owner's decision.
+
+**Colab evidence, now recorded properly — entry (h) had none of it:**
+- Runtime: **Python 3.13.15**, `Linux-6.6.122+-x86_64-with-glibc2.35`, repo mounted at `/content/drive/MyDrive/qecscreen/qecscreen`.
+- `pip install -r requirements.txt` → **exit 0**; only four packages installed: `ldpc` 2.4.1, `pymatching` 2.4.0, `sinter` 1.16.0, `stim` 1.16.0.
+- **No downgrade of Colab's preinstalled stack** — the criterion that mattered most. It kept `numpy` 2.1.3, `pandas` 2.2.3, `scipy` 1.16.3, `scikit-learn` 1.6.1.
+- Imports clean under `-W error`; `BpOsdDecoder` accepted the CONTRACT parameters; **`pytest` 23 passed on Colab** (the pre-session count).
+
+**Noticed, did not fix:**
+- **The notebook's own pass criterion was technically not met.** It says "no `Building wheel` line", and there is one, for `sinter`. Harmless here because `sinter` is pure Python, but the criterion is a proxy for "needs a compiler" and the proxy is wrong. Same fix as consequence 1.
+- **Colab's stack is much older than the dev box**: `pandas` 2.2.3 vs 3.0.5 locally, `numpy` 2.1.3 vs 2.5.2, `scikit-learn` 1.6.1 vs 1.9.0, `pytest` 8.4.2 vs 9.1.1. Nothing broke, but the pandas-3 nulls question (entry (c)) is a *local-only* problem today and would appear on Colab later. Pilot generation should record the resolved versions per run.
+- **The owner ran two manual cells not in the notebook**: downgrading `pyparsing` 3.3.2 → 3.1.4 and upgrading `matplotlib` 3.10.0 → 3.11.1. Neither is ours — both are transitive via `sinter`. Worth understanding before the pilot, because it means the documented one-cell install was not quite sufficient in practice.
+- The executed notebook is **uncommitted** in the working tree. Whether to commit it with outputs, or strip them and keep this entry as the record, is the owner's call.
+
+**Spec changes:** none. `requirements.txt`, `spec/architecture.md §1` and `ci.yml` all still carry the incorrect claim, deliberately left for the owner's decision.
+**Next action:** owner decision on the CI guard and the two comment blocks.
+
+---
+
 ## 2026-08-30 (m) — Claude Opus 5 / Claude Code — item 6: the INV-4 grep, and testing the guard
 
 **Milestone:** M0 — Falsification
