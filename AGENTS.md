@@ -108,8 +108,11 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 - [ ] `spec/tasks.md` checkbox ticked
 - [ ] `AGENT_LOG.md` entry written
 - [ ] Committed with the task ID in the message
+- [ ] **Pushed to `origin`**
 
-"It runs" is not done. "The numbers look reasonable" is emphatically not done — reasonable-looking wrong numbers are this project's characteristic failure.
+Push at the end of **every** session, including a session that ends mid-task — the remote is the backup, and it is the only thing that lets CI look at the work at all. Commits that sit locally are invisible to CI and die with the laptop; this rule exists because twelve of them once accumulated in a single day.
+
+"It runs" is not done. "The numbers look reasonable" is emphatically not done — reasonable-looking wrong numbers are this project's characteristic failure. And work that exists on exactly one disk is not done either.
 
 ---
 

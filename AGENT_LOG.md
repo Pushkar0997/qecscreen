@@ -6,6 +6,23 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (u) — Claude Opus 5 / Claude Code — decision 7: pushing is part of done
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** owner decision 7
+**Landed:** `AGENTS.md §5` gains `- [ ] **Pushed to origin**`, with the rule stated explicitly: push at the end of every session, including one that ends mid-task, because the remote is the backup and is the only way CI sees the work at all. The closing line now reads "work that exists on exactly one disk is not done either", alongside the existing "it runs" and "the numbers look reasonable" clauses.
+
+The rationale is recorded in the file rather than only here — twelve commits accumulated locally in a single day, so CI had examined none of the session's work and a disk failure would have cost all of it.
+
+**Did not land:** nothing outstanding.
+**Blockers:** none.
+**Noticed, did not fix:**
+- **The done-checklist exists in exactly one place**, `AGENTS.md §5`, so there was only one list to change. `CONTRIBUTING.md` has a "Before opening a PR" list, but that is a PR-readiness list for external contributors where pushing is inherent in opening the PR; adding a push line there would be redundant. `spec/smoke.md`'s checklists are manual smoke checks, not a definition of done. Flagging the judgement in case the owner wants the line added to `CONTRIBUTING.md` anyway.
+**Spec changes:** `AGENTS.md §5`.
+**Next action:** push, then `M0-CODES-01`.
+
+---
+
 ## 2026-08-30 (t) — Claude Opus 5 / Claude Code — decision 6: freeze the run, rebuild the template
 
 **Milestone:** M0 — Falsification
