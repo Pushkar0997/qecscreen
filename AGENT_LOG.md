@@ -6,6 +6,28 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-30 (d) — Claude Opus 5 / Claude Code — M0-SETUP-01 (Colab leg)
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-SETUP-01`, the acceptance criterion left open in entry (c)
+**Landed:** `notebooks/verify_env_colab.ipynb`. Reports the runtime's Python version, locates `requirements.txt` by walking up from the working directory (falling back to `files.upload()` when the workspace is not mounted), runs the install, reports what resolved, checks every import under `-W error`, and — where the repo source is reachable — feeds `DECODER_PARAMS` straight from `protocol.py` into a real `BpOsdDecoder` and runs `pytest`.
+
+The notebook watches for the two things a local venv cannot detect: a **downgrade of Colab's preinstalled numpy/pandas/scipy/sklearn**, and a **from-source build**. Either would break the one-cell install claim, and neither can happen in an empty venv, which is why entry (c)'s local verification was not sufficient on its own.
+
+No constants are retyped in the notebook — decoder parameters are read from `protocol.py` and the requirements are read from the file, so it cannot drift from the spec. No pipeline logic, per `spec/architecture.md §2`.
+
+Verified by executing every code cell locally against the 3.13 venv: all eight run clean, `pytest` 23 passed.
+
+**Did not land:** the actual Colab run. This needs a human on a Colab runtime.
+**Blockers:** none.
+**Noticed, did not fix:**
+- The criterion is still **not met** until someone runs this on Colab. `spec/tasks.md` records it as pending rather than done, deliberately — this is the "do not round up a PARTIAL" case in miniature.
+- When every requirement is already satisfied, cell 4 prints only the exit code, because no `Successfully installed` line is emitted. Expected; a fresh Colab runtime will print them.
+**Spec changes:** `spec/tasks.md` (M0-SETUP-01 note now points at the notebook).
+**Next action:** `M0-SETUP-02`.
+
+---
+
 ## 2026-08-30 (c) — Claude Opus 5 / Claude Code — M0-SETUP-01
 
 **Milestone:** M0 — Falsification
