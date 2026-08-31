@@ -162,3 +162,21 @@ def test_installed_decoder_version_matches_the_installed_ldpc():
     from importlib.metadata import version
 
     assert installed_decoder_version() == version("ldpc")
+
+
+# --- p is canonicalised to 6dp before hashing --------------------------------
+
+
+def test_p_canonicalised_to_6dp_same_hash():
+    """Two Protocol instances with p values that differ only beyond the 6th
+    decimal place must hash identically — CONTRACT says p is stored to 6dp."""
+    a = _protocol(p=0.005)
+    b = _protocol(p=0.0050001)
+    assert a.hash() == b.hash()
+
+
+def test_p_canonicalised_to_6dp_different_hash():
+    """Values that differ at or before the 6th decimal place are distinct."""
+    a = _protocol(p=0.005)
+    b = _protocol(p=0.006)
+    assert a.hash() != b.hash()

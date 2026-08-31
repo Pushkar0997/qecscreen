@@ -113,6 +113,10 @@ class Protocol:
 
     def hash(self) -> str:
         payload = asdict(self)
+        # CONTRACT convention: p is stored to 6 decimal places.  Round before
+        # hashing so that insignificant trailing digits in a raw float do not
+        # produce a spurious protocol mismatch.
+        payload["p"] = round(payload["p"], 6)
         payload["decoder_params"] = DECODER_PARAMS
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
