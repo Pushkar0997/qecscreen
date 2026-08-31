@@ -172,8 +172,8 @@ NOISE_MODEL             = "uniform_depolarizing_v1"
   measurement                 : classical flip of the outcome at p
   final data measurement      : noiseless
 
-DECODER                 = "bposd"
-  library               = ldpc (Roffe), BpOsdDecoder
+DECODER                 = "BpOsdDecoder"
+  library               = ldpc (Roffe)
   bp_method             = "minimum_sum"
   max_iter              = 30
   ms_scaling_factor     = 0.625
