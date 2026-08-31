@@ -160,4 +160,4 @@ Hard rule: if a projected run exceeds its milestone's stated budget, stop and re
 
 Nothing stored about any person. No accounts, no telemetry, no analytics, no cookies, no network calls at import time (INV-9 test). Secrets: none exist. If a task appears to need an API key, that is a signal the design has gone wrong — stop and flag it.
 
-Licence: MIT for source, CC-BY-4.0 for the dataset. Permissive deliberately, to keep adoption friction at zero and commercial optionality open.
+Licence: Apache-2.0 for source (D-011), CC-BY-4.0 for the dataset. Permissive deliberately, to keep adoption friction at zero and commercial optionality open.
