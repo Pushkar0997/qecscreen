@@ -4,6 +4,8 @@ Every non-obvious decision, why, and what was rejected. **This file exists to st
 
 All entries below were made during intake on 2026-08-30.
 
+**Note:** A root-level `decisions.md` existed as a byte-identical duplicate. It was removed on 2026-08-31; this file (`spec/decisions.md`) is canonical.
+
 ---
 
 ## D-001 — Build a screening surrogate, not a decoder or a discovery agent
