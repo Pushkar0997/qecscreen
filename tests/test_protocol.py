@@ -147,7 +147,7 @@ def test_d014_rounds_rule_is_in_the_hash():
 def test_inv6_decoder_version_is_required_and_real():
     """A hash that omits the version it claims to carry is worse than no hash."""
     with pytest.raises(TypeError):
-        Protocol(p=0.005)  # decoder_version has no default any more
+        Protocol(p=0.005)  # type: ignore[call-arg]  # decoder_version has no default any more
     with pytest.raises(ValueError):
         Protocol(p=0.005, decoder_version="unset")
     with pytest.raises(ValueError):

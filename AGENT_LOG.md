@@ -6,6 +6,23 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-31 (w) — Gemini / Antigravity — test_protocol static type ignore on required arg test
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** fix static analysis diagnostic in `tests/test_protocol.py` (line 150)
+
+**Landed:**
+- Added `# type: ignore[call-arg]` to `Protocol(p=0.005)` in `test_inv6_decoder_version_is_required_and_real` (`tests/test_protocol.py`). The test intentionally calls `Protocol(p=0.005)` without `decoder_version` to verify that `TypeError` is raised at runtime; the comment suppresses static type checker error (Pyright/Pylance) while maintaining exact test behavior.
+
+**Did not land:** nothing outstanding.
+**Blockers:** none.
+**Noticed, did not fix:**
+- `NOTICE` and `NOTICE.txt` are both present and byte-identical (841 bytes each). One is presumably redundant. Flagging for owner.
+- 44 tests pass clean with 0 warnings.
+**Spec changes:** none.
+
+---
+
 ## 2026-08-31 (v) — Gemini / Antigravity — handover audit fixes + D-016
 
 **Milestone:** M0 — Falsification
