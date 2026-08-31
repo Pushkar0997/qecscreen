@@ -6,6 +6,31 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-08-31 (v) — Gemini / Antigravity — handover audit fixes + D-016
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** handover audit items 1–6 (not from the spec/tasks.md backlog)
+
+**Landed (prior agent between sessions, confirmed and verified this session):**
+- **Item 1 — LICENSE conflict markers** (`c7c2a30`): merge-conflict markers removed; file is byte-identical to canonical Apache-2.0 from apache.org. INV-11 restored.
+- **Item 2 — architecture.md §7 licence** (`c1da993`): "MIT for source" → "Apache-2.0 for source (D-011)".
+- **Item 3 — root-level decisions.md duplicate** (`ee4ef4c`): removed; `spec/decisions.md` is canonical. Cleanup note added to `spec/decisions.md`.
+- **Item 4 — CONTRACT DECODER value** (`d4e4332`): `DECODER = "bposd"` → `"BpOsdDecoder"` to match `protocol.py`'s `DECODER_PARAMS["decoder"]`.
+- **Item 5 — p canonicalization** (`387b929`): `Protocol.hash()` now rounds `p` to 6dp before hashing. Two tests: `p=0.005` vs `p=0.0050001` hash identically; `p=0.005` vs `p=0.006` hash differently.
+
+**Landed (this session):**
+- **Item 6 — pin P_PILOT** (`6582bcd`): `P_PILOT = 0.005` added to CONTRACT.md's exact-values block. D-016 recorded in `spec/decisions.md` with threshold reasoning and rejected alternatives (lower p inflating censoring; higher p above threshold; multiple p deferred to M1).
+
+**Found and resolved:** working tree had uncommitted partial reverts of items 3–5 (origin of reverts unknown). Discarded via `git checkout --`. HEAD was already correct.
+
+**Did not land:** nothing outstanding.
+**Blockers:** none.
+**Noticed, did not fix:**
+- `NOTICE` and `NOTICE.txt` are both present and byte-identical (841 bytes each). One is presumably redundant. Flagging for owner — deleting one is trivial but which to keep depends on preference.
+- 44 tests pass; no warnings observed in output.
+
+---
+
 ## 2026-08-30 (u) — Claude Opus 5 / Claude Code — decision 7: pushing is part of done
 
 **Milestone:** M0 — Falsification

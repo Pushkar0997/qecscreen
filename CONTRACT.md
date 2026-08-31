@@ -192,6 +192,12 @@ SHOT_BATCH              = 10_000       # sample and decode in batches, check sto
 CONFIDENCE              = 0.95         # Wilson score interval, two-sided
 Z_95                    = 1.959963984540054
 SCHEMA_VERSION          = 1
+
+P_PILOT                 = 0.005        # M0 only. Below the BB [[72,12,6]]
+                                       # circuit-level threshold (~0.7%),
+                                       # consistent with the planning figure
+                                       # already assumed in architecture.md §6.
+                                       # D-016.
 ```
 
 ---

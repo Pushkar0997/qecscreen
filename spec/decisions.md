@@ -229,6 +229,21 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 
 ---
 
+## D-016 — M0 physical error rate pinned at `p = 0.005`
+
+**Status:** decided
+**Decision:** The M0 pilot runs at a single physical error rate `p = 0.005`, recorded as `P_PILOT` in `CONTRACT.md`'s exact-values block.
+**Rationale:** The BB `[[72,12,6]]` code's circuit-level threshold under uniform depolarising noise with BP+OSD is approximately 0.7%. `p = 0.005` sits below that threshold, so the reference code is expected to produce a measurable but non-trivial LER — strong enough that the censoring rule (INV-3, `MIN_FAILURES = 100`) is reachable within `MAX_SHOTS = 200,000` for most of the candidate set, while weak enough that good codes are clearly separated from bad ones in the ranking. This value was already the implicit planning figure in `spec/architecture.md §6` (the table's "typical pilot code at p=0.005" row), and in `protocol.py`'s `_protocol()` test helper, but was never formally pinned — and `AGENTS.md §4` forbids inventing values.
+
+**Rejected:**
+- *A lower `p` (e.g. 0.001)* — pushes more codes toward the `MAX_SHOTS` cap without reaching `MIN_FAILURES`, inflating the censoring rate. `plan.md`'s M0 exit criteria already guard against exactly this: if >40% of rows are censored, the chosen `p` was wrong and the pilot must be re-run at a higher `p`. A `p` that is lower than necessary increases the chance of triggering that re-run for no scientific benefit at M0.
+- *A higher `p` (e.g. 0.01)* — above threshold for the reference code, so the label for the best-known code becomes uninformative. Rankings lose resolution at the interesting end.
+- *Multiple values of `p`* — deferred to M1. M0 is single-`p` by design (D-002, `plan.md` scope discipline). Each additional `p` multiplies the compute budget and adds no information to the M0 question ("do cheap features beat Φ").
+
+**Revisit if:** M0-RUN-03 shows the censoring rate exceeds 40% at this `p`, per the exit criteria in `plan.md`. In that case raise `p` and regenerate, recording the change as a new `protocol_hash`.
+
+---
+
 ## Template
 
 ```
