@@ -244,6 +244,18 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 
 ---
 
+## D-017 — `commit_sha` is a required row column, sourced from `provenance.resolved_commit()`
+
+**Status:** decided
+**Decision:** Every measurement row stores `commit_sha`: the exact git commit of the code that produced it, read via `qecscreen.provenance.resolved_commit()` at run time. Required on every row, never null, never a placeholder. It is not part of `protocol_hash` (INV-6) — it is a separate stored column.
+**Rationale:** `protocol_hash` alone cannot identify the code that produced a row. It hashes the noise model, `p`, the rounds rule, decoder name/version/parameters, scheduling method and schema version — the measurement recipe — but says nothing about which version of *this project's own source* executed that recipe. Two rows can carry an identical `protocol_hash` while one was generated before a bug fix (in, say, the scheduling or censoring logic) and one after, and without a recorded commit that difference is invisible and unattributable when a discrepancy is found later. `resolved_commit()` must read what is actually installed and importable at run time, not echo a value asserted elsewhere.
+**Rejected:**
+- *Trust the notebook's pinned SHA* — a cell like `!pip install git+...@<sha>` records what the notebook author intended to install, not what pip actually resolved and installed. A stale cache, a ref that silently resolves to a moving branch HEAD rather than the pinned commit, or a partially re-run cell can leave the running code different from the pin, and nothing would catch it. Verifying against the installed package, rather than trusting the pin, is the entire point of the decision.
+
+**Revisit if:** never — this is provenance bookkeeping, not a protocol decision, so it does not vary the way D-006 or D-014 do.
+
+---
+
 ## Template
 
 ```

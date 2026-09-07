@@ -87,7 +87,9 @@ The **concrete value of `r` is deliberately not in the hash.** It is a per-row s
 
 **Why the rule and not the value:** `r = d_upper` (D-006) varies from code to code, so hashing the concrete `r` made `protocol_hash` a per-code identifier — `assert_single_protocol()` then fired on every legitimate cross-code ranking, which is the metric this project exists to compute. Dropping rounds from the hash altogether would be wrong in the opposite direction: a fixed-`r = 12` dataset and a variable-`r = d_upper` dataset would hash identically while being incomparable. The rule is the protocol decision; the value is a per-row fact that INV-4's per-round normalisation already accounts for. See D-014.
 
-**Violated by:** Appending a re-run with `osd_order=5` to a table generated with `osd_order=10` because "it's the same decoder."
+**Every row also stores `commit_sha`, and it is deliberately not part of the hash.** `protocol_hash` identifies the measurement recipe — noise model, decoder, decoder version, scheduling, rounds rule — never which version of this project's own code executed it. Two rows can carry an identical `protocol_hash` while one was produced before a bug fix and one after; without a recorded commit, that difference is undetectable and unattributable later. `commit_sha` is required on every row, populated from `qecscreen.provenance.resolved_commit()`, which reads what is actually installed and importable at run time — never a value copied from a notebook's pinned install SHA, which records intent, not fact. See D-017.
+
+**Violated by:** Appending a re-run with `osd_order=5` to a table generated with `osd_order=10` because "it's the same decoder." Also by trusting `!pip install git+...@<sha>` in a notebook cell as proof of what code ran, instead of reading it back from the installed package.
 
 **Detected by:** `test_single_protocol_guard` — asserts `assert_single_protocol()` raises on a mixed-hash frame; and every ranking/training entry point calls it.
 
@@ -152,6 +154,7 @@ Every choice below could reasonably go two ways. Each is pinned. Divergence is a
 | Rounds `r` | `r = d_upper` (field convention, matches published BB numbers). Stored explicitly per row. The **rule** goes in `protocol_hash`, never the value — see D-014. **Provisional — revisit at M2**, see D-006. |
 | Random seeds | Every generator and sampler takes an explicit `seed: int`. No implicit global RNG. |
 | IDs | `construction_program_id` is a slug: `bb_v1`, `gb_v1`, `hgp_v1`. `code_id` is `{program_id}-{sha256(params_json)[:12]}`. |
+| `commit_sha` | Required on every row. Sourced from `qecscreen.provenance.resolved_commit()`, never from a notebook's pinned install SHA. See D-017. |
 | Dataset format | Parquet, one row per (code, protocol) pair. Schema version in every row. |
 | Dates | ISO 8601, UTC. |
 | Floats in Parquet | float64. Never store an LER as float32. |
