@@ -16,3 +16,7 @@ __pycache__/
 # Not listed, because they already exclude themselves: `venv/` and
 # `.pytest_cache/` each contain a `.gitignore` written by the tool that made
 # them. A differently-named environment directory would need adding here.
+
+# Transport file for handing state to another assistant session. Never a
+# project document, never committed.
+handover.md
