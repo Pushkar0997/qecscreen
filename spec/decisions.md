@@ -256,6 +256,10 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 
 ---
 
+**Cleanup, 2026-09-13:** Deleted the duplicate `NOTICE.txt`, keeping `NOTICE` — Apache-2.0 §4(d) and licence scanners expect that exact filename. Closes the duplication flagged in `AGENT_LOG.md` (v) and (w). Not a numbered decision.
+
+---
+
 ## Template
 
 ```
