@@ -6,6 +6,27 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (ff) — Claude Sonnet 5 / Claude Code — M0-CODES-03: validate() enforcing INV-8
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-CODES-03` — `validate(h_x, h_z)` enforcing INV-8
+
+**Landed (`fc90750`):**
+- Placed `validate()` in a new `src/qecscreen/codes/validate.py` rather than `codes/__init__.py` — the task left the choice open. Reasoning: it applies to any construction program's check-matrix output (`bb.py` now, `gb.py`/`hgp.py` later per `spec/architecture.md §2`), not one specific generator, and it is a substantial independently-testable unit of logic, not package re-export surface. `codes/__init__.py` stays the placeholder it already was.
+- `validate(h_x, h_z)` enforces, in order: (1) dtype/value rejection — bool and float rejected before any GF(2) work; (2) matching column counts; (3) CSS commutation; (4) `k = n - gf2_rank(H_X) - gf2_rank(H_Z)` over GF(2); (5) `k >= 1`. All of (1)-(4) are delegated to `qecscreen.linalg.logical_qubit_count`, which already implements exactly that order — no new GF(2) arithmetic was written, so there remains exactly one place in the codebase that does GF(2) math. Only (5) is new logic.
+- Chose `InvalidCodeError(ValueError)` as the specific exception type: a `ValueError` subclass so any existing `except ValueError` still catches it, but named so a caller can `except InvalidCodeError` specifically to mean "this is not a valid code" (INV-8) rather than catching an unrelated `ValueError` from a bad argument elsewhere. Every one of the five checks raises this same type — treated as one category of failure ("this is not a valid code"), not split by which check failed.
+- `tests/test_inv_8_validate.py`, 8 tests: both reference codes ([[72,12,6]] and the [[144,12,12]] gross code) validate with the correct `(n, k)`; a non-commuting pair built by flipping one bit of a real `generate()` output raises (verified empirically first that the flip actually breaks commutation, rather than assuming it would); float and bool inputs raise; mismatched column counts raise; a **cheap, real** k=0 CSS pair — `H_X=[[1,0]]`, `H_Z=[[0,1]]`, two orthogonal single-row checks, `n=2`, `rank=1` each, `k=0` — raises, rather than being reported as unconstructible; `InvalidCodeError` is confirmed to subclass `ValueError`.
+- Full suite: **62 passed** (54 before, 8 new), 0 failures.
+
+**Caught along the way:** an early draft of `validate.py`'s docstring literally contained the string "numpy.linalg.matrix_rank" in prose (explaining why the module avoids it), and `test_inv8_no_float_matrix_rank`'s source grep correctly flagged it as a hit — the grep does not distinguish prose from a real call, and rightly doesn't try to. Reworded to "floating-point rank" rather than adding an exemption for the new file. This is exactly the guard working as designed, not a false positive to route around.
+
+**Did not land:** `M0-CODES-04` (`d_upper`) not started. `generate()`, `CONTRACT.md`, `protocol.py` untouched, per instruction. No new dependency.
+**Blockers:** none.
+**Noticed, did not fix:** nothing new this session.
+**Spec changes:** `spec/tasks.md` (`M0-CODES-03` now `[x]`).
+
+---
+
 ## 2026-09-14 (ee) — Claude Sonnet 5 / Claude Code — M0-CODES-01/02: the gross code closes the symmetry gap
 
 **Milestone:** M0 — Falsification
