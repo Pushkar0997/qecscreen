@@ -6,6 +6,25 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (cc) — Claude Sonnet 5 / Claude Code — M0-SETUP-01 closed
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** record the re-measurement against the new `pyarrow>=15` pin; close `M0-SETUP-01` if every `spec/evals.md §7` criterion is PASS; add a NARRATIVE.md entry
+
+**Blocked on missing input, then unblocked:** the owner's message left `GitHub Actions on cf1a1f3: <PASTE>` as an unfilled placeholder, and closing the task explicitly depended on that result (RED on a leg meant stop and report, not close). Neither `gh` nor the GitHub API were usable in this environment (`gh` not installed; the API returns 404 on this private repo without credentials, same as an earlier session this same day). Asked the owner directly rather than guess or infer a result from indirect evidence; confirmed GREEN, 3/3 checks, before proceeding.
+
+**Landed:**
+- **`5715b91`** — `spec/evals.md §7`: both no-downgrade rows flip **FAIL → PASS**. Re-measured 2026-09-14 on factory-reset Colab and Kaggle runtimes against the new `pyarrow>=15` pin (D-019), install logs captured: zero uninstalls on either platform, ambient `pyarrow` (23.0.1 Colab, 24.0.0 Kaggle) left untouched, only the four packages this project adds installed. CI row updated to GREEN on `cf1a1f3`, 3/3 checks (first run including the 3.12 leg from D-020). **Closes?** paragraph rewritten to **Yes** — every criterion in the table is now PASS. Added a standing **"Not permanently settled"** note: the no-downgrade criterion depends on base images outside this project's control, flipped once already in a single day with no repository change, and should be re-run with the install log captured before the M1 bulk generation rather than trusted from this record.
+- **`35d32c6`** — `spec/tasks.md`: **`M0-SETUP-01` ticked closed.** Checked every row in the §7 table before closing, not just the ones this session touched — all ten are PASS.
+- **`9c4b123`** — `NARRATIVE.md`: entry for the fix landing, closing the loop the previous entry opened — pin removed, both platforms re-measured clean, PASS → FAIL → PASS in a single day.
+
+**Did not land:** `M0-CODES-01` not started, per instruction.
+**Blockers:** none remaining for `M0-SETUP-01`. Next unticked SETUP/CORE task is `M0-CODES-01`, not started this session per instruction.
+**Noticed, did not fix:** `spec/tasks.md`'s `M0-SETUP-02` completion note still says "matrix on 3.11 + 3.13", stale since D-020 added 3.12 (`56a991e`, a prior session this same day). Not touched — out of scope for this session's instructions, which named `M0-SETUP-01` specifically, and it doesn't block anything closed here. Flagging for a future small fix.
+**Spec changes:** `spec/evals.md §7`, `spec/tasks.md` (`M0-SETUP-01` now `[x]`), `NARRATIVE.md`.
+
+---
+
 ## 2026-09-14 (bb) — Claude Sonnet 5 / Claude Code — add NARRATIVE.md
 
 **Milestone:** M0 — Falsification
