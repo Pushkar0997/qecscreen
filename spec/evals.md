@@ -43,6 +43,16 @@ BB reference code, `l=6, m=6, A=x^3+y+y^2, B=y^3+x+x^2`:
 
 G-07 through G-10 are the single most important tests in the project. If the generator does not reproduce the published reference code exactly, every label downstream is measuring something other than what it claims.
 
+BB "gross" code, `l=12, m=6` (note `l != m`), the **same** `A=x^3+y+y^2, B=y^3+x+x^2`:
+
+| ID | Property | Expected |
+|---|---|---|
+| G-11 | `n` | `144` |
+| G-12 | `k` | `12` |
+| G-13 | all check weights | `6` |
+
+At `l=m=6`, three of G-07/G-09/G-10's four properties are structurally guaranteed for any `A`/`B` at all — `n=2lm` is arithmetic, check weight is `wt(A)+wt(B)` by construction, and CSS commutation follows from `x` and `y` always commuting. Only `k` discriminates, and even `k` is weak there: `x` and `y` are interchangeable at `l=m`, so a generator bug that swaps them, or flattens the `(a,b)` index wrong, produces an equivalent code with the same `n`, `k` and weights and passes anyway. G-11..G-13 use `l != m` specifically to break that symmetry, so the same class of bug now shows up as a wrong `n`, `k` or weight instead of passing silently. No `d_upper` entry is recorded for the gross code — distance for either reference code is out of scope for the generator tests (M0-CODES-04).
+
 ## 3. Invariant tests
 
 One per invariant in `CONTRACT.md`.
