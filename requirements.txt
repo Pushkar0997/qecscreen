@@ -14,12 +14,19 @@
 numpy>=1.26,<3
 scipy>=1.12
 
-# Capped to the EXECUTION environment, not the dev box - see D-015. Colab ships
-# pandas 2.2.3 and pyarrow 18.1.0. Developing on pandas 3 / pyarrow 25 means
-# writing Parquet locally that the machines doing the bulk generation have never
-# been tested against, and finding out at M1 six hours into a Kaggle job.
+# pandas capped to the EXECUTION environment, not the dev box - see D-015.
+# Developing on pandas 3 means writing Parquet locally that the machines doing
+# the bulk generation have never been tested against, and finding out at M1
+# six hours into a Kaggle job.
 pandas>=2.2,<3
-pyarrow>=15,<19
+
+# pyarrow: no upper bound - see D-019, which supersedes the pyarrow half of
+# D-015. The <19 cap was set from Colab's 2026-08-30 ambient version (18.1.0);
+# by 2026-09-14 Colab shipped 23.0.1 and Kaggle 24.0.0, so the cap was forcing
+# a downgrade on both platforms' base images and breaking datasets/bigframes
+# there. Nothing here depends on pyarrow internals - rows are float64 and
+# strings, and the Parquet format is stable across this range.
+pyarrow>=15
 
 networkx>=3.2
 

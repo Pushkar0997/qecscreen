@@ -211,7 +211,7 @@ On `decoder_version`: a default of `"unset"` meant a hash could be produced that
 
 ## D-015 — Dependency upper bounds track the execution environment, not the dev box
 
-**Status:** decided
+**Status:** decided; **the `pyarrow` half is superseded by D-019** (the `<19` cap is removed — see D-019 for why). The `pandas<3` cap and the general principle below are unaffected and still stand.
 **Decision:** `pandas` is capped at `<3` and `pyarrow` at `<19`, matching what Colab actually ships (2.2.3 and 18.1.0). Generally: where a **data-path** dependency is materially newer on the development machine than on the machines that will run the generation, the requirement is capped to the execution environment and the dev machine is brought down to meet it — never the reverse.
 **Rationale:** The M0-SETUP-01 Colab run measured a target environment's stack for the first time, and it is much older than the dev box — `pandas` 2.2.3 vs 3.0.5, `pyarrow` 18.1.0 vs 25.0.1. Development was therefore happening on a `pandas` **major version that the machine doing the bulk generation has never executed**.
 
@@ -275,6 +275,18 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 - *Keep the literal wording* — carries a permanent FAIL on a criterion nobody intends to satisfy, which makes §7 unreadable.
 
 **Revisit if:** never — this retires a proxy criterion in favour of the mechanical check it was always meant to express; it does not vary the way a protocol decision would.
+
+---
+
+## D-019 — Remove the `pyarrow` upper bound
+
+**Status:** decided. Supersedes the `pyarrow` half of D-015; D-015's `pandas<3` cap and general principle are unaffected.
+**Decision:** `requirements.txt` changes from `pyarrow>=15,<19` to `pyarrow>=15` — the upper bound is removed, not raised.
+**Rationale:** The `<19` cap was set on 2026-08-30 from Colab's then-ambient `pyarrow` 18.1.0 (D-015). Both target platforms have since moved past it: Colab now ships 23.0.1, Kaggle ships 24.0.0. The cap therefore forces a downgrade on *every* runtime it is supposed to protect, and that downgrade breaks `datasets` (both platforms, needs `pyarrow>=21`) and `bigframes` (Colab, needs `pyarrow>=23.0.1`) — measured 2026-09-14 on factory-reset Colab and Kaggle runtimes, install logs captured. Nothing in this project depends on `pyarrow` internals: rows are `float64` and strings, and the Parquet format itself is stable across 15–24.
+**Rejected:**
+- *Raise the cap to `<25`* — fixes today's measurement and re-breaks the next time either base image moves, which they have now demonstrably done once already inside three weeks. A cap re-derived from a snapshot of a base image nobody controls is not a fix, it is a countdown.
+
+**Revisit if:** a future measurement shows a `pyarrow` release actually breaking this project's Parquet read/write path (a schema or dtype incompatibility, not merely a version bump) — at that point cap against the specific breaking behaviour, not against an arbitrary ambient snapshot.
 
 ---
 
