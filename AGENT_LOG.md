@@ -6,6 +6,30 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (x) — Claude Sonnet 5 / Claude Code — verify prior session, untrack editor config, D-017 tasks, D-018
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** verification of an unlogged prior session (`74e41e6`, `eba79cb`); untrack `.vscode/settings.json` and `pyrightconfig.json`; add `M0-CORE-05`/`M0-CORE-06`; owner decision D-018
+
+**Verified (prior session, 2026-09-13, not logged by that session):**
+- `74e41e6` (remove duplicate `NOTICE.txt`) and `eba79cb` (gitignore `.vscode/` and `pyrightconfig.json`) — both correct. `NOTICE` intact and valid, `NOTICE.txt` gone. `spec/decisions.md` got exactly a one-line dated cleanup note, explicitly marked "Not a numbered decision" — not a numbered D-entry. `.gitignore` diff is a clean 4-line append; no mangled or duplicated lines despite the CRLF warning. Neither commit touched anything outside its stated scope. 44 tests passed, exit 0. Local `main` was in sync with `origin/main`. The one real gap: no `AGENT_LOG.md` entry existed for that session — closed by this entry, per the owner's instruction that covering both sessions here is acceptable.
+
+**Landed (this session):**
+- **`4605b09`** — `git rm --cached` on `.vscode/settings.json` and `pyrightconfig.json`. Both were already gitignored (`eba79cb`) but remained tracked from `2c1f9c9`; they hardcode Windows venv paths and don't belong in a repo that runs on Linux runtimes (Kaggle, Colab, CI). Local files left on disk, confirmed present after the commit.
+- **`bd02caf`** — `spec/tasks.md` gains `M0-CORE-05` (implement `src/qecscreen/provenance.py: resolved_commit()`, reading `direct_url.json` via `importlib.metadata`, `None` for editable/local installs) and `M0-CORE-06` (`tests/test_provenance.py`, both branches, fake distribution, `None` case not skipped), unchecked. Task text states `CONTRACT.md` (D-017) already depends on this — no measurement row can be written until it lands. Not implemented this session.
+- **`64201dc`** — **D-018**, recorded in `spec/decisions.md`: the M0 environment exit criterion "no from-source build" is replaced by "no C toolchain invoked during install", mechanically checked by the CI compiler grep from `cf5542e` rather than by wheel availability. Recorded explicitly as a criterion change, not a re-measurement, accepted only because the replacement is CI-checked while the original never was. `spec/smoke.md §1` and the corresponding `spec/evals.md §7` row updated to match; the row's verdict moves to PASS under the new criterion (the same evidence — `sinter`'s sdist build, no compiler invoked — now satisfies it). `spec/tasks.md`, `spec/smoke.md` and `spec/evals.md` were each their own commit rather than merged with the D-018 decisions.md change, except smoke.md/evals.md which landed together with decisions.md in `64201dc` since they implement the same decision (spec-and-code-together rule, `AGENTS.md §4`).
+
+**Did not land:** `src/qecscreen/provenance.py`, `pyproject.toml`, `M0-CODES-01` — none attempted, per explicit hard stop. `CONTRACT.md` not modified.
+**Blockers:** none.
+**Noticed, did not fix:**
+- `spec/smoke.md §1` did not previously contain a "no from-source build" bullet under that literal name — the criterion existed only as a row title and evidence text in `spec/evals.md §7`, uncited to any `spec/smoke.md §1` line (unlike the neighbouring rows, which do cite it). This session added the D-018 criterion to `spec/smoke.md §1` as a new bullet, formalizing it there for the first time rather than editing an existing one. Flagging in case the owner intended a different placement.
+- `spec/evals.md §7`'s closing "**Closes?**" paragraph still lists "(2) the from-source-build criterion is restated..." as an open item, which D-018 now resolves. Left unedited because the same sentence is structurally bound up with item (1), the no-manual-fixes determination, and the owner's hard stop was explicit: do not touch the no-manual-fixes or Kaggle rows in §7. Flagging the resulting stale line rather than touching it.
+- The no-manual-fixes and Kaggle rows in `spec/evals.md §7` remain exactly as before — open, pending the owner's Colab and Kaggle output, per instruction.
+**Spec changes:** `spec/tasks.md`, `spec/decisions.md` (D-018), `spec/smoke.md §1`, `spec/evals.md §7`.
+**Next action:** owner determines whether the two manual Colab cells (D-017 era, `spec/evals.md §7`) were required; Kaggle run still outstanding; `M0-CORE-05`/`M0-CORE-06` (provenance module) unimplemented and blocking any new measurement row.
+
+---
+
 ## 2026-08-31 (w) — Gemini / Antigravity — test_protocol static type ignore on required arg test
 
 **Milestone:** M0 — Falsification
