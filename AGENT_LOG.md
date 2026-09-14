@@ -6,6 +6,29 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (z) — Claude Sonnet 5 / Claude Code — M0-SETUP-01: fresh Colab/Kaggle measurements
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** record owner-supplied environment measurements against `spec/evals.md §7`; close `M0-SETUP-01` if warranted
+
+**Landed (`f08204b`):**
+- Owner ran fresh Colab and Kaggle runtimes, `requirements.txt` written inline via `%%writefile`, a single `pip install -r requirements.txt`, no manual fix cells. Resolved on both: python 3.13.15, pyparsing 3.3.2, matplotlib 3.10.0, sinter 1.16.0, stim 1.16.0, ldpc 2.4.1, pymatching 2.4.0. `numpy`/`pandas` differ slightly (Colab 2.1.3/2.2.3, Kaggle 2.0.2/2.3.3); `pyarrow` matches exactly at 18.1.0 on both.
+- **No-manual-fixes corrected from PARTIAL to PASS.** The two manual cells the 2026-08-30 session ran (`pip install "pyparsing<3.2"`, `pip install -U matplotlib`) were **not required** — this measurement shows both resolve to the needed versions unforced, with clean imports. Recorded as a correction to that session's assumption, citing the new measurement, not as a change to the criterion itself (unlike D-018, which *was* a criterion change).
+- **Kaggle install row replaced**, NOT RUN → PASS, with resolved versions. Added an explicit row stating `sinter`/`stim`/`ldpc`/`pymatching` resolve identically on both platforms, and that this identity is what makes rows generated on either platform comparable under INV-6.
+- **CI status recorded**: GREEN on `285a27b`, 2/2 checks.
+- **Kaggle no-downgrade recorded as NOT VERIFIED, not PASS.** The owner's Kaggle pip install log (`Successfully installed` / `Attempting uninstall` lines) was not captured. Post-install versions alone cannot establish absence of a downgrade — that needs the install log itself — so this was not ticked from inference, per explicit instruction.
+- `spec/evals.md §7`'s **Closes?** paragraph rewritten to name this single remaining item.
+- **`M0-SETUP-01` left open in `spec/tasks.md`**, not closed. Every other criterion in the §7 table is now PASS; the single blocker is the unverified Kaggle no-downgrade row. Not rounded up.
+- `requirements.txt` untouched, as instructed — nothing in these measurements falls outside the existing bounds (`pandas>=2.2,<3`, `pyarrow>=15,<19`), so nothing needs pinning.
+
+**Did not land:** `M0-CODES-01` not started, per instruction.
+**Blockers:** Kaggle's pip install log needs to be captured on a future run to close `M0-SETUP-01`.
+**Noticed, did not fix — flagging D-015 for revisit, not acting on it (explicit instruction):**
+- **D-015's revisit condition is now true.** D-015 capped `pandas<3` and `pyarrow<19` to match Colab's stack, with "Kaggle is measured" as the unconditional revisit trigger — Kaggle has now been measured. Its ambient `pandas` (2.3.3) is newer than Colab's (2.2.3) and newer than the value D-015 records as the reference point, though still within the existing `<3` cap. `pyarrow` matches exactly (18.1.0) on both, so no cap is actually violated by this measurement — but the revisit condition is about the fact of measurement, not only about a violated cap, and it has now occurred. This is a flag for the owner to decide whether D-015's cap or its stated rationale needs updating; `requirements.txt` and `spec/decisions.md` were not touched in this session.
+**Spec changes:** `spec/evals.md §7`, `spec/tasks.md` (M0-SETUP-01, still unchecked).
+
+---
+
 ## 2026-09-14 (y) — Claude Sonnet 5 / Claude Code — close out D-018's spec drift (three flags from entry (x))
 
 **Milestone:** M0 — Falsification
