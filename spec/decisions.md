@@ -290,6 +290,18 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 
 ---
 
+## D-020 — Add Python 3.12 to the CI matrix
+
+**Status:** decided
+**Decision:** `.github/workflows/ci.yml`'s Python matrix gains `3.12`, alongside the existing `3.11` and `3.13`. `spec/architecture.md §1`'s interpreter row is updated to state all three and why.
+**Rationale:** Measured 2026-09-14: Kaggle — the intended bulk-generation host and the workhorse per `AGENTS.md §7` — runs Python **3.12.13**, not 3.13 as the stack table previously implied by omission. Colab runs 3.13.15. CI tested only 3.11 and 3.13, so the interpreter that will actually run the M1 bulk generation has never been tested by CI.
+**Rejected:**
+- *Drop 3.11 to keep the matrix at two entries* — 3.11 has its own justification independent of this decision (recorded where the matrix was introduced) and dropping it trades one untested target interpreter for another.
+
+**Revisit if:** Kaggle's or Colab's shipped interpreter version changes at the platform level; re-measure and update the matrix to match, the same way this decision was reached.
+
+---
+
 ## Template
 
 ```

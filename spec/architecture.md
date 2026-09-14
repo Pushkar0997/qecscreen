@@ -4,7 +4,7 @@
 
 | Layer | Choice | Version | Why |
 |---|---|---|---|
-| Language | Python | 3.11 **and** 3.13 | Both are target execution environments — Kaggle runs 3.11, Colab runs 3.13. CI tests both; code that works on only one is broken. |
+| Language | Python | 3.11, 3.12 **and** 3.13 | Kaggle runs 3.12 (measured 3.12.13, D-020) and Colab runs 3.13 (measured 3.13.15); 3.11 is kept as the stack's lower-bound target. CI tests all three; code that works on only some is broken. |
 | Circuit simulation | `stim` | ≥1.14,<2 | The field standard. Fast enough that decoding, not sampling, is the bottleneck. Upper-bounded: the version enters `protocol_hash`. |
 | Sampling orchestration | `sinter` | ≥1.14,<2 | Ships with Stim, does parallel batched Monte Carlo with stopping rules. Saves writing a job runner. Upper-bounded: the version enters `protocol_hash`. |
 | Decoder | `ldpc` (Roffe) | ≥2.1,<3 | `BpOsdDecoder` is the qLDPC baseline everyone reports against. Comparability matters more than speed here. Upper-bounded: the version enters `protocol_hash`. |
@@ -25,16 +25,19 @@ Upper bounds are added for two distinct reasons, and only for those two.
 
 **Data-path libraries newer here than in production** — `pandas` — is bounded to what the execution environments actually ship, so the dev box is never ahead of the machine doing the generation (D-015). `pyarrow` was bounded the same way but the cap is removed (D-019): both target platforms' ambient `pyarrow` moved past `<19` within three weeks, so a snapshot-of-a-base-image cap does not hold long enough to be worth the downgrade it forces. Everything else keeps lower bounds only, because Kaggle and Colab ship their own numpy/scipy/scikit-learn and a tighter pin would force a downgrade of a preinstalled stack, breaking the one-cell install.
 
-**Two supported interpreters, because there are two target execution environments.** Kaggle runs Python 3.11 and Colab runs 3.13, and both will run this code — Kaggle for bulk generation, Colab for interactive work. CI tests both. Neither is "the" version; a change that works on only one is broken.
+**Three supported interpreters, because Kaggle's actual version was measured and it was not the one this section assumed (D-020).** Colab runs Python 3.13 and Kaggle runs 3.12 — measured 2026-09-14 at 3.13.15 and 3.12.13 respectively — and both will run this code, Kaggle for bulk generation, Colab for interactive work. 3.11 is kept as the stack's lower-bound target. CI tests all three. None of the three is "the" version; a change that works on only some is broken.
 
-**Verified at M0-SETUP-01** — clean venvs, no compiler invoked, `pytest` green on both:
+An earlier version of this section, and of `.github/workflows/ci.yml`, stated Kaggle runs 3.11. That was never measured — it was assumed by symmetry with the lower stack bound — and D-020 corrects it once Kaggle was actually run.
+
+**Verified at M0-SETUP-01** — no compiler invoked, `pytest` green:
 
 | Interpreter | Where | Resolves to |
 |---|---|---|
-| 3.11.9 | Kaggle's version | `stim` 1.16.0, `sinter` 1.16.0, `ldpc` 2.4.1 |
-| 3.13.7 | dev box; Colab runs 3.13.15 | `stim` 1.16.0, `sinter` 1.16.0, `ldpc` 2.4.1 |
+| 3.11.9 | dev box, clean venv (stack's lower-bound target; neither platform actually runs this) | `stim` 1.16.0, `sinter` 1.16.0, `ldpc` 2.4.1 |
+| 3.12.13 | Kaggle's actual version — measured live on Kaggle 2026-09-14, not a local dev venv | `stim` 1.16.0, `sinter` 1.16.0, `ldpc` 2.4.1, `pymatching` 2.4.0 |
+| 3.13.7 | dev box, clean venv; Colab runs 3.13.15 | `stim` 1.16.0, `sinter` 1.16.0, `ldpc` 2.4.1 |
 
-**On `sinter` 1.15 vs 1.16 — this is wheel availability, not interpreter version.** `sinter` 1.16.0 is **sdist-only** on PyPI; there is no wheel for any Python version. A plain `pip install` builds it from that sdist — it is pure Python, so no compiler is involved — and yields 1.16.0 on 3.11 and 3.13 alike. Only a *wheels-only* install (`--only-binary=:all:`) falls back to `sinter` 1.15.0, and it does so on every interpreter. An earlier version of this section claimed 1.16.0 required Python ≥3.12; that was an artifact of measuring with `--only-binary=:all:` and is wrong. See AGENT_LOG (n).
+**On `sinter` 1.15 vs 1.16 — this is wheel availability, not interpreter version.** `sinter` 1.16.0 is **sdist-only** on PyPI; there is no wheel for any Python version. A plain `pip install` builds it from that sdist — it is pure Python, so no compiler is involved — and yields 1.16.0 on 3.11, 3.12 and 3.13 alike. Only a *wheels-only* install (`--only-binary=:all:`) falls back to `sinter` 1.15.0, and it does so on every interpreter. An earlier version of this section claimed 1.16.0 required Python ≥3.12; that was an artifact of measuring with `--only-binary=:all:` and is wrong. See AGENT_LOG (n).
 
 Because `sinter` runs the sampling loop and its version enters `protocol_hash` (INV-6), the resolved version must be recorded alongside any generated labels.
 

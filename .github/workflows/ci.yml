@@ -23,14 +23,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Both are target execution environments, which is the whole reason for
-        # the matrix: Kaggle runs 3.11 and does the bulk generation, Colab runs
-        # 3.13 and is used interactively. Code that works on only one is broken.
+        # All three are target execution environments, which is the whole
+        # reason for the matrix. Kaggle runs 3.12 (measured 3.12.13, 2026-09-14,
+        # D-020) and does the bulk generation; Colab runs 3.13 (measured
+        # 3.13.15) and is used interactively. 3.11 is kept as the older-bound
+        # target per the stack table (spec/architecture.md §1). Code that works
+        # on only one is broken.
         #
-        # An earlier comment here justified the matrix by claiming the two
-        # resolve different sinter versions. That was wrong — the 1.15/1.16
-        # split is wheel availability, not interpreter version. See AGENT_LOG (n).
-        python-version: ["3.11", "3.13"]
+        # An earlier comment here justified the (then two-entry) matrix by
+        # claiming the two resolve different sinter versions. That was wrong —
+        # the 1.15/1.16 split is wheel availability, not interpreter version.
+        # See AGENT_LOG (n). It also claimed Kaggle runs 3.11, which was never
+        # measured and turned out to be wrong too — see D-020.
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
