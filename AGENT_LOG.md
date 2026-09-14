@@ -6,6 +6,29 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (gg) — Claude Sonnet 5 / Claude Code — M0-CODES-04: estimate_d_upper, and a method that failed the gross code
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-CODES-04` — `estimate_d_upper(h_x, h_z, seed, attempts)` in `src/qecscreen/codes/distance.py`
+
+**The method that failed, kept visible rather than erased:** the first implementation drew one random dense combination of the `ker(H_X)`/`ker(H_Z)` nullspace basis, then greedily flipped in single stabiliser generators wherever that reduced Hamming weight. It reached `d_upper=6` for the `[[72,12,6]]` reference code immediately, but on the `[[144,12,12]]` gross code it plateaued at 14 — never 12 — even at 5,000 attempts (measured: 200→24, 500→22, 1000→16, 2000→16, 5000→14). Per instruction this was a stop-and-report condition, not a tune-the-assertion one. Diagnosis: single-generator greedy descent from a random ~half-weight dense start is too weak a local search once the code is big enough that low-weight codewords are a small target — not a bug, an underpowered algorithm.
+
+**Landed (`0005e16`):**
+- Replaced with a random-information-set search: draw a random column permutation each attempt, use it to select fresh pivot columns while row-reducing the same nullspace basis, and keep the minimum nontrivial row weight across all attempts. This reached `d_upper=12` for the gross code at **10 attempts** in the first test and reliably from **attempts=4** in a 30-seed sweep — several orders of magnitude cheaper than the method it replaced, not just fixed.
+- `DEFAULT_ATTEMPTS=64` measured, not guessed: swept 30 seeds each against both reference codes. `[[72,12,6]]` reaches `d_upper=6` reliably from `attempts=1`. The gross code is the binding constraint: `attempts=3` → 25/30 seeds correct (unreliable), `attempts=4` → 30/30 (reliable, held at 5 and 6 too). Default set at 16x that measured threshold (64) for margin against a family this project hasn't sampled yet. Recorded as **D-021** in `spec/decisions.md`, including the rejected method and why raising its attempt count further wasn't the fix.
+- Measured wall-clock at the default (20-seed average, dev box): **~0.10 s/call for the gross code, ~0.05 s/call for the reference code**. Negligible next to the ~100 s/code BP+OSD decoding budget in `spec/architecture.md §6` — added as a measured line there rather than left as the unstated assumption the instruction flagged it as being.
+- `tests/test_distance.py`, 5 tests: both reference codes hit their published distance at `DEFAULT_ATTEMPTS`; determinism (same `(code, seed, attempts)` → identical result); a **deliberately low** attempt count (1, not the default) across 10 seeds shows real seed-to-seed variation while every result stays `>=` the true distance — demonstrating the upper-bound property concretely rather than asserting equality across seeds, which the instruction specifically warned against; a source-grep guard (same style as `test_hygiene.py`'s INV-4 check) confirms the exact-distance column is never named in the module.
+- Full suite: **67 passed** (62 before, 5 new), 0 failures.
+
+**Caught along the way, same class of thing as the M0-CODES-03 session:** my own module docstring, and my own test's source-grep target string, both literally contained the token my new hygiene-style test was grepping for, purely in explanatory prose. Reworded both to "the exact-distance column" rather than weakening the grep or exempting the file — same call as last session's `numpy.linalg.matrix_rank` docstring collision, and worth noting as a pattern: a strict source-grep test on a short, meaningful token will keep catching its own author's explanatory prose, and rewording is the right response each time, not building an exemption list.
+
+**Did not land:** `M0-CODES-05` not started. `generate()`, `validate()`, `CONTRACT.md`, `protocol.py`, `requirements.txt` untouched, no new dependency, per instruction.
+**Blockers:** none.
+**Noticed, did not fix:** nothing new this session.
+**Spec changes:** `spec/tasks.md` (`M0-CODES-04` now `[x]`), `spec/decisions.md` (D-021), `spec/architecture.md §6` (measured distance-search cost recorded).
+
+---
+
 ## 2026-09-14 (ff) — Claude Sonnet 5 / Claude Code — M0-CODES-03: validate() enforcing INV-8
 
 **Milestone:** M0 — Falsification
