@@ -322,6 +322,19 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-022 — `sample_bb_params`'s template set, and why some shapes are structurally excluded
+
+**Status:** decided
+**Decision:** `qecscreen.codes.sample.TEMPLATES` holds 10 polynomial shapes, each verified to have a nonzero success rate against `qecscreen.codes.validate.validate` across the full `l, m in [2, 19]` grid under `budget=150`, before being kept. `construction_program_id = f"bb_v1_{template_name}"` — one level more specific than the bare `bb_v1` shown as CONTRACT.md's illustrative example for the family, because two structurally unrelated polynomial shapes sharing a family-level id would still let INV-2's split-grouping mix near-duplicates from one shape with genuinely different codes from another; `AGENTS.md §6`'s own vocabulary entry for "Construction program" already names "the BB polynomial template" as the unit, one level below family.
+**Rationale:** While building the template set, three candidate shapes — each with a single-monomial side (e.g. `B = x*y`, one term) — turned out to fail `validate()`'s `k >= 1` check for **every** `(l, m)` tried, not merely most. The reason is structural, not bad luck: a single-monomial polynomial is itself an invertible permutation matrix, which forces `rank(H_X) = rank(H_Z) = l*m` regardless of the other polynomial, which forces `k = 0` identically. Giving both sides of those three shapes a second term did not fix it — two of the three replacements *also* failed for every `(l, m)` tested, for reasons tied to the specific polynomials' algebraic structure (not the simple single-monomial rule) that a full explanation would require deriving the polynomials' relationship to `x^l - 1` and `y^m - 1` in the underlying group ring. Rather than chase that theory under an M0 time budget, every template actually shipped was instead verified empirically against the grid before being kept — three replacement shapes were found this way with nonzero (9%-100%) yield, and are what appear in `TEMPLATES` now.
+**Rejected:**
+- *Derive a general rule for which shapes are viable and filter algorithmically* — the single-monomial case has a clean, provable rule; the second failure mode encountered here evidently does not have an equally simple one reachable in the time available, and getting this wrong silently (a plausible-looking rule that still admits a some-but-not-all-viable shape) is worse than the grid-verification actually used, which cannot be fooled by a rule not covering some case.
+- *Keep the always-failing shapes in `TEMPLATES` anyway, relying on `sample_bb_params`'s reject-and-redraw loop to route around them* — technically works (rejection sampling correctly wastes attempts on them and moves on) but wastes an unbounded fraction of every draw's attempt budget forever, and silently normalises shipping a template that can never contribute a single code — worth catching once here rather than leaving as permanent overhead.
+
+**Revisit if:** a future construction program's shape needs the same grid-viability check; reuse the method (verify across the target budget's `(l, m)` grid before adding to a template list) rather than assuming a new shape works from inspection alone.
+
+---
+
 ## Template
 
 ```

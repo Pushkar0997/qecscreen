@@ -79,7 +79,7 @@ One Parquet table. One row per `(code, protocol)` pair.
 | Column | Type | Notes |
 |---|---|---|
 | `code_id` | str | `{program_id}-{sha256(params_json)[:12]}` |
-| `construction_program_id` | str | `bb_v1`, `gb_v1`, … — **the grouping key for splits (INV-2)** |
+| `construction_program_id` | str | `bb_v1_<template>`, `gb_v1_<template>`, … — one per polynomial template, not per family (D-022). **The grouping key for splits (INV-2)** |
 | `family` | str | `BB`, `GB`, `HGP`, `TB` — the holdout key |
 | `params_json` | str | Canonical JSON, sorted keys. With `seed`, regenerates the code (INV-7) |
 | `seed` | int64 | Explicit, never implicit |
