@@ -6,6 +6,28 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (ee) — Claude Sonnet 5 / Claude Code — M0-CODES-01/02: the gross code closes the symmetry gap
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** strengthen `tests/test_bb_reference.py` with a second reference code; no new implementation, per instruction
+
+**The gap:** at `l=m=6`, three of the four `[[72,12,6]]` assertions from the previous session (n, check weight, CSS commutation) are structurally guaranteed for *any* `A`/`B` — they follow from arithmetic (`n=2lm`), construction (`weight = wt(A)+wt(B)`), and the fact that `x` and `y` always commute. Only `k` actually discriminates a correct generator from a broken one, and even `k` is weak at `l=m`: `x` and `y` are interchangeable there, so a bug that swaps them, or flattens the `(a,b)` index as `b*l+a` instead of `a*m+b`, produces an equivalent code with the same `n`, `k` and weight histogram. The previous session's clean pass was consistent with a correct generator, but could not rule out that class of bug.
+
+**Landed (`4fba94a`):**
+- Verified independently, before writing any assertion, that `generate(12, 6, A_EXPS, B_EXPS, seed)` — the SAME `A`/`B`, only `l != m` — reproduces the published `[[144,12,12]]` gross code against the *existing, unmodified* `generate()`: `n=144`, `k=12` (`rank(H_X)=rank(H_Z)=66`), every check weight 6, CSS commutation holds.
+- Added four tests to `tests/test_bb_reference.py` (`test_g11_g12_gross_code_n_and_k`, `test_g13_gross_code_all_check_weights_are_six`, `test_gross_code_css_commutation`, `test_gross_code_shape`), all passing unmodified on the first run — no implementation change, no expected value adjusted.
+- Added a module-docstring block spelling out *why* the two reference codes are kept as separate tests rather than one case parametrised over `(l, m, n, k)` — collapsing them would lose exactly the discriminating power the gross code exists to add. Flagged explicitly so a future simplification pass doesn't merge them back.
+- Added `spec/evals.md` G-11 (`n=144`), G-12 (`k=12`), G-13 (check weights `6`), with the same symmetry-gap reasoning recorded in the spec, not only in the test file. No `d_upper` entry recorded for the gross code — distance stays out of scope for both reference codes (M0-CODES-04).
+- `spec/tasks.md`: added a note to the existing `M0-CODES-02` line recording the strengthening, rather than reopening the checkbox (both tasks were already correctly closed).
+- Full suite: **54 passed** (50 before, 4 new), 0 failures, 0 new warnings.
+
+**Did not land:** no changes to `src/qecscreen/codes/bb.py` — none were needed, and the instruction was explicit that none were expected. `M0-CODES-03`/`04` still not started.
+**Blockers:** none. The gross-code pass rules out the specific x/y-mixup and index-flattening bug class; it does not prove the generator correct for every family this project will eventually sample (M0-CODES-05), only that this particular class of silent-symmetry failure did not occur.
+**Noticed, did not fix:** nothing new this session.
+**Spec changes:** `spec/evals.md` (G-11..G-13), `spec/tasks.md` (`M0-CODES-02` note).
+
+---
+
 ## 2026-09-14 (dd) — Claude Sonnet 5 / Claude Code — M0-CODES-01, M0-CODES-02: the BB generator, code finally exists
 
 **Milestone:** M0 — Falsification
