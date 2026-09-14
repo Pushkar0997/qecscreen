@@ -6,6 +6,26 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (aa) — Claude Sonnet 5 / Claude Code — M0-SETUP-01: cold-start measurements overturn the previous no-downgrade PASS/NOT VERIFIED
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** record owner-supplied cold-start (factory-reset) Colab/Kaggle measurements with install logs; D-019 (remove `pyarrow` cap); D-020 (add 3.12 to CI); `spec/smoke.md §1` fix
+
+**Landed, five commits:**
+- **`9d1c177`** — `spec/evals.md §7` corrected on the strength of captured install logs (the earlier session's measurement lacked these). Colab's "no downgrade" row flips **PASS → FAIL**: ambient `pyarrow` was 18.1.0 on 2026-08-30 (correctly PASS then) but is 23.0.1 now, so the `<19` pin (D-015) forces a downgrade that breaks `datasets` and `bigframes`. Kaggle's row replaces the prior **NOT VERIFIED** with **FAIL**: ambient `pyarrow` 24.0.0, same downgrade, breaks `datasets`. Also corrected a wrong claim of identical cross-platform resolution — Kaggle runs Python **3.12.13**, not 3.13.15 as the previous session recorded; the `protocol_hash`-relevant set (`sinter`/`stim`/`ldpc`/`pymatching`) does match and that's what INV-6 needs. No-manual-fixes and no-C-toolchain stay PASS, confirmed again in these logs.
+- **`e86e677`** — `spec/tasks.md` M0-SETUP-01 note updated: the blocker is no longer an undetermined manual-fix question, it's a confirmed no-downgrade FAIL on both platforms. Task **stays open**, not re-ticked from the D-019 fix alone — it needs a fresh-runtime re-measurement against the new pin.
+- **`2b8ea1e`** — **D-019**: `pyarrow`'s upper bound removed (`>=15,<19` → `>=15`), superseding the `pyarrow` half of D-015. `pandas<3` and D-015's general principle are untouched and marked as such in D-015's Status line. Rejected raising the cap to `<25` — a cap re-derived from a moving base image is a countdown, not a fix.
+- **`b2f5acf`** — follow-up: `spec/architecture.md §1`'s stack table still documented the old `pyarrow<19` bound after `2b8ea1e`, which I should have updated in that same commit per `AGENTS.md §4`. Fixed as a small immediate correction rather than left drifted.
+- **`56a991e`** — **D-020**: `.github/workflows/ci.yml`'s matrix gains `3.12` (now `3.11`/`3.12`/`3.13`), because Kaggle — the bulk-generation host — actually runs 3.12.13, not 3.11 as the matrix comment and `spec/architecture.md §1` had assumed by symmetry with the stack's lower bound. That assumption was never measured and CI had never tested the interpreter that will run the M1 bulk generation. Also corrected the "Verified at M0-SETUP-01" table's false "3.11.9 = Kaggle's version" label, and folded the same fix into `AGENTS.md §3`'s stack table for consistency with `spec/architecture.md §1`, per the precedent set in entry (r).
+- **`68879c6`** — `spec/smoke.md §1` gains an explicit sub-bullet: the no-downgrade check requires capturing the install log (`Attempting uninstall` / `Successfully installed` lines), not just post-install versions — post-install versions look identical whether a package was always at the pinned version or was downgraded to it, and reading them alone is exactly what produced the wrong PASS (2026-08-30 Colab) and the wrong NOT-VERIFIED-not-FAIL gap (2026-09-14 earlier this session) that this entry corrects.
+
+**Did not land:** `M0-CODES-01` not started, per instruction. No re-tick of the no-downgrade criterion — it stays FAIL until re-measured PASS on a fresh runtime against the new `pyarrow` pin, which is the owner's next run, not something inferred here.
+**Blockers:** M0-SETUP-01 needs one more fresh-runtime measurement (Colab and Kaggle, install log captured) against `pyarrow>=15` to close.
+**Noticed, did not fix:** none new beyond the architecture.md follow-up already folded into `b2f5acf`.
+**Spec changes:** `spec/evals.md §7`, `spec/tasks.md` (M0-SETUP-01, unchecked), `spec/decisions.md` (D-015 status, D-019, D-020), `spec/architecture.md §1`, `AGENTS.md §3`, `.github/workflows/ci.yml`, `spec/smoke.md §1`, `requirements.txt`.
+
+---
+
 ## 2026-09-14 (z) — Claude Sonnet 5 / Claude Code — M0-SETUP-01: fresh Colab/Kaggle measurements
 
 **Milestone:** M0 — Falsification
