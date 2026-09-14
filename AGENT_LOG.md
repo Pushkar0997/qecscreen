@@ -6,6 +6,23 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (y) — Claude Sonnet 5 / Claude Code — close out D-018's spec drift (three flags from entry (x))
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** three corrections flagged by the previous session's own "noticed, did not fix" notes; no task ID, pure spec-consistency cleanup
+
+**Landed, one commit:**
+- `spec/evals.md §7`'s **Closes?** paragraph rewritten: it was still listing the from-source-build restatement as an open item, but D-018 (`64201dc`) closed that and the table row above already reads PASS. Now lists only the two genuinely open items — (1) the owner's determination on the two manual Colab cells, wording kept verbatim including "the fix is to add constraints to `requirements.txt`, not to soften the criterion"; (2) Kaggle has never been run. The table rows themselves (no-manual-fixes, Kaggle) are untouched.
+- `spec/smoke.md §1` — merged the two adjacent install-condition bullets (D-018 had added a second bullet next to the pre-existing Colab-install one, both describing the same install) into one parent bullet with two independently checkable sub-bullets: no manual fixes, and no C toolchain invoked (D-018, `cf5542e`). Neither condition lost — both still separately failable.
+- `spec/tasks.md`, `M0-SETUP-02`'s completion note corrected: it said install was "forced to `--only-binary=:all:`", which stopped being true at `cf5542e` (replaced by a compiler-invocation grep on the pip log). Note now describes the actual CI behaviour, referencing `cf5542e` and D-018. Checked status (`[x]`) unchanged — this was a stale description of a task already marked done, not a redo of the task.
+
+**Did not land:** nothing outstanding for these three items. `M0-CODES-01` not started, `CONTRACT.md` not touched, per instruction.
+**Blockers:** none.
+**Noticed, did not fix:** nothing new — this session closes the three items entry (x) flagged and introduces no new drift that I'm aware of.
+**Spec changes:** `spec/evals.md §7`, `spec/smoke.md §1`, `spec/tasks.md` (M0-SETUP-02 note only).
+
+---
+
 ## 2026-09-14 (x) — Claude Sonnet 5 / Claude Code — verify prior session, untrack editor config, D-017 tasks, D-018
 
 **Milestone:** M0 — Falsification
