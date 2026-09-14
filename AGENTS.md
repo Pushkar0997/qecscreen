@@ -107,6 +107,7 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 - [ ] Spec updated if behaviour diverged
 - [ ] `spec/tasks.md` checkbox ticked
 - [ ] `AGENT_LOG.md` entry written
+- [ ] If the session produced a finding worth explaining to a person — a wrong assumption corrected, a criterion that changed, a surprising measurement — append an entry to `NARRATIVE.md`. Routine task completion does not qualify.
 - [ ] Committed with the task ID in the message
 - [ ] **Pushed to `origin`**
 
