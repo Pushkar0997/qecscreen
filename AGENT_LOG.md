@@ -6,6 +6,28 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (dd) — Claude Sonnet 5 / Claude Code — M0-CODES-01, M0-CODES-02: the BB generator, code finally exists
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-CODES-01` (`src/qecscreen/codes/bb.py`), `M0-CODES-02` (`tests/test_bb_reference.py`), together per instruction
+
+**Landed (`5ccdd6a`):**
+- Wrote `tests/test_bb_reference.py` first. Confirmed it failed on collection (`ModuleNotFoundError: No module named 'qecscreen.codes.bb'`) before writing any implementation.
+- Implemented `generate(l, m, a_exps, b_exps, seed)` in `src/qecscreen/codes/bb.py`: `H_X = [A|B]`, `H_Z = [B^T|A^T]`, where `A`/`B` are GF(2) sums of monomial permutation matrices over the commuting cyclic shifts of `Z_l x Z_m` — the construction from Bravyi et al. 2024. No new dependency; numpy only. `seed` is accepted (required by the signature) but unused by this deterministic construction — documented as such rather than given a fabricated use.
+- The `l=6, m=6, A=x^3+y+y^2, B=y^3+x+x^2` reference code reproduced every published value **on the first run, unmodified**: `n=72`, `k=12` (`rank(H_X) = rank(H_Z) = 30`), every check weight exactly 6 (`H_X`: `{6: 36}`, `H_Z`: `{6: 36}`), CSS commutation holds (`check_css_commutation` raised nothing). `k` computed via `qecscreen.linalg.logical_qubit_count`, never `numpy.linalg.matrix_rank` — `test_inv8_no_float_matrix_rank` (hygiene) confirms no source file uses it. No expected value was adjusted, no tolerance added, nothing marked `xfail`, no A/B swap or transpose was needed to make a number come out.
+- Also added: determinism (same args + seed → byte-identical `H_X`/`H_Z` via `.tobytes()` equality), shape (`(l*m, 2*l*m)`), and a dtype check confirming `H_X`/`H_Z` are integer `{0,1}` (bool/float are rejected by `qecscreen.linalg`, so this was worth asserting explicitly rather than assumed).
+- Full suite: **50 passed** (44 before, 6 new), 0 failures, 0 new warnings.
+- `spec/tasks.md`: both `M0-CODES-01` and `M0-CODES-02` ticked. Merged into one commit per `AGENTS.md §4`'s spec-and-code-together clause — a generator commit alone would be untested spec fiction, and the test alone would not even collect. Both task IDs named in the commit message.
+
+**On the convention risk the instruction flagged (qubit ordering / which block is A vs B / row-column orientation):** did not stop to ask. The Bravyi et al. 2024 construction (`H_X=[A|B]`, `H_Z=[B^T|A^T]`, monomials as commuting shift-permutations) is a specific, well-documented construction, not a guess, and none of the tested properties (`n`, `k`, check weight, commutation) depend on which physical block is labelled A vs B or which shift direction is chosen — those are qubit relabellings that leave every tested invariant unchanged. Recorded here so the reasoning is visible rather than silently assumed.
+
+**Did not land:** `M0-CODES-03` (`validate(code)`) and `M0-CODES-04` (`d_upper`) not started, per instruction — distance is explicitly out of scope for this pair of tasks and this module populates neither `d_exact` nor `d_upper`.
+**Blockers:** none.
+**Noticed, did not fix:** `spec/architecture.md §2`'s Structure section describes the `codes/` convention generically as `generate(params, seed) -> Code` plus a `PROGRAM_ID` constant, which disagrees with `spec/tasks.md`'s (and this session's) concrete `generate(l, m, a_exps, b_exps, seed) -> (H_X, H_Z)` signature. Not resolved here — the concrete signature came from an explicit, unambiguous instruction this session, and reconciling the generic sketch (return type, `PROGRAM_ID`) belongs with `M0-CODES-05`'s `construction_program_id`, not this pair of tasks. Flagging so it doesn't look like an oversight later.
+**Spec changes:** `spec/tasks.md` (`M0-CODES-01`, `M0-CODES-02` now `[x]`).
+
+---
+
 ## 2026-09-14 (cc) — Claude Sonnet 5 / Claude Code — M0-SETUP-01 closed
 
 **Milestone:** M0 — Falsification
