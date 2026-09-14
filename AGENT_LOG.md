@@ -6,6 +6,34 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (hh) — Claude Sonnet 5 / Claude Code — M0-CODES-05: sample_bb_params, and three templates that always failed
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-CODES-05` — `sample_bb_params(n_codes, budget, seed)` in `src/qecscreen/codes/sample.py`
+
+**A real finding while building the template set, not just implementation:** three of the first ten candidate polynomial shapes each had a single-monomial side (e.g. `B` = one term). A brute-force check across the full `l, m in [2, 19]` grid at `budget=150` showed each of the three failing `validate()`'s `k >= 1` check for **every** `(l, m)` — not most, all. Reason, verified directly with `gf2_rank`: a single-monomial polynomial is itself an invertible permutation matrix, which forces `rank(H_X) = rank(H_Z) = l*m` regardless of the other polynomial, forcing `k = 0` identically. Giving both sides a second term did not fix it either — two of the three replacements *also* failed for every `(l, m)` tested, for reasons tied to the specific polynomials that I did not chase to a full explanation (would need the polynomials' relationship to `x^l-1`/`y^m-1` in the underlying group ring, more theory than an M0 task budget covers). Instead of deriving a general viability rule, every template actually shipped was verified empirically against that same grid before being kept.
+
+**Landed (`8b8d04a`):**
+- `TEMPLATES`: 10 polynomial shapes (structural, independent of `l`/`m`), each confirmed to have a nonzero success rate on the grid check above (yields ranged 9%-100%).
+- `sample_bb_params(n_codes, budget, seed)`: one seeded `numpy.random.Generator` drives template choice, `l`, `m`, and every redraw; `n = 2lm` capped at `budget`; every emitted code has already passed `qecscreen.codes.validate.validate` (reject-and-redraw on failure, so rejections just continue the same stream — determinism doesn't depend on how many were rejected).
+- `construction_program_id = f"bb_v1_{template_name}"` — one level more specific than CONTRACT.md's illustrative `bb_v1` example, because `AGENTS.md §6`'s own vocabulary already names "the BB polynomial template" (not the family) as the construction-program unit; grouping at the family level would still let two structurally unrelated shapes share a split-group. Recorded as **D-022** (`spec/decisions.md`), which also corrects `spec/architecture.md`'s `construction_program_id` row to match (it previously showed the bare `bb_v1` form).
+- `tests/test_sample.py`, 7 tests: determinism; every sample validates and respects budget; **9 distinct ids in a 400-code sample** (measured — see report below — comfortably above the required 8, and confirmed to reliably surface all 10 across 5 seeds before being written into the test); same shape always shares an id, no id is ever shared by two shapes; the reference code's own shape carries `bb_v1_sym_3_3` if drawn; input validation on `n_codes` and `budget`.
+- Full suite: **74 passed** (67 before, 7 new), 0 failures.
+
+**Report — actual 300-code draw, `budget=150`, `seed=0`:**
+- Wall-clock: **1.56 s** for 300 accepted codes (639 total `validate()` calls).
+- Rejection rate: **339/639 = 53.1%**. All rejections are `k < 1` (commutation always holds structurally for any `A`/`B`, since `x`/`y` always commute) — driven mostly by the four low-yield templates (`sym_3_3`, `rare_2_3`, `rare_3_4`, `mixed_3_5`/`mixed_5_3`), each with an 89-91% per-template failure rate, pulled into roughly a third of all attempts by uniform template selection.
+- `construction_program_id` histogram: `pair_2_2` 70, `quad_4_4` 69, `quad_4_2` 63, `quad_2_4` 61, `mod_2_3` 21, `sym_3_3` 8, `rare_2_3` 6, `mixed_3_5` 1, `rare_3_4` 1 — **9 distinct ids**, `mixed_5_3` did not appear in this specific 300-draw (rare enough, ~9% yield x 10% draw probability, that 0-in-300 is unsurprising; confirmed present in the 400-code sample the test file uses).
+- `n` histogram (bucketed): min 16, max 150, mean 109.0; buckets `[100,160)` hold the majority (57+82+61 of 300), reflecting that `budget=150` biases larger `l*m` combinations somewhat since `m`'s sampling range grows as `l` shrinks.
+- `k` histogram: min 2, max 26, mean 4.12; `k=2` (143) and `k=4` (93) dominate — real variance exists (up to `k=26`) but is heavily right-skewed, worth flagging for whoever designs the M0 ranking task: `k` is not close to constant, but it is far from uniform either.
+
+**Did not land:** `M0-CIRC-01` (next unstarted task) not started — not requested this session.
+**Blockers:** none.
+**Noticed, did not fix:** the `k` and `n` distributions from this template set are heavily right-skewed (`k<=4` for 79% of the 300-code sample) rather than flat. Not fixed here since the task asked for diversity and a report, not a specific target distribution — flagging for whoever designs `M0-RUN-01`'s actual sampling budget, since a ranking model trained mostly on `k in {2,4}` may generalise poorly to the rarer, larger-`k` codes it should also be screening.
+**Spec changes:** `spec/tasks.md` (`M0-CODES-05` now `[x]`), `spec/decisions.md` (D-022), `spec/architecture.md` (`construction_program_id` row corrected).
+
+---
+
 ## 2026-09-14 (gg) — Claude Sonnet 5 / Claude Code — M0-CODES-04: estimate_d_upper, and a method that failed the gross code
 
 **Milestone:** M0 — Falsification
