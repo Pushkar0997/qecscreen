@@ -10,8 +10,9 @@ pytest -q && python -m qecscreen.selfcheck
 
 ## 1. Environment
 
-- [ ] `pip install -r requirements.txt` succeeds in a **fresh** Colab cell, no manual fixes
-- [ ] No C toolchain invoked during install (D-018; mechanically checked in CI, `cf5542e`) — a pure-Python sdist build is fine, a compiler invocation is not
+- [ ] `pip install -r requirements.txt` succeeds in a **fresh** Colab cell:
+  - [ ] no manual fixes
+  - [ ] no C toolchain invoked (D-018; mechanically checked in CI, `cf5542e`) — a pure-Python sdist build is fine, a compiler invocation is not
 - [ ] Same on Kaggle
 - [ ] `import qecscreen` completes in under 3 seconds
 - [ ] `import qecscreen` makes no network call (INV-9-T covers this; confirm it ran)

@@ -131,7 +131,7 @@ Recorded here rather than in `AGENT_LOG.md` alone because a criterion is **unmet
 | No C toolchain invoked during install (`spec/smoke.md §1`, D-018) | PASS | `Building wheel for sinter (setup.py)` occurred, but `sinter` 1.16.0 is sdist-only and pure Python — no compiler ran. Criterion restated per D-018 to match what it was always a proxy for; mechanically checked by the CI compiler grep (`cf5542e`), not by wheel availability |
 | Same on Kaggle (`spec/smoke.md §1`) | **NOT RUN** | Kaggle's stack has never been measured. It is the workhorse for bulk generation, so this matters more than the Colab leg |
 
-**Closes?** **No.** Two things must resolve first: (1) the owner determines whether the two manual cells were required — if they were, the fix is to add the constraints to `requirements.txt` so one cell suffices, **not** to soften the criterion; (2) the from-source-build criterion is restated in terms of a compiler invocation rather than wheel availability, since that is what it was ever about.
+**Closes?** **No.** Two things remain open: (1) the owner determines whether the two manual cells were required — if they were, the fix is to add the constraints to `requirements.txt` so one cell suffices, **not** to soften the criterion; (2) Kaggle has never been run.
 
 **Caveats carried forward:** Colab runs Python 3.13.15 with a materially older stack than the dev box — `pandas` 2.2.3 vs 3.0.5, `pyarrow` 18.1.0 vs 25.0.1. Kaggle is unmeasured and is the environment that will actually do the bulk generation.
 
