@@ -302,6 +302,26 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 
 ---
 
+## D-021 — `estimate_d_upper`'s method and default `attempts`, measured
+
+**Status:** decided
+**Decision:** `qecscreen.codes.distance.estimate_d_upper` uses a random-information-set search (`METHOD_NAME = "random_information_set_v1"`), with `DEFAULT_ATTEMPTS = 64`.
+**Rationale:** A first implementation — draw one random dense combination of the `ker(H_X)`/`ker(H_Z)` nullspace basis, then greedily flip in single stabiliser generators while that reduces Hamming weight — failed the [[144,12,12]] gross-code reference check even at 5,000 attempts, returning 14 instead of the published 12. It is a real algorithm, not a bug, but too weak a local search for a code this size: single-generator greedy descent from a random dense (roughly half-weight) starting vector gets stuck in a local minimum well above the true minimum.
+
+Replaced with random-information-set search: draw a random column permutation, use it to select fresh pivot columns when row-reducing the same nullspace basis, and read off the minimum-weight nontrivial row across all attempts. Measured directly, 30 seeds each, on both reference codes:
+- [[72,12,6]]: reaches `d_upper=6` reliably from `attempts=1`.
+- [[144,12,12]] (the binding constraint): `attempts=3` is unreliable — 25/30 seeds correct; `attempts=4` is reliable — 30/30 seeds correct, and stayed 30/30 at 5 and 6.
+
+`DEFAULT_ATTEMPTS=64` is set at 16x the measured reliability threshold (4), for margin against a code this project hasn't sampled yet needing more attempts than either reference code. Measured wall-clock at that default (20-seed average, dev box): ~0.10 s/call for the gross code, ~0.05 s/call for the [[72,12,6]] code — negligible next to the ~100 s/code BP+OSD decoding budget in `spec/architecture.md §6`, which is unaffected by this number.
+
+**Rejected:**
+- *Keep the greedy-descent method and just raise attempts further* — at 5,000 attempts it was still 2 short of the published distance (14 vs 12) with no sign of closing the gap quickly; the method's local-search neighbourhood (single-generator flips from a random dense start) is the limitation, not the attempt count.
+- *Call into `ldpc`'s own distance-estimation utilities* — `ldpc` is already a pinned dependency, but the task explicitly scoped this module to `numpy` only; revisit if that constraint is ever lifted.
+
+**Revisit if:** a future construction program (GB, HGP, TB — M1) needs more than 64 attempts to reliably match a published reference distance; re-measure per family rather than assuming this default generalises.
+
+---
+
 ## Template
 
 ```

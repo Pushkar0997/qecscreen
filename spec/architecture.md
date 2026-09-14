@@ -157,6 +157,8 @@ Stopping rule: stop at 100 failures or 200,000 shots, whichever comes first.
 
 **M1 budget:** ~2,000 rows across 3 families × 3 values of p. At the same mean → ~100 core-hours → **~25 Kaggle hours**, or roughly one week of the 30 h/week allowance. Acceptable. If the measured per-shot cost comes in at the 10 ms end, M1 doubles to two weeks and that is still acceptable — but if it comes in worse than 10 ms, **stop and reduce `osd_order` or switch to BP+LSD**, recording the protocol change as a new `protocol_hash`.
 
+**Distance estimation (M0-CODES-04), measured, not estimated:** `estimate_d_upper` at its default `attempts=64` (D-021) takes ~0.10 s per call for the [[144,12,12]] gross code and ~0.05 s for the [[72,12,6]] reference code (20-seed average, dev box). This is a one-time cost per candidate code, not per shot, and is negligible next to the ~100 s/code decoding budget above — it does not move any number in this section. Recorded so it is a measurement rather than an unstated assumption.
+
 Hard rule: if a projected run exceeds its milestone's stated budget, stop and report rather than starting it.
 
 ## 7. Security and privacy
