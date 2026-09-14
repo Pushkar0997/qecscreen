@@ -6,6 +6,28 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-14 (bb) — Claude Sonnet 5 / Claude Code — add NARRATIVE.md
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** create `NARRATIVE.md`, a new non-authoritative project-history document; add a `NARRATIVE.md` line to `AGENTS.md §5`'s definition of done
+
+**Landed (`59160fb`):**
+- **`NARRATIVE.md`** created: a plain-language, reverse-chronological, append-only account of what happened and why it mattered, explicitly stated at the top of the file to never be a source of truth (`CONTRACT.md`/`spec/`/`AGENT_LOG.md` win on any disagreement), never in `AGENTS.md §1`'s read order, never read by an agent to decide anything, and never parsed by code.
+- Backfilled six entries, each checked against a real source before being written — no claim invented:
+  - The 2026-08-30 `sinter`-needs-Python-≥3.12 claim, verified against `AGENT_LOG.md` (n), which names the exact three files it was repeated into (`requirements.txt`, `spec/architecture.md`, `.github/workflows/ci.yml`) and the `--only-binary=:all:` flag that actually produced it.
+  - The 2026-08-30 CI guard fix, verified against `cf5542e` and D-018.
+  - The 2026-09-07 "zero code written after 25 commits" audit — sourced from `handover.md`, a local, gitignored, uncommitted audit file dated 2026-09-07 that literally ran `git log --oneline -25` and stated "zero source files exist for `codes/`, `circuits/`, `evaluate/`, `features/`, `splits.py`, `metrics.py`, or `scripts/run_m0_pilot.py`." Not one of `AGENT_LOG.md`/`spec/decisions.md`/committed git history names this audit directly, so I read `handover.md` itself to confirm the claim before writing it, rather than take the date and figure from the instruction on faith.
+  - The 2026-09-14 manual-Colab-cells-not-required finding (this session's earlier turn) and the pyarrow/Kaggle-interpreter findings (this session's later turn), both against `spec/evals.md §7` and this session's own commits (`9d1c177`, `2b8ea1e`, `56a991e`).
+- Closing **"Recurring theme"** note: the sinter claim, the pyarrow finding and the Kaggle interpreter correction all share the same shape — a claim believed and repeated without being measured, surviving only until something forced an actual measurement.
+- `AGENTS.md §5` gains a line: append a `NARRATIVE.md` entry when a session produces a finding worth explaining to a person, not for routine task completion.
+
+**Did not land:** `M0-CODES-01` not started, per instruction. `NARRATIVE.md` was not added to `AGENTS.md §1`'s read order, per instruction.
+**Blockers:** none.
+**Noticed, did not fix:** `handover.md` is a real, dated (2026-09-07), substantive audit document that is gitignored and has never been committed — it is the only source for the "25 commits, zero code" finding this entry backfills into `NARRATIVE.md`. Flagging in case the owner wants its findings folded into a committed document (`spec/decisions.md`, or a future `NARRATIVE.md` entry already covers its headline finding) before it is deleted or overwritten by a later session's own handover file, since nothing currently protects it from being replaced.
+**Spec changes:** `NARRATIVE.md` (new, non-authoritative — explicitly not part of the spec/`AGENTS.md §1` read order), `AGENTS.md §5`.
+
+---
+
 ## 2026-09-14 (aa) — Claude Sonnet 5 / Claude Code — M0-SETUP-01: cold-start measurements overturn the previous no-downgrade PASS/NOT VERIFIED
 
 **Milestone:** M0 — Falsification
