@@ -13,6 +13,7 @@ pytest -q && python -m qecscreen.selfcheck
 - [ ] `pip install -r requirements.txt` succeeds in a **fresh** Colab cell:
   - [ ] no manual fixes
   - [ ] no C toolchain invoked (D-018; mechanically checked in CI, `cf5542e`) — a pure-Python sdist build is fine, a compiler invocation is not
+  - [ ] no downgrade of the ambient preinstalled stack — **capture the install log** (the `Attempting uninstall: ...` / `Successfully installed ...` lines), not just the post-install versions. Post-install versions alone cannot detect a downgrade — an ambient package downgraded to satisfy a pin still shows the pinned version afterward, indistinguishable from it having always been that version — and reading them alone produced a wrong PASS on 2026-09-14
 - [ ] Same on Kaggle
 - [ ] `import qecscreen` completes in under 3 seconds
 - [ ] `import qecscreen` makes no network call (INV-9-T covers this; confirm it ran)
