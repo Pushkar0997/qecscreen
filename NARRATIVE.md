@@ -19,6 +19,16 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-14 — The pyarrow loop closed in a single day
+
+The same day the stale `pyarrow<19` pin was found forcing a downgrade on both Colab and Kaggle,
+it was fixed and checked. The upper bound was removed, both platforms were re-measured from a
+factory reset against the new pin, and both came back clean — zero uninstalls, the ambient
+`pyarrow` (23.0.1 on Colab, 24.0.0 on Kaggle) left alone, only the four packages this project
+actually adds. A criterion recorded as PASS in August had gone to FAIL in September without a
+line of this repository changing; by the end of the same day it was PASS again, this time
+because the repository actually changed.
+
 ## 2026-09-14 — The pyarrow pin that went stale in three weeks
 
 A criterion recorded as PASS in August became false in September without a single line of
