@@ -260,6 +260,24 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 
 ---
 
+## D-018 — "No from-source build" replaced by "no C toolchain invoked during install"
+
+**Status:** decided
+**Decision:** The M0 environment exit criterion in `spec/smoke.md §1` and the corresponding row in `spec/evals.md §7` is restated from "no from-source build" to **"no C toolchain invoked during install"**. This is a change to the criterion itself, checked mechanically by the CI compiler grep added in `cf5542e`.
+
+**Rationale:**
+- The original criterion was a proxy for "needs a compiler", per `AGENT_LOG.md` (n).
+- `sinter` 1.16.0 is sdist-only on every Python version, pure Python, no compiler. It builds in one cell on both Colab and Kaggle.
+- The replacement is mechanically checked by the CI compiler grep added in `cf5542e` and validated against five logs. The old `--only-binary=:all:` flag tested nothing of the sort and silently pinned CI to `sinter` 1.15.0.
+- This is recorded explicitly as a criterion change, not a re-measurement, and it is accepted only because the replacement is checked in CI while the original never was.
+
+**Rejected:**
+- *Keep the literal wording* — carries a permanent FAIL on a criterion nobody intends to satisfy, which makes §7 unreadable.
+
+**Revisit if:** never — this retires a proxy criterion in favour of the mechanical check it was always meant to express; it does not vary the way a protocol decision would.
+
+---
+
 ## Template
 
 ```
