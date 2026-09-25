@@ -19,6 +19,19 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-25 — The decoder costs seconds per shot, not milliseconds
+
+The compute budget assumed each simulated experiment would take about 5 milliseconds to decode.
+The first real measurement on the reference code took about two seconds, several hundred times
+more. The cause is that the fast first stage of the decoder almost never finishes on its own on
+realistic noise, so nearly every shot falls through to the slow backup stage. The same small
+measurement suggested something worse: at the error rate the project planned to use, the
+encoded information did worse per round than an unprotected qubit would. That means the codes
+would be ranked in a regime where none of them works. Both findings are from a few dozen shots
+on a laptop and need confirming at scale, but together they mean the first real data run cannot
+start as planned. The error rate, the decoder settings or the decoder itself has to change
+first, and that is a decision for the project owner.
+
 ## 2026-09-25 — A feature leaking into the label through the circuit layout
 
 The first version of the simulated experiment reset all the helper qubits at the start of each

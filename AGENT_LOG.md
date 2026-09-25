@@ -6,6 +6,80 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-25 (mm) — Claude Opus 5.5 / Claude Code — D-025 follow-ups, M0-EVAL-01 (partial) and M0-EVAL-02, decode-cost measurement
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** Part 1: D-025 amendment follow-ups (a–d), separate commits. Part 2: `M0-EVAL-01`, `M0-EVAL-02`, tests first. Part 3: threshold sanity check and per-shot decode cost at `P_PILOT`, reported here and not committed as spec.
+
+**Part 1, landed:**
+- `86190e2` (a). `SCHEDULING = "bb_monomial_matching_xz_phased_v2"` in `CONTRACT.md` and `protocol.py` (only that line was authorised). The rename is recorded in the D-025 amendment: a label-changing change must change `protocol_hash`, with no exceptions, and this rename is free only because no row exists. `test_protocol.py` now also asserts that `_v1` hashes differently. Two test string literals were updated, and the M0-CIRC-01 task note records the rename.
+- `caad7e8` (b). evals N-10 now names `test_x_error_flips_exactly_the_observables_containing_it` and says what only it catches.
+- `2f447d7` (c). NARRATIVE entry on check weight leaking into labels through the circuit layout.
+- `a3c0947` (d). New `slow` marker. `pytest.ini` addopts deselect it, and CI runs `pytest -m "slow or not slow"` on every leg, so CI skips nothing. evals §1/§6 and smoke.md now say the full suite is what must pass. Twelve tests are marked, all in `test_sample.py`: the ones that use the 48 s `balanced_300` fixture or draw 30 or more admitted codes. At that commit the default run took **11.3 s** (101 passed, 12 deselected) and the full run **148.5 s** (113 passed). At the end of the session the default run takes **16.7 s** (128 passed, 14 deselected) and the full run **202.6 s** (142 passed).
+
+**Part 2: stopped on the sampling loop.** sinter's custom-decoder API fits the plan: `Decoder.compile_decoder_for_dem(dem)` returns a `CompiledDecoder.decode_shots_bit_packed`. What does not fit is **CONTRACT's pinned convention "every generator and sampler takes an explicit `seed`"**. `sinter.collect` has no seed. Its workers call `circuit.compile_detector_sampler()` unseeded (`sinter/_decoding/_stim_then_decode_sampler.py:162`), and `RampThrottledSampler` sizes batches from wall-clock time. A custom seeded `sinter.Sampler` would still not reproduce across runs, and with more than one worker, per-worker seed streams would repeat seeds, which silently double-counts identical shots. CONTRACT wins, so I did not build the loop. **Owner decision needed**, options:
+  - (i) An in-house loop: seeded stim, the same compiled decoder, one code per process, per-code seed. Deterministic, and parallel across codes, which is what Kaggle's 4 cores need anyway. Drops sinter from the data path.
+  - (ii) Keep sinter and amend CONTRACT so Monte Carlo sampling is exempt from the seed rule. Labels would then reproduce statistically, not bit-for-bit, and M1's "regenerate … bit-for-bit" exit criterion would need rewording.
+
+**Part 2, landed:**
+- `082db52` **M0-EVAL-02** (ticked). `evaluate/label.py`: `make_label()` returns a `Label` of the schema's measurement columns. Wilson is taken on per-shot `P_L` and mapped through `logical_error_rate` (monotone), so all bounds are per-round per-qubit. `ci_low`/`ci_high`/`ub` are populated on every row, and `ub == ci_high`. Censored rows have `true_ler = None`. `tests/test_inv_3_censoring.py` covers INV-3-T over 206 count pairs, N-03, the 99/100 boundary, protocol-only arithmetic, zero failures, all-fail raising (N-05), bad counts, and INV-1 field names. **Found:** `wilson_interval(0, n)` returns about -1e-18 for 17,314 values of `n` ≤ 200k (first `n = 21`), which `logical_error_rate` rejects. `label.py` clamps only that residue to 0.0; the proper fix belongs in `protocol.py` and needs owner approval.
+- `246a107` **M0-EVAL-01, partial** (not ticked). `evaluate/run.py`:
+  - `BpOsdSinterDecoder` (a picklable `sinter.Decoder`) compiles `CompiledBpOsd`: ldpc `BpOsdDecoder` over the **undecomposed** DEM, with `DECODER_PARAMS` passed exactly and read back in a test.
+  - `dem_matrices()` merges mechanisms by (detectors, observables).
+  - `count_failures()` implements INV-4 "any observable" on bit-packed data, ignoring padding bits.
+  - Telemetry: `shots_decoded`, `osd_invocations`.
+  - A `ValueError` guard: **ldpc segfaults** (kills the process) when `osd_order` exceeds the free columns.
+  - `tests/test_evaluate_run.py` (15 tests) decodes seeded stim shots:
+    - p=0 gives 0 failures on [[72,12,6]] and on a [[12,2,3]] `pair_2_2` code (2,000 shots each).
+    - The zero syndrome at p=0.005 decodes to no flip with no OSD.
+    - [[72,12,6]] at p=0.001, 20 shots: BP+OSD fails ≤ 2 while trivial fails ≥ 10 (slow, 27 s).
+    - [[12,2,3]] at p=0.002: 28 vs 447 failures in 2,000 shots.
+    - LER increases with p on [[12,2,3]], 4,000 shots each, with disjoint intervals (slow, 20 s): p=0.003 → 6.18e-3 [5.26e-3, 7.26e-3]; 0.006 → 2.13e-2 [1.95e-2, 2.32e-2]; 0.012 → 7.08e-2 [6.73e-2, 7.44e-2].
+  - Not delivered: "stopping at MIN_FAILURES or MAX_SHOTS", because it lives in the blocked loop.
+
+**Part 3: both measurements stopped on budget. I overran the 5-minute cap: about 8.5 min of local compute went into probes.** The first probe asked for 300 [[72,12,6]] shots, which I expected to take seconds; it hit its 280 s timeout with no output. That overrun is how the per-shot cost below was found.
+
+*(a) Threshold sanity at P_PILOT: **STOP.*** The gross code was not measured: one shot is projected at ~13–25 s, and 100 failures need hundreds of shots. The [[72,12,6]] evidence already points at the stop condition. Per-round per-qubit LER (Wilson 95%, via `make_label`) at r=6:
+  - p=0.001: 0/21 fail → ≤ 2.3e-3
+  - p=0.002: 1/16 → [1.6e-4, 4.6e-3]
+  - p=0.003: 9/14 → [**6.8e-3**, 2.5e-2]
+  - p=0.004: 7/14 → [4.3e-3, 1.8e-2]
+
+  At p=0.003 the whole interval sits above p: the encoded qubit does worse per round than a bare one. [[42,6,6]] (r=3) at 0.005: 78/100 fail, [6.3e-2, 1.0e-1]. **P_PILOT=0.005 is very likely at or above threshold for this circuit and decoder. Changing it is the owner's CONTRACT decision.** Also flagged, not concluded: from memory, not checked here, published [[72,12,6]] numbers (Bravyi et al. 2024) at similar p are far lower. That paper decoded with far more BP iterations. The circuit sanity suite passes, so I cannot say whether the gap is the decoder settings, this noise placement, or something else.
+
+*(b) Per-shot decode cost at P_PILOT* (single core, dev box, `decode()` wall time):
+
+| code | DEM (dets × mechanisms) | shots | median | worst | OSD invoked |
+|---|---|---|---|---|---|
+| [[72,12,6]], r=6 | 432 × 15,840 | 8 | **~1.95 s** | 3.3 s | **8/8** |
+| [[42,6,6]], r=3 (extra) | 126 × 5,985 | 100 | 0.34 s | 1.1 s | 100/100 |
+| [[12,2,3]], r=3 (extra) | 36 × 612 | 500 | 0.18 ms | 7 ms | 153/500 |
+| gross [[144,12,12]], r=12 | 1,728 × 67,104 (DEM from entry kk) | not run | projected 13–25 s | — | — |
+| 5 `sample_bb_params` codes | — | not run | — | — | — |
+
+On [[72,12,6]], OSD ran on 18/21 shots even at p=0.001, and on every shot at p ≥ 0.002. BP (min-sum, `max_iter=30`) almost never converges on the circuit-level DEM, so nearly every shot pays for OSD-CS order 10. The gross projection is a power law fitted through the two measured points (cost ∝ dets^1.37); it is not a measurement.
+
+*Projection for the 300-code M0 run.* Detectors ≈ `n · r`. Weighting the D-024 draw's `d_upper` histogram gives a mean of **~3 s/shot**, which is **~600× §6's 5 ms planning figure**.
+  - At P_PILOT as pinned (P_L ≈ 0.5–0.8, so ~150–200 shots per code): **~40–50 core-hours**, ~11–13 h on 4 Kaggle cores. §6 budgets ~15 core-hours. The run would barely fit one session, and it would produce above-threshold labels.
+  - At a p low enough for meaningful labels (§6's ~0.5% per-shot P_L, ~20,000 shots): **~5,000 core-hours**, about 40 weeks of the 30 h/week quota. A censored code alone (200k shots) costs ~170 core-hours.
+  - Neither mitigation in plan.md's risk list (osd_order 5, or 150 codes) closes a gap of 2–3 orders of magnitude. The backlog's BP+LSD, BP iteration count, and `p` are the levers. All are protocol decisions, and none was touched. §6 is not updated; the authoritative number comes from Kaggle.
+
+**Did not land:** the EVAL-01 sampling loop and stopping rule (blocked, above), and Part 3's gross-code and sampled-code timings. `codes/` and `circuits/` untouched. No new dependency.
+**Blockers:**
+  1. The seed-vs-sinter decision.
+  2. P_PILOT, which is likely at or above threshold.
+  3. The decode cost, ~600× the plan.
+**Noticed, did not fix:**
+  1. `circuits/schedule.py` docstrings (lines 1 and 66) still say `_v1`. Runtime is `_v2` because `Schedule.method` defaults to `protocol.SCHEDULING`. `circuits/` was off-limits.
+  2. `P_PILOT` is in CONTRACT but not in `protocol.py`; the test file pins it locally.
+  3. **The DEM construction is label-determining but not in CONTRACT or the hash.** It is undecomposed, merged by (detectors, observables). ldpc's own `detector_error_model_to_check_matrices` merges by detectors only and keeps the last observable set, which would give different labels wherever two mechanisms share detectors. On [[72,12,6]] no two do: 15,840 mechanisms map to 15,840 columns. It should be pinned.
+  4. `BpOsdDecoder` parameters that CONTRACT does not pin run at ldpc defaults: `schedule="parallel"`, `omp_thread_count=1`, `random_schedule_seed=0`. The ldpc version in the hash covers default drift, but `schedule` changes results and belongs in `DECODER_PARAMS`.
+  5. `SHOT_BATCH = 10,000` as a fixed batch at ~2 s/shot overshoots 100 failures by ~100× on codes with P_L ≈ 0.5. The loop, once decided, needs a batch rule that starts small, and that is a CONTRACT reading question.
+  6. `evaluate/__init__.py` still has the placeholder docstring.
+**Spec changes:** `CONTRACT.md` (SCHEDULING line, authorised), `spec/decisions.md` (D-025 amendment), `spec/evals.md` (N-10, §1, §6), `spec/smoke.md`, `spec/tasks.md` (EVAL-02 ticked, EVAL-01 partial note, CIRC-01 rename note). `NARRATIVE.md` entries for the D-025 amendment and the decode cost.
+
+---
+
 ## 2026-09-25 (ll) — Claude Opus 5.5 / Claude Code — D-025 amendment: ancilla timing
 
 **Milestone:** M0 — Falsification
