@@ -6,6 +6,35 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-25 (ii) — Claude Opus 5.5 / Claude Code — M0-CODES-05 follow-up: balanced template allocation, D-023
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-CODES-05` follow-up — `balanced` parameter on `sample_bb_params`
+
+**Status check first:** `D-023` absent from `spec/decisions.md`, no `balanced` in `sample.py` or `tests/test_sample.py` → implemented (case B), not verified-only.
+
+**Found while measuring, not previously recorded:** the M0-CODES-05 300-code draw (`budget=150`, `seed=0`) contained **95 exact duplicate codes** (same template, `l`, `m`), on top of the known imbalance (263/300 in four templates, `mixed_5_3` at 0). And at `budget=150` five templates have only 17-20 distinct valid `(l, m)` pairs (out of a 189-pair grid; the other five have 62 or 189). So "balance at 30 each" would have been reachable only by repeating the same ~17 codes. The balanced sampler therefore draws **distinct** pairs within a template, and treats running out as exhaustion to redistribute, not as something to paper over with copies — see D-023's rejected list.
+
+**Landed (`1df9ac9`):**
+- `sample_bb_params(n_codes, budget, seed, balanced=True)`. Balanced: even quota per template (remainder by seeded permutation); each template walks its own `SeedSequence`-spawned, weighted, without-replacement ordering of the `(l, m)` grid (same weights as the original `l`-then-`m` draw); exhausted templates' shortfall redistributed to open ones until full; `RuntimeError` if everything exhausts first — never a short list. Output shuffled so a prefix slice isn't grouped by template.
+- Returns `BBSample`, a `list` subclass with `counts`, `quota`, `exhausted`, `attempts`, `rejections` — existing callers and `==` unaffected.
+- `balanced=False` = original sampler, refactored into `_sample_uniform` with identical RNG call order; confirmed byte-identical output (sha256 of the list repr) against a pre-change snapshot at `(300,150,0)`, `(50,150,3)`, `(400,150,0)`, and pinned in a test to the exact histogram and 639/339 attempts/rejections logged in entry (hh).
+- `tests/test_sample.py`: 9 new tests (balanced default; max <= 2x mean and every template >= 10 at 300 codes; `counts` matches the list; shortfall visible and redistributed; distinctness; determinism; every sample validates and fits budget; raises rather than returning short; `balanced=False` unchanged).
+- Full suite: **83 passed** (74 before, 9 new), also clean under `-W error`.
+
+**Report — 300 codes, `budget=150`, `seed=0`, `balanced=True`:**
+- `construction_program_id` histogram: `quad_2_4` 43, `mod_2_3` 43, `pair_2_2` 42, `quad_4_2` 42, `quad_4_4` 42, `sym_3_3` 20, `rare_3_4` 17, `rare_2_3` 17, `mixed_3_5` 17, `mixed_5_3` 17. Exhausted (quota 30 unmet): the five at 17-20.
+- max / mean = 43 / 30.0 = **1.43** (threshold <= 2.0: pass). Smallest viable-template count **17** (all 10 viable at 150; threshold >= 10: pass). 300 distinct codes.
+- `k` histogram: 2→89, 4→81, 6→78, 8→42, 12→8, 18→2; `k <= 4` fraction **0.567** (was 0.79). `n` 12-150, mean 99.2.
+- Rejection rate **940/1240 = 75.8%** (was 53.1%) — higher because proving a template exhausted means walking its whole 189-pair grid (5 × 189 attempts). Wall-clock **2.46 s** (was 1.56 s).
+
+**Did not land:** `M0-CIRC-01` not started, per instruction. `CONTRACT.md`, `protocol.py`, `generate()`, `validate()`, `estimate_d_upper()` untouched; no new dependency.
+**Blockers:** none.
+**Noticed, did not fix:** redistribution means the five large-grid templates carry 42-43 each against 17-20 for the rest — balanced within 2x, but not flat; a flat design would need either more low-yield-template pairs (larger budget) or capping everyone at the smallest grid. Also, `k` max fell from 26 to 18 in this draw — the rare high-`k` codes are not guaranteed to be sampled by either mode; worth deliberate inclusion if `M0-RUN-01` wants that tail covered.
+**Spec changes:** `spec/decisions.md` (D-023), `spec/tasks.md` (`M0-CODES-05` follow-up note). `NARRATIVE.md` entry for the duplicate finding.
+
+---
+
 ## 2026-09-14 (hh) — Claude Sonnet 5 / Claude Code — M0-CODES-05: sample_bb_params, and three templates that always failed
 
 **Milestone:** M0 — Falsification

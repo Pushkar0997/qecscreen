@@ -19,6 +19,17 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-25 — Nearly a third of the "diverse" sample was the same codes twice
+
+The first code sampler drew polynomial templates uniformly, which sounds fair until you notice
+that some templates produce a valid code 100% of the time and others 9%. The 300-code sample it
+made put 263 codes in four templates and none at all in one. Because the headline evaluation
+holds out whole templates, that quietly shrank a ten-way holdout to about four. Looking closer
+for the fix turned up something worse: 95 of those 300 codes were exact repeats. The rebalanced
+sampler gives every template a fair share of *distinct* codes, and where a template simply
+doesn't have enough distinct valid codes at this size (five have only 17-20), it says so and
+hands the remainder to the others, rather than padding with copies to look even.
+
 ## 2026-09-14 — The pyarrow loop closed in a single day
 
 The same day the stale `pyarrow<19` pin was found forcing a downgrade on both Colab and Kaggle,
