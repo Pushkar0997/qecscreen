@@ -350,6 +350,39 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-024 — Template set corrected for duplicate programs and d <= 2 codes; `d_upper >= 3` admission rule
+
+**Status:** decided (amends D-022's template list; D-023's allocation unchanged)
+**Decision:**
+1. **Removed three templates.** `quad_2_4` and `mixed_5_3` were exact A/B swaps of `quad_4_2` and `mixed_3_5`. `quad_4_4` had `A == B`.
+2. **Added four templates**, giving 11 in total: `bb288_3_3` (the [[288,12,18]] shape from Bravyi et al.), `tri_3_3`, `diag_3_3` and `sq_4_2`. Each must have at least 10 distinct `(l, m)` at `budget=150` that pass both `validate()` and rule 3, measured on the full 189-pair grid as D-022 did. It is also checked against every other template for A/B-swap identity by generating the codes.
+3. **Admission rule.** `sample_bb_params` emits a code only if `estimate_d_upper(h_x, h_z, seed=0) >= MIN_D_UPPER = 3`, with the default attempts from D-021. Rejections are reported by cause, `k<1` or `d_upper<3`.
+4. **Uniqueness.** `template_key(a_exps, b_exps)` gives the canonical form of a template under A/B swap and under shifting each polynomial by a monomial. No two `TEMPLATES` may share a key.
+
+**Why renames and removals are allowed now:** no labelled row exists yet. Nothing has been generated, sampled, decoded or written to Parquet, so no stored `construction_program_id` refers to a removed template. After the first labelled row exists, removing or renaming a template changes the ids of stored rows, and INV-2 grouping over those rows silently breaks. From then on the only acceptable fix is a new id alongside a superseding decision.
+
+**Rationale:**
+- **A/B swap is the same program.** `[B|A]`, `[A^T|B^T]` become `[A|B]`, `[B^T|A^T]` when the two qubit halves are exchanged, at every `(l, m)`. So each swapped pair was one construction program under two ids, which is an INV-2 leak: near-duplicates on both sides of a family-holdout split.
+- **Monomial shifts are the same program too.** Replacing `(A, B)` with `(Ag, Bh)` for monomials `g`, `h` permutes the qubits within each half, so the code is the same. `template_key` covers this as well; this was not in the owner's report, and none of the templates collided under it.
+- **`A == B` forces d <= 2.** With `H_X = [A|A]`, `Z_i Z_{i+lm}` commutes with every X check. Whenever `k >= 1`, some such pair is not a stabiliser. Measured: `quad_4_4` had `k >= 1` at all 189 grid pairs, and **every one** had `d_upper <= 2` (188 at 2, one at 1). That means 69/300 codes in the M0-CODES-05 draw, and 42/300 in D-023's balanced draw, were d <= 2 codes from this one template.
+- **d <= 2 codes don't belong in a screening dataset.** They correct no errors, so any method ranks them last trivially, and they inflate rank correlation for every screening method alike, the incumbent proxy included.
+- **Why the rule uses `estimate_d_upper`.** It is an upper bound, so in principle it can miss a weight-2 logical. On the grid it never did: an exact search for weight-1/2 logicals (column pairs with equal syndromes, checked against the stabiliser row space) agreed with `d_upper <= 2` on **every** k >= 1 code screened, 0 disagreements across all templates.
+- **Measured fraction rejected by the rule, per template, over the budget=150 grid:** `diag_3_3` 47/104, `sq_4_2` 55/189, `rare_2_3` 7/17, `rare_3_4` 5/17, `pair_2_2` 4/189, `mod_2_3` 2/62, and 1 each for `sym_3_3`/20, `quad_4_2`/189, `bb288_3_3`/20 and `tri_3_3`/20; `mixed_3_5` 0/17. Admissible pairs per template: `quad_4_2` 188, `pair_2_2` 185, `sq_4_2` 134, `mod_2_3` 60, `diag_3_3` 57, `sym_3_3`, `bb288_3_3` and `tri_3_3` 19 each, `mixed_3_5` 17, `rare_3_4` 12, `rare_2_3` 10.
+- **Measured, reported rather than asserted:** under x↔y exchange, alone or combined with A/B swap, no template matches any other (generated at `l = m = 7`, row-space comparison after the corresponding qubit permutation). This is a real program-level equivalence too: the x↔y image of a template at `(l, m)` is the template at `(m, l)`, and the budget grid is symmetric. It just has no instances in the current set. Several templates are self-symmetric under it (e.g. `sym_3_3` under x↔y+AB), which is harmless.
+- **`bb288_3_3` is not `sym_3_3` in disguise.** It shares `sym_3_3`'s B and viable-lattice count (20), so I compared per-lattice `(k, d_upper)` fingerprints. They differ, e.g. `(3, 18)` gives d_upper 10 vs 6. `tri_3_3` differs from both in k.
+
+**Rejected:**
+- *Keep `quad_4_4` and rely on the admission rule to reject its codes* — it would never emit a single code, and would permanently waste its share of every draw's attempts. D-022 already rejected shipping a template that can never contribute.
+- *Deduplicate at the id level, e.g. map `quad_2_4` to the id `bb_v1_quad_4_2`* — two exponent lists for one program would stay in the list, and the balanced allocator would give that program two quotas.
+- *An exact-distance admission rule* — the exact weight-≤2 search agreed with `d_upper` everywhere it was measured, so it adds cost and a second code path for no measured gain. Revisit if a future family disagrees.
+- *Include x↔y in `template_key` now* — mathematically justified, but the owner asked to measure it rather than assert it, and there are no instances. See Revisit.
+
+**Consequence for D-023:** `test_unbalanced_unchanged_from_m0_codes_05`, which pinned `balanced=False` to the M0-CODES-05 draw, is removed. That draw came from a template set that no longer exists and contained no d ≤ 2 filter. `balanced=False` keeps its algorithm (uniform template draw, reject-and-redraw) but not its old output.
+
+**Revisit if:** a template is added. Then extend `template_key` to x↔y exchange, since the equivalence holds and the owner's measurement found only that no current pair triggers it. Also revisit if the budget changes: `rare_2_3` sits exactly at the 10-admissible-pair bar at 150. Or if another family (GB, HGP) is added: re-derive that family's own equivalences, because these are specific to the BB construction.
+
+---
+
 ## Template
 
 ```

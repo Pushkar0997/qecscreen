@@ -15,6 +15,13 @@ for the *family*, because grouping on the family alone would still let two
 different polynomial shapes (structurally unrelated codes) share a group,
 which is looser than INV-2 needs. Every code sharing a template shares this
 id; no two templates ever produce the same id.
+
+Two templates can also be the same construction program under different
+exponent lists (D-024): swapping A and B gives ``[B|A]``/``[A^T|B^T]``, which
+is ``[A|B]``/``[B^T|A^T]`` with the two qubit halves exchanged; and
+multiplying A by a monomial ``g`` and B by ``h`` gives ``[Ag|Bh]``, which is
+``[A|B]`` with each half's qubits permuted. ``template_key`` is invariant
+under both, and no two ``TEMPLATES`` may share a key.
 """
 
 from __future__ import annotations
@@ -24,33 +31,45 @@ from typing import Any
 import numpy as np
 
 from qecscreen.codes.bb import generate
+from qecscreen.codes.distance import estimate_d_upper
 from qecscreen.codes.validate import InvalidCodeError, validate
 
-__all__ = ["sample_bb_params", "BBSample", "TEMPLATES"]
+__all__ = ["sample_bb_params", "BBSample", "TEMPLATES", "MIN_D_UPPER", "template_key"]
 
 # Minimum l/m: keeps the cyclic groups non-degenerate. 1 would collapse a
 # dimension entirely (S_1 is the 1x1 identity), which is a valid input to
 # generate() but not a useful sample point.
 _MIN_DIM = 2
 
+# Admission rule (D-024): a code is emitted only if estimate_d_upper() >= 3.
+# A d <= 2 code corrects no errors, so it is trivially rankable and would
+# inflate rank correlation for every screening method alike.
+MIN_D_UPPER = 3
+
 # Structural shapes, not (l, m) choices. Term counts deliberately vary
-# (1..5 monomials per polynomial) so check weight, rank and k vary across
+# (2..5 monomials per polynomial) so check weight, rank and k vary across
 # the sample too, not just n. Named descriptively; the name becomes part of
-# construction_program_id and must stay stable once used (a rename changes
-# every id derived from it, which is exactly the kind of silent split
-# corruption INV-2 exists to prevent).
+# construction_program_id and must stay stable once a labelled row uses it
+# (a rename then changes every id derived from it, which is exactly the kind
+# of silent split corruption INV-2 exists to prevent). D-024's removals and
+# additions happened before any labelled row existed.
 TEMPLATES: list[tuple[str, list[tuple[int, int]], list[tuple[int, int]]]] = [
     ("sym_3_3", [(3, 0), (0, 1), (0, 2)], [(0, 3), (1, 0), (2, 0)]),  # the [[72,12,6]] shape
     ("pair_2_2", [(1, 0), (0, 2)], [(0, 1), (2, 0)]),
     ("quad_4_2", [(1, 0), (0, 1), (2, 0), (0, 2)], [(1, 1), (2, 2)]),
-    ("quad_2_4", [(1, 1), (2, 2)], [(1, 0), (0, 1), (2, 0), (0, 2)]),
     ("rare_3_4", [(1, 2), (0, 3), (3, 0)], [(0, 1), (3, 3), (2, 3), (2, 1)]),
     ("rare_2_3", [(1, 1), (1, 3)], [(0, 1), (3, 2), (2, 1)]),
     ("mixed_3_5", [(4, 0), (0, 1), (1, 3)], [(0, 4), (1, 0), (2, 1), (3, 0), (0, 2)]),
-    ("mixed_5_3", [(0, 4), (1, 0), (2, 1), (3, 0), (0, 2)], [(4, 0), (0, 1), (1, 3)]),
-    ("quad_4_4", [(1, 0), (0, 1), (2, 1), (1, 2)], [(0, 1), (1, 0), (1, 2), (2, 1)]),
     ("mod_2_3", [(1, 0), (2, 3)], [(2, 3), (3, 2), (2, 1)]),
+    # Added by D-024 to replace the three removed templates.
+    ("bb288_3_3", [(3, 0), (0, 2), (0, 7)], [(0, 3), (1, 0), (2, 0)]),  # the [[288,12,18]] shape
+    ("tri_3_3", [(1, 0), (0, 1), (1, 1)], [(0, 0), (2, 1), (1, 2)]),
+    ("diag_3_3", [(1, 0), (0, 1), (2, 2)], [(0, 0), (1, 2), (2, 1)]),
+    ("sq_4_2", [(0, 0), (1, 0), (0, 1), (1, 1)], [(2, 0), (0, 3)]),
 ]
+# Removed by D-024: quad_2_4 and mixed_5_3 (A/B swaps of quad_4_2 and
+# mixed_3_5, so the same programs under a second id) and quad_4_4 (A == B,
+# so Z_i Z_{i+lm} commutes with every X check and d <= 2 whenever k >= 1).
 # A template whose A or B is a single monomial is deliberately avoided: a
 # lone monomial matrix is itself an invertible permutation, so it forces
 # rank(H_X) = rank(H_Z) = l*m regardless of the other polynomial — k = 0 for
@@ -61,7 +80,28 @@ TEMPLATES: list[tuple[str, list[tuple[int, int]], list[tuple[int, int]]]] = [
 # structure rather than any one simple rule; they were replaced rather than
 # kept and hoped past. Every template actually shipped here was verified
 # against that same grid to have a nonzero success rate before being kept —
-# see D-022, spec/decisions.md.
+# see D-022, spec/decisions.md. Since D-024 the bar is at least 10 distinct
+# (l, m) at budget=150 that pass both validate() and the MIN_D_UPPER rule.
+
+
+def _translate_to_origin(exps: list[tuple[int, int]]) -> tuple[tuple[int, int], ...]:
+    lo = min(exps)
+    return tuple(sorted((a - lo[0], b - lo[1]) for a, b in exps))
+
+
+def template_key(
+    a_exps: list[tuple[int, int]], b_exps: list[tuple[int, int]]
+) -> tuple[tuple[tuple[int, int], ...], tuple[tuple[int, int], ...]]:
+    """Canonical form of a template under A/B swap and per-polynomial monomial shift.
+
+    Both operations map every code the template generates, at every
+    ``(l, m)``, to the same code up to a qubit permutation (module
+    docstring), so two templates with equal keys are one construction
+    program. Does not cover equivalences that only hold at particular
+    ``(l, m)`` (e.g. ``y -> y^5`` when ``gcd(5, m) = 1``).
+    """
+    a, b = _translate_to_origin(a_exps), _translate_to_origin(b_exps)
+    return min((a, b), (b, a))
 
 
 class BBSample(list):
@@ -75,17 +115,19 @@ class BBSample(list):
       template listed, including those with 0).
     - ``quota`` — the even allocation each template was first asked for
       (``None`` when ``balanced=False``, which allocates nothing).
-    - ``exhausted`` — ids of templates that ran out of distinct valid
+    - ``exhausted`` — ids of templates that ran out of distinct admissible
       ``(l, m)`` pairs before meeting their quota; their shortfall was
       redistributed to the others. Always empty when ``balanced=False``.
-    - ``attempts`` / ``rejections`` — ``validate()`` calls made / failed.
+    - ``attempts`` — candidate codes checked.
+    - ``rejections`` — how many candidates failed, by cause: ``"k<1"``
+      (``validate()`` failed) and ``"d_upper<3"`` (the D-024 admission rule).
     """
 
     counts: dict[str, int]
     quota: dict[str, int] | None
     exhausted: tuple[str, ...]
     attempts: int
-    rejections: int
+    rejections: dict[str, int]
 
 
 def sample_bb_params(n_codes: int, budget: int, seed: int, balanced: bool = True) -> BBSample:
@@ -97,13 +139,14 @@ def sample_bb_params(n_codes: int, budget: int, seed: int, balanced: bool = True
     is not needed for that: ``generate`` is deterministic in its other
     arguments alone).
 
-    Every returned code has already passed ``qecscreen.codes.validate.validate``
-    (so ``k >= 1``). The same ``(n_codes, budget, seed, balanced)`` always
-    returns an identical list.
+    Every returned code is *admissible*: it has passed
+    ``qecscreen.codes.validate.validate`` (so ``k >= 1``) and has
+    ``estimate_d_upper(h_x, h_z, seed=0) >= MIN_D_UPPER`` (D-024). The same
+    ``(n_codes, budget, seed, balanced)`` always returns an identical list.
 
     ``balanced=True`` (the default, D-023) splits ``n_codes`` evenly across
-    ``TEMPLATES`` and fills each template's quota with *distinct* valid
-    ``(l, m)`` pairs. A template with fewer distinct valid pairs than its
+    ``TEMPLATES`` and fills each template's quota with *distinct* admissible
+    ``(l, m)`` pairs. A template with fewer such pairs than its
     quota at this budget is marked exhausted and its shortfall is
     redistributed evenly to templates that still have pairs left; if every
     template is exhausted first, ``RuntimeError`` — never a shorter list.
@@ -142,14 +185,23 @@ def _params(template_idx: int, l: int, m: int) -> dict[str, Any]:
     }
 
 
-def _is_valid(template_idx: int, l: int, m: int) -> bool:
+def _rejection_cause(template_idx: int, l: int, m: int) -> str | None:
+    """``None`` if the code is admitted, else the reason it is not."""
     _, a_exps, b_exps = TEMPLATES[template_idx]
     h_x, h_z = generate(l, m, a_exps, b_exps, seed=0)
     try:
         validate(h_x, h_z)
     except InvalidCodeError:
-        return False
-    return True
+        return "k<1"
+    # Fixed seed: admission is a property of the code, not of the draw.
+    d_upper, _ = estimate_d_upper(h_x, h_z, seed=0)
+    if d_upper < MIN_D_UPPER:
+        return f"d_upper<{MIN_D_UPPER}"
+    return None
+
+
+def _new_rejections() -> dict[str, int]:
+    return {"k<1": 0, f"d_upper<{MIN_D_UPPER}": 0}
 
 
 def _finish(
@@ -157,7 +209,7 @@ def _finish(
     quota: dict[str, int] | None,
     exhausted: tuple[str, ...],
     attempts: int,
-    rejections: int,
+    rejections: dict[str, int],
 ) -> BBSample:
     out = BBSample(results)
     out.counts = {_pid(t): 0 for t in range(len(TEMPLATES))}
@@ -217,7 +269,7 @@ def _sample_balanced(n_codes: int, budget: int, seed: int) -> BBSample:
     pos = [0] * n_t
     exhausted = [False] * n_t
     attempts = 0
-    rejections = 0
+    rejections = _new_rejections()
 
     # Each pass either fills every open quota or exhausts at least one more
     # template, so this terminates within n_t + 1 passes.
@@ -227,10 +279,11 @@ def _sample_balanced(n_codes: int, budget: int, seed: int) -> BBSample:
                 l, m = pairs[int(walks[t][pos[t]])]
                 pos[t] += 1
                 attempts += 1
-                if _is_valid(t, l, m):
+                cause = _rejection_cause(t, l, m)
+                if cause is None:
                     accepted[t].append(_params(t, l, m))
                 else:
-                    rejections += 1
+                    rejections[cause] += 1
             if len(accepted[t]) < quota[t]:
                 exhausted[t] = True
 
@@ -244,8 +297,8 @@ def _sample_balanced(n_codes: int, budget: int, seed: int) -> BBSample:
         if not open_ts:
             got = {_pid(t): len(accepted[t]) for t in range(n_t)}
             raise RuntimeError(
-                f"could not draw {n_codes} distinct valid codes at budget={budget}: every "
-                f"template ran out of valid (l, m) pairs; got {sum(got.values())}, counts={got}"
+                f"could not draw {n_codes} distinct admissible codes at budget={budget}: every "
+                f"template ran out of admissible (l, m) pairs; got {sum(got.values())}, counts={got}"
             )
         share, extra = divmod(shortfall, len(open_ts))
         for j, i in enumerate(alloc_rng.permutation(len(open_ts))):
@@ -267,15 +320,15 @@ def _sample_uniform(n_codes: int, budget: int, seed: int) -> BBSample:
 
     results: list[dict[str, Any]] = []
     attempts = 0
-    rejections = 0
+    rejections = _new_rejections()
     max_attempts = max(10_000, n_codes * 200)
 
     while len(results) < n_codes:
         attempts += 1
         if attempts > max_attempts:
             raise RuntimeError(
-                f"could not draw {n_codes} valid codes within {max_attempts} attempts "
-                f"(got {len(results)}, {rejections} rejected); budget={budget} may be too "
+                f"could not draw {n_codes} admissible codes within {max_attempts} attempts "
+                f"(got {len(results)}, rejected {rejections}); budget={budget} may be too "
                 "tight for the current template set"
             )
 
@@ -287,8 +340,9 @@ def _sample_uniform(n_codes: int, budget: int, seed: int) -> BBSample:
             continue  # this l leaves no room for a valid m; redraw
         m = int(rng.integers(_MIN_DIM, max_m + 1))
 
-        if not _is_valid(template_idx, l, m):
-            rejections += 1
+        cause = _rejection_cause(template_idx, l, m)
+        if cause is not None:
+            rejections[cause] += 1
             continue
 
         results.append(_params(template_idx, l, m))
