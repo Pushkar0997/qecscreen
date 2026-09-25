@@ -19,6 +19,22 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-25 — A feature leaking into the label through the circuit layout
+
+The first version of the simulated experiment reset all the helper qubits at the start of each
+round. The helpers that read out the Z checks then sat idle through the whole first half of the
+round, picking up noise before they had done anything. That extra noise makes their readings
+less reliable, and in this experiment those are the readings that protect the stored
+information. How long they waited depended on the code: a code with heavier checks has a longer
+first half, so its helpers wait longer and it looks worse. Check weight is one of the cheap
+features the screening model is meant to learn from. A model trained on those labels could have
+learned "heavier checks are worse" from how the circuit was laid out, not from anything about
+the code, and the project would have reported a screening signal that its own measurement
+pipeline had manufactured. The fix resets each helper just before it is used and reads it out
+just after, without making the rounds any longer. It also got a new protocol name, because a
+change that alters labels has to be distinguishable from the old version in the data. Both
+changes were free only because no labels had been generated yet.
+
 ## 2026-09-25 — Where the noise sits decides which codes look good
 
 Building the simulated experiment meant pinning details the protocol had left open. One of them
