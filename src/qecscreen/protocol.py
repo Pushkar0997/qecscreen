@@ -61,7 +61,9 @@ DECODER_PARAMS = {
 }
 
 # D-025: X-check phase then Z-check phase, one CX tick per monomial of A / B.
-SCHEDULING = "bb_monomial_matching_xz_phased_v1"
+# v2 since the D-025 ancilla-timing amendment: a label-changing circuit change
+# must change this string, so pre- and post-amendment rows never share a hash.
+SCHEDULING = "bb_monomial_matching_xz_phased_v2"
 
 # D-025: the label is a Z-basis memory LER. The basis changes every label, so
 # it enters the hash.

@@ -85,7 +85,7 @@ def test_schedule_layers_are_matchings_that_rebuild_the_checks(code):
     sched = bb_schedule(code["l"], code["m"], code["a_exps"], code["b_exps"])
     depth = len(code["a_exps"]) + len(code["b_exps"])
 
-    assert sched.method == SCHEDULING == "bb_monomial_matching_xz_phased_v1"
+    assert sched.method == SCHEDULING == "bb_monomial_matching_xz_phased_v2"
     # Konig minimum: max Tanner-graph degree, which is the check weight here.
     assert len(sched.x_layers) == len(sched.z_layers) == depth
     assert int(h_x.sum(axis=1).max()) == int(h_z.sum(axis=1).max()) == depth

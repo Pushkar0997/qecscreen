@@ -208,7 +208,7 @@ DECODER                 = "BpOsdDecoder"
   osd_method            = "osd_cs"
   osd_order             = 10
 
-SCHEDULING              = "bb_monomial_matching_xz_phased_v1"   # D-025
+SCHEDULING              = "bb_monomial_matching_xz_phased_v2"   # D-025 + amendment
   X phase then Z phase, never interleaved. One CX tick per monomial: each
   monomial of A or B is a permutation matrix, i.e. a perfect matching between
   ancillas and one data block. X phase: A's monomials (data 0..lm-1) then B's

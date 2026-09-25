@@ -157,8 +157,10 @@ def test_d025_memory_basis_is_z_and_in_the_hash():
 
 
 def test_d025_scheduling_string_is_pinned_and_in_the_hash():
-    assert SCHEDULING == "bb_monomial_matching_xz_phased_v1"
+    assert SCHEDULING == "bb_monomial_matching_xz_phased_v2"
     assert _protocol().hash() != _protocol(scheduling="tanner_edge_colouring_v1").hash()
+    # The pre-amendment ancilla timing (D-025 amendment) is a different protocol.
+    assert _protocol().hash() != _protocol(scheduling="bb_monomial_matching_xz_phased_v1").hash()
 
 
 def test_inv6_decoder_version_is_required_and_real():
