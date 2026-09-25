@@ -88,9 +88,10 @@ They also have a failure mode of their own: a grep that matches nothing passes w
 | N-06 | `gf2_rank` on a matrix with real-rank 3 and GF(2)-rank 2 returns 2 |
 | N-07 | A feature function taking >1s on a 200-qubit code **fails the test**, because the entire pitch is that screening is cheap |
 | N-08 | At `p=0`, the memory circuit produces **zero** detection events over 1,000 shots. Any non-zero count means the circuit is malformed |
+| N-10 | At `p=0`, one injected X (Z) error on a data qubit between rounds fires **exactly** the Z (X) checks on that qubit in the next round, and nothing else. A circuit with no working detectors passes N-08; it does not pass this (`test_x_error_on_data_fires_its_z_checks`, `test_z_error_on_data_fires_its_x_checks`) |
 | N-09 | Requesting a family that does not exist raises `KeyError` listing available families, rather than returning an empty frame |
 
-N-08 is the one that catches a broken circuit builder, which is otherwise invisible — a wrong circuit still produces plausible-looking LERs.
+N-08 is the one that catches a broken circuit builder, which is otherwise invisible — a wrong circuit still produces plausible-looking LERs. It is `test_p0_zero_detection_events`, and it is necessary but not sufficient: N-10 exists because a circuit whose detectors detect nothing also has zero events at `p=0`. `test_detector_error_model_builds` (Stim refuses non-deterministic detectors) is what caught an interleaved X/Z schedule in mutation testing.
 
 ## 5. Telemetry
 
