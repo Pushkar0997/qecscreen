@@ -6,6 +6,73 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-25 (ll) — Claude Opus 5.5 / Claude Code — D-025 amendment: ancilla timing
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** D-025 amendment (owner decision), ancilla timing. Owner authorised edits to CONTRACT.md's tick-layout lines and the D-025 record, nothing else outside `circuits/` and its tests.
+
+**Read of the instruction, stated because it had two readings.** Taken literally, "reset X → X phase → [MX + R Z] → Z phase → measure Z" per round is 3 non-CX ticks per round, one more than before, and that contradicts "no added depth" (it would add one data idle per round). The only layout satisfying both is to put round t's Z readout in the same tick as round t+1's X reset, and the last Z readout in the tick of the noiseless data readout. That is what landed. If the owner meant the literal version with an extra tick, it is a one-line change, and `test_tick_layout_per_round` pins which one we have.
+
+**Landed (`5f1ee3b`, code and spec in one commit per AGENTS §4):**
+- `build.py`: open tick (RX X-ancillas, + M of the previous Z-ancillas), X phase, swap tick (MX X + R Z), Z phase; last tick M(p) Z-ancillas + noiseless M data. `DEPOLARIZE1(p)` stays on every qubit not acted on, per CONTRACT's literal rule. For ancillas this now happens only between readout and next reset (Z-ancillas in round 0's open tick, X-ancillas during the Z phase and in the last tick), where it cannot change any outcome.
+- CONTRACT tick-layout lines rewritten; D-025 amendment recorded in `spec/decisions.md`, with the feature-leakage reason and "free only because no labelled row exists".
+- Tests (`tests/test_circuit_sanity.py`, 25 → 31):
+  - `test_tick_layout_per_round` (ref72 and mixed42, depth 6 and 8): the exact gate signature of every tick.
+  - `test_no_ancilla_idles_while_it_holds_syndrome`: every reset ancilla is in a CX the very next tick, and no DEPOLARIZE1 hits it before its readout.
+  - `test_idles_off_the_syndrome_window_do_not_reach_the_dem`: stripping the out-of-window ancilla idles leaves the DEM identical.
+  - `test_x_error_flips_exactly_the_observables_containing_it`: for all 72 data qubits, flipped observables `== {i : z_logical_basis()[i][q] == 1}`. The qubit 0/40 tests now assert the same set equality.
+  - Placement and channel-count tests extended to the new layout.
+  - The injection point moved from "after MX" to "after the Z-ancilla M", since MX is now mid-round.
+
+**Report — [[72,12,6]], r = 6 (mixed42, r = 3, in brackets):**
+
+| | before | after |
+|---|---|---|
+| ticks per round | 14 [18] | 14 [18] |
+| ticks in circuit | 86 [56] | 86 [56] |
+| ancilla idle ticks per round while holding syndrome | 432 [336] | **0** [0] |
+| … of which between reset and first CX | 216 [168] | **0** [0] |
+| ancilla idle ticks outside the syndrome window (whole circuit, no effect on DEM) | 0 | 2664 [1050] |
+| data idle ticks per round | 576 [420] | 576 [420] |
+| detectors | 432 [126] | 432 [126] |
+| DEM error mechanisms | 15,840 [5,985] | 15,840 [5,985] |
+
+DEPOLARIZE1 channel count in the ref circuit: 6·1008 → 6·1008 + 72 (the 72 are the round-0 Z-ancillas before their first reset and the X-ancillas in the last tick).
+
+**Mutation check, against the new layout: 16 mutants, all caught.**
+- The 8 from entry (kk), ported:
+  - interleave X/Z: 17 tests;
+  - Z phase before X: 9;
+  - noisy data preparation: 2;
+  - missing CX idles: 2;
+  - noisy final readout: 2;
+  - identity observables: 9;
+  - wrong-check Z detector: 2;
+  - missing final detectors: 5.
+- New:
+  - the pre-amendment builder from HEAD: 7 (layout, no-idle, placement, counts);
+  - Z reset moved back to round start: 7;
+  - X measured at round end: 8;
+  - an extra closing tick (added depth): 4;
+  - no noise on out-of-window ancillas: 2 (DEM-equivalent, caught by the literal CONTRACT placement rule);
+  - observable 0 × a Z stabiliser: 2 (the new sweep, plus qubit 40);
+  - observable 0 × observable 1: 2 (the sweep, plus qubit 0).
+
+  The last two stay deterministic and pass N-08 and the DEM build. The exact-set sensitivity tests are what catch them.
+
+**Suite:** **113 passed** (107 before), clean under `-W error`, 147 s.
+
+**Did not land:** `codes/`, `protocol.py`, evals.md untouched (out of scope).
+**Blockers:** none.
+**Noticed, did not fix:**
+1. The scheduling string and noise-model name are unchanged, as instructed, so a pre-amendment and post-amendment circuit share a `protocol_hash`. Harmless today because no row exists. If anyone ever regenerates rows from a pre-`5f1ee3b` commit, only `commit_sha` distinguishes them.
+2. `spec/evals.md` N-10 names only the two per-qubit tests. The new sweep test belongs there too, but evals.md was outside this change's scope.
+3. D-025 item 2 still carries the original layout sentence. It is superseded by the amendment directly below it, not edited, per decisions.md's supersede-don't-delete rule.
+4. No `NARRATIVE.md` entry, since it was out of scope. The feature-leakage reasoning is worth one if the owner wants it.
+**Spec changes:** `CONTRACT.md` (tick layout), `spec/decisions.md` (D-025 amendment).
+
+---
+
 ## 2026-09-25 (kk) — Claude Opus 5.5 / Claude Code — M0-CIRC-01/02/03: circuit protocol v1 (D-025), schedule, Z-memory circuit
 
 **Milestone:** M0 — Falsification
