@@ -83,3 +83,90 @@ def test_n_codes_must_be_positive():
 def test_budget_too_small_is_rejected():
     with pytest.raises(ValueError):
         sample_bb_params(10, budget=4, seed=0)  # can't fit even l=m=2
+
+
+# --- D-023: balanced template allocation -----------------------------------
+
+
+@pytest.fixture(scope="module")
+def balanced_300():
+    return sample_bb_params(300, BUDGET, seed=0, balanced=True)
+
+
+def test_balanced_is_the_default(balanced_300):
+    assert sample_bb_params(300, BUDGET, seed=0) == balanced_300
+
+
+def test_balanced_every_template_under_2x_mean_and_viable_ones_at_least_10(balanced_300):
+    """All 10 templates are viable at budget=150 (each has >= 17 distinct
+    valid (l, m) pairs, D-023), so every one must reach 10."""
+    assert len(balanced_300) == 300
+    counts = balanced_300.counts
+    assert set(counts) == {f"bb_v1_{name}" for name, _, _ in TEMPLATES}
+    mean = len(balanced_300) / len(counts)
+    assert max(counts.values()) <= 2 * mean, counts
+    assert min(counts.values()) >= 10, counts
+
+
+def test_balanced_counts_attribute_matches_the_list(balanced_300):
+    tally: dict[str, int] = {}
+    for p in balanced_300:
+        tally[p["construction_program_id"]] = tally.get(p["construction_program_id"], 0) + 1
+    assert {k: v for k, v in balanced_300.counts.items() if v} == tally
+    assert sum(balanced_300.quota.values()) == 300
+
+
+def test_balanced_shortfall_is_redistributed_and_visible(balanced_300):
+    """Templates with fewer distinct valid pairs than their quota of 30 are
+    reported as exhausted; the list is still full length, not short."""
+    assert balanced_300.exhausted  # five templates have only 17-20 valid pairs at 150
+    for pid in balanced_300.exhausted:
+        assert balanced_300.counts[pid] < balanced_300.quota[pid]
+    for pid, n in balanced_300.counts.items():
+        if pid not in balanced_300.exhausted:
+            assert n >= balanced_300.quota[pid]
+
+
+def test_balanced_codes_are_distinct(balanced_300):
+    keys = [(p["construction_program_id"], p["l"], p["m"]) for p in balanced_300]
+    assert len(keys) == len(set(keys))
+
+
+def test_balanced_determinism():
+    assert sample_bb_params(120, BUDGET, seed=7, balanced=True) == sample_bb_params(
+        120, BUDGET, seed=7, balanced=True
+    )
+    assert sample_bb_params(120, BUDGET, seed=7) != sample_bb_params(120, BUDGET, seed=8)
+
+
+def test_balanced_every_sample_validates_and_respects_budget(balanced_300):
+    for p in balanced_300:
+        assert 2 * p["l"] * p["m"] <= BUDGET
+        h_x, h_z = generate(p["l"], p["m"], p["a_exps"], p["b_exps"], seed=0)
+        validate(h_x, h_z)
+
+
+def test_balanced_raises_rather_than_returning_short():
+    """budget=8 admits only l=m=2: at most one distinct code per template."""
+    with pytest.raises(RuntimeError):
+        sample_bb_params(len(TEMPLATES) + 1, budget=8, seed=0, balanced=True)
+
+
+def test_unbalanced_unchanged_from_m0_codes_05():
+    """balanced=False must reproduce the exact 300-code draw logged for
+    M0-CODES-05 (AGENT_LOG 2026-09-14 (hh)), the draw that motivated D-023."""
+    params = sample_bb_params(300, BUDGET, seed=0, balanced=False)
+    assert params.counts == {
+        "bb_v1_pair_2_2": 70,
+        "bb_v1_quad_4_4": 69,
+        "bb_v1_quad_4_2": 63,
+        "bb_v1_quad_2_4": 61,
+        "bb_v1_mod_2_3": 21,
+        "bb_v1_sym_3_3": 8,
+        "bb_v1_rare_2_3": 6,
+        "bb_v1_mixed_3_5": 1,
+        "bb_v1_rare_3_4": 1,
+        "bb_v1_mixed_5_3": 0,
+    }
+    assert (params.attempts, params.rejections) == (639, 339)
+    assert params.quota is None and params.exhausted == ()

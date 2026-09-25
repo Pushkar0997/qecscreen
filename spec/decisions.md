@@ -335,6 +335,21 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-023 — `sample_bb_params` allocates codes evenly across templates, with distinct `(l, m)` per template
+
+**Status:** decided
+**Decision:** `sample_bb_params(n_codes, budget, seed, balanced=True)`. With `balanced=True` (the new default), `n_codes` is split evenly across `TEMPLATES` (remainder assigned by a seeded permutation), and each template fills its quota by walking its own seeded, weighted, without-replacement ordering of the `(l, m)` grid (weights match the `balanced=False` `l`-then-`m` draw, so the `n` distribution stays comparable). Codes within a template are therefore distinct. A template that runs out of valid pairs before its quota is marked **exhausted** and the shortfall is redistributed evenly to the templates still open, repeating until the list is full; if every template is exhausted first, `RuntimeError` — never a shorter list. The return value is a `BBSample` (a `list` subclass, so existing callers and `==` are unaffected) carrying `counts`, `quota`, `exhausted`, `attempts`, `rejections`. `balanced=False` reproduces the M0-CODES-05 sampler exactly (same list, pinned by `test_unbalanced_unchanged_from_m0_codes_05`).
+**Rationale:** Measured on the M0-CODES-05 sampler, 300 codes at `budget=150`, `seed=0`: `pair_2_2` 70, `quad_4_4` 69, `quad_4_2` 63, `quad_2_4` 61, `mod_2_3` 21, `sym_3_3` 8, `rare_2_3` 6, `mixed_3_5` 1, `rare_3_4` 1, `mixed_5_3` **0** — four templates held 263/300 (87.7%), max/mean 2.33. Uniform template draws against per-template yields of 9%-100% cause this. INV-2 groups splits on `construction_program_id`, so the family holdout collapsed to roughly four effective folds, with singleton test groups. The same draw also held **95 exact duplicate codes** (same template, `l`, `m`): duplicates stay inside one group, so they do not leak, but they inflate a group's weight with no new information and would cost labelling CPU for nothing. Measured at `budget=150`, the number of distinct valid `(l, m)` pairs per template (out of 189 on the grid) is: `pair_2_2`, `quad_4_2`, `quad_2_4`, `quad_4_4` 189 each; `mod_2_3` 62; `sym_3_3` 20; `rare_3_4`, `rare_2_3`, `mixed_3_5`, `mixed_5_3` 17 each. So every template is viable at 150, and five cannot fill a quota of 30 with distinct codes. The same draw after this change (`balanced=True`): five templates capped at 17-20 (exhausted), the other five at 42-43; max/mean 1.43, min 17, 300 distinct codes, `k <= 4` fraction 0.57 (was 0.79), 1240 `validate()` calls / 940 rejected, 2.5 s wall-clock (was 1.6 s).
+**Rejected:**
+- *Balance quotas but allow duplicate `(l, m)` within a template* — every template would reach exactly 30, but the five low-yield ones would do it by repeating ~17 codes, which would give them the look of balance without the substance. It would also make "can't fill its quota" nearly impossible to detect, since any template with even one valid pair can fill any quota with copies.
+- *Weight template draws by inverse measured yield* — needs yields that are budget-specific and would need re-measuring whenever the budget or template set changes; the balance it achieves is only in expectation, not per draw.
+- *Bound each template by an attempt timeout instead of the finite grid* — "exhausted" would then be a guess from a timeout rather than a fact. The grid at any budget is finite and small (189 pairs at 150), so walking it without replacement makes exhaustion exact and the attempts bounded by construction.
+- *Change the return type to a separate result object* — would break every existing caller for the sake of the metadata; a `list` subclass carries it without that.
+
+**Revisit if:** the template set or budget changes enough that most templates are exhausted (redistribution would then pile codes onto the few with large grids — check `BBSample.counts`), or if the M0 grid expands to more construction families, where the same per-program balance question applies across families as well as within one.
+
+---
+
 ## Template
 
 ```
