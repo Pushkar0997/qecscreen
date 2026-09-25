@@ -74,4 +74,6 @@ jobs:
         run: pip list
 
       - name: Run tests
-        run: pytest
+        # The full suite, slow tests included. pytest.ini deselects `slow` by
+        # default for local runs; this -m overrides that. CI never skips.
+        run: pytest -m "slow or not slow"

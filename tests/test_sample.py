@@ -26,6 +26,9 @@ from qecscreen.linalg import gf2_rank
 BUDGET = 150
 
 
+# Every test using this fixture, and every test drawing >= 30 admitted codes, is
+# marked slow: admission runs estimate_d_upper per candidate (D-024), so these
+# dominate the suite. The default local run skips them; CI runs them all.
 @pytest.fixture(scope="module")
 def balanced_300():
     return sample_bb_params(300, BUDGET, seed=0, balanced=True)
@@ -77,6 +80,7 @@ def test_template_names_are_unique():
 # --- sampler output -------------------------------------------------------
 
 
+@pytest.mark.slow
 def test_every_emitted_code_is_admissible(balanced_300):
     for p in balanced_300:
         assert 2 * p["l"] * p["m"] <= BUDGET
@@ -86,6 +90,7 @@ def test_every_emitted_code_is_admissible(balanced_300):
         assert d_upper >= MIN_D_UPPER, p
 
 
+@pytest.mark.slow
 def test_unbalanced_output_is_admissible_too():
     params = sample_bb_params(30, BUDGET, seed=1, balanced=False)
     assert len(params) == 30
@@ -96,6 +101,7 @@ def test_unbalanced_output_is_admissible_too():
         assert estimate_d_upper(h_x, h_z, seed=0)[0] >= MIN_D_UPPER
 
 
+@pytest.mark.slow
 def test_determinism_same_args_identical_list():
     for balanced in (True, False):
         assert sample_bb_params(30, BUDGET, seed=3, balanced=balanced) == sample_bb_params(
@@ -104,11 +110,13 @@ def test_determinism_same_args_identical_list():
     assert sample_bb_params(30, BUDGET, seed=7) != sample_bb_params(30, BUDGET, seed=8)
 
 
+@pytest.mark.slow
 def test_at_least_eight_distinct_templates_in_a_large_sample(balanced_300):
     pids = {p["construction_program_id"] for p in balanced_300}
     assert len(pids) >= 8
 
 
+@pytest.mark.slow
 def test_same_template_shares_id_different_templates_never_do(balanced_300):
     by_shape: dict[tuple[tuple[int, int], ...], set[str]] = {}
     id_to_shapes: dict[str, set[tuple[tuple[int, int], ...]]] = {}
@@ -126,6 +134,7 @@ def test_same_template_shares_id_different_templates_never_do(balanced_300):
         assert len(shapes) == 1, f"id {pid} was used for multiple shapes: {shapes}"
 
 
+@pytest.mark.slow
 def test_reference_code_shape_carries_the_expected_id(balanced_300):
     """If the [[72,12,6]] shape is ever drawn, it must carry bb_v1_sym_3_3."""
     reference_a = [(3, 0), (0, 1), (0, 2)]
@@ -154,12 +163,14 @@ def test_budget_too_small_is_rejected():
 # --- D-023: balanced template allocation -----------------------------------
 
 
+@pytest.mark.slow
 def test_balanced_is_the_default():
     assert sample_bb_params(30, BUDGET, seed=0) == sample_bb_params(
         30, BUDGET, seed=0, balanced=True
     )
 
 
+@pytest.mark.slow
 def test_balanced_every_template_under_2x_mean_and_viable_ones_at_least_10(balanced_300):
     """Every template is viable at budget=150 (each has >= 10 distinct
     admissible (l, m) pairs, D-024), so every one must reach 10."""
@@ -171,6 +182,7 @@ def test_balanced_every_template_under_2x_mean_and_viable_ones_at_least_10(balan
     assert min(counts.values()) >= 10, counts
 
 
+@pytest.mark.slow
 def test_balanced_counts_attribute_matches_the_list(balanced_300):
     tally: dict[str, int] = {}
     for p in balanced_300:
@@ -179,6 +191,7 @@ def test_balanced_counts_attribute_matches_the_list(balanced_300):
     assert sum(balanced_300.quota.values()) == 300
 
 
+@pytest.mark.slow
 def test_balanced_shortfall_is_redistributed_and_visible(balanced_300):
     """Templates with fewer distinct admissible pairs than their quota are
     reported as exhausted; the list is still full length, not short."""
@@ -190,11 +203,13 @@ def test_balanced_shortfall_is_redistributed_and_visible(balanced_300):
             assert n >= balanced_300.quota[pid]
 
 
+@pytest.mark.slow
 def test_balanced_codes_are_distinct(balanced_300):
     keys = [(p["construction_program_id"], p["l"], p["m"]) for p in balanced_300]
     assert len(keys) == len(set(keys))
 
 
+@pytest.mark.slow
 def test_rejections_are_reported_by_cause(balanced_300):
     rej = balanced_300.rejections
     assert set(rej) == {"k<1", f"d_upper<{MIN_D_UPPER}"}

@@ -5,7 +5,7 @@ Run before every dataset release and before every tagged version. ~10 minutes. C
 This project has no deploy, no users and no UI, so the standard web checklist does not apply. What replaces it is the **cold-clone check** — the equivalent of a cold start for a research artifact, and the thing that most often reveals the project only works on one laptop.
 
 ```
-pytest -q && python -m qecscreen.selfcheck
+pytest -q -m "slow or not slow" && python -m qecscreen.selfcheck
 ```
 
 ## 1. Environment
@@ -24,7 +24,7 @@ pytest -q && python -m qecscreen.selfcheck
 The most valuable section. Do it properly — a fresh clone in a fresh directory, not a `git pull`.
 
 - [ ] Clone into a new directory with no `data/`
-- [ ] `pytest -q` passes with zero pre-existing data files present
+- [ ] `pytest -q -m "slow or not slow"` (full suite, not the default fast run) passes with zero pre-existing data files present
 - [ ] `scripts/run_m0_pilot.py --limit 3` generates 3 rows end to end from nothing
 - [ ] Kill it mid-run, restart it — it resumes and does not duplicate rows
 - [ ] The reference `[[72,12,6]]` code reproduces `n=72, k=12, d_upper=6` (G-07..G-10)

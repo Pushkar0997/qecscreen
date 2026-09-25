@@ -3,10 +3,11 @@
 ## 1. How to run
 
 ```
-pytest -q
+pytest -q                          # default: skips tests marked `slow`
+pytest -q -m "slow or not slow"    # the full suite, what CI runs on every leg
 ```
 
-Must pass before any commit is considered done and before any dataset release. Non-zero exit on failure.
+The default run skips tests marked `slow` (the large admitted-sample draws in `test_sample.py`) so the edit-test loop stays short. **The full suite** must pass before any commit is considered done and before any dataset release; CI runs it on every interpreter and never skips. Non-zero exit on failure.
 
 Tolerances: golden LER and Wilson values are asserted with `math.isclose(rel_tol=1e-12)`. They are deterministic arithmetic, not simulation, so there is no reason to be loose.
 
@@ -99,7 +100,7 @@ N-08 is the one that catches a broken circuit builder, which is otherwise invisi
 
 ## 6. Pre-release gate
 
-- [ ] `pytest -q` passes, zero failures, zero new warnings
+- [ ] `pytest -q -m "slow or not slow"` (the full suite) passes, zero failures, zero new warnings
 - [ ] All invariant tests in §3 pass
 - [ ] All negative tests in §4 pass
 - [ ] `spec/smoke.md` passes in full
