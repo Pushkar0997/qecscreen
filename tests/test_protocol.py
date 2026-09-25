@@ -9,7 +9,9 @@ import math
 import pytest
 
 from qecscreen.protocol import (
+    MEMORY_BASIS,
     ROUNDS_RULE,
+    SCHEDULING,
     Protocol,
     assert_single_protocol,
     installed_decoder_version,
@@ -142,6 +144,21 @@ def test_d014_rounds_rule_is_in_the_hash():
     """
     assert ROUNDS_RULE == "r = d_upper"
     assert _protocol().hash() != _protocol(rounds_rule="r = 12").hash()
+
+
+# --- D-025: circuit protocol v1 ------------------------------------------------
+
+
+def test_d025_memory_basis_is_z_and_in_the_hash():
+    """The label is a Z-memory LER; an X-memory row is a different protocol."""
+    assert MEMORY_BASIS == "Z"
+    assert _protocol().memory_basis == "Z"
+    assert _protocol().hash() != _protocol(memory_basis="X").hash()
+
+
+def test_d025_scheduling_string_is_pinned_and_in_the_hash():
+    assert SCHEDULING == "bb_monomial_matching_xz_phased_v1"
+    assert _protocol().hash() != _protocol(scheduling="tanner_edge_colouring_v1").hash()
 
 
 def test_inv6_decoder_version_is_required_and_real():

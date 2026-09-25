@@ -26,6 +26,7 @@ __all__ = [
     "NOISE_MODEL",
     "DECODER_PARAMS",
     "SCHEDULING",
+    "MEMORY_BASIS",
     "ROUNDS_RULE",
     "installed_decoder_version",
     "Protocol",
@@ -59,7 +60,12 @@ DECODER_PARAMS = {
     "osd_order": 10,
 }
 
-SCHEDULING = "tanner_edge_colouring_v1"
+# D-025: X-check phase then Z-check phase, one CX tick per monomial of A / B.
+SCHEDULING = "bb_monomial_matching_xz_phased_v1"
+
+# D-025: the label is a Z-basis memory LER. The basis changes every label, so
+# it enters the hash.
+MEMORY_BASIS = "Z"
 
 # D-006 chooses the number of rounds per code. INV-6 hashes this *rule*, never
 # the concrete r that it produces — see D-014 for why the obvious alternative
@@ -100,6 +106,7 @@ class Protocol:
     noise_model: str = NOISE_MODEL
     scheduling: str = SCHEDULING
     rounds_rule: str = ROUNDS_RULE
+    memory_basis: str = MEMORY_BASIS
     schema_version: int = SCHEMA_VERSION
 
     def __post_init__(self) -> None:

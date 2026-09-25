@@ -124,7 +124,7 @@ Use these words with these meanings, consistently.
 - **Code** — a quantum error-correcting code, specified by `H_X` and `H_Z`. Never means source code. When you mean source code, say "source".
 - **Construction program** — the parameterised recipe that generates a family of codes (e.g. the BB polynomial template). The unit of grouping for splits.
 - **Family** — a class of construction programs: BB, GB, HGP, TB. The unit of the headline holdout.
-- **Label** — a measured `true_ler` from a real Stim + decoder run.
+- **Label** — a measured `true_ler` from a real Stim + decoder run: a **Z-basis memory** LER, per round per logical qubit (D-025).
 - **Prediction** — model output, always `pred_*`.
 - **Proxy** — a cheap scalar used for screening. Φ = kd²/n is *the incumbent proxy*, and it is the baseline we must beat.
 - **Screening** — ranking many candidates cheaply to decide which few get expensive evaluation. The task this project exists to improve.

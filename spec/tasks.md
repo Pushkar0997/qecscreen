@@ -35,7 +35,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 
 ### CIRCUITS
 
-- [ ] **M0-CIRC-01** Implement Tanner-graph edge colouring in `src/qecscreen/circuits/schedule.py` using `networkx` line-graph colouring; return CNOT layers
+- [ ] **M0-CIRC-01** Implement the `bb_monomial_matching_xz_phased_v1` schedule in `src/qecscreen/circuits/schedule.py`: one CNOT layer per monomial of `A`/`B` (each a perfect matching), X phase then Z phase; return CNOT layers. Supersedes the original "networkx line-graph colouring" wording (D-025)
 - [ ] **M0-CIRC-02** Implement `build_memory_circuit(code, p, rounds)` in `src/qecscreen/circuits/build.py` emitting a Stim circuit with the exact `uniform_depolarizing_v1` noise from `CONTRACT.md`
 - [ ] **M0-CIRC-03** Write `tests/test_circuit_sanity.py`: at `p=0`, the circuit produces zero detection events over 1,000 shots; detector and observable counts match expectations
 

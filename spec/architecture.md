@@ -92,7 +92,7 @@ One Parquet table. One row per `(code, protocol)` pair.
 | `p` | float64 | Physical error rate, 6dp |
 | `rounds` | int32 | `r` |
 | `shots`, `failures` | int64 | Raw counts, always stored |
-| `true_ler` | float64, nullable | Null if censored (INV-3) |
+| `true_ler` | float64, nullable | Z-basis memory LER, per round per logical qubit (INV-4, D-025). Null if censored (INV-3) |
 | `true_ler_ub` | float64 | Wilson upper bound; populated for every row including censored |
 | `true_ler_ci_low`, `true_ler_ci_high` | float64 | |
 | `censored` | bool | `failures < 100` |
@@ -113,7 +113,7 @@ Feature columns live in a **separate** Parquet keyed on `code_id`, so features c
 | Generate BB codes from `(l, m, A, B)` | M0 | The pilot family |
 | GF(2) rank, `k` computation | M0 | |
 | Distance upper bound via decoder-assisted search | M0 | Always `d_upper`, never `d_exact` |
-| Stim circuit from a CSS code, edge-coloured schedule | M0 | |
+| Stim circuit from a BB code, monomial-matching X-then-Z schedule, Z memory | M0 | D-025. Other families need a general schedule (M1) |
 | BP+OSD decoding via `ldpc` | M0 | |
 | Batched sampling with censoring rule | M0 | |
 | ~20 cheap structural features incl. 4-cycle counts | M0 | The physically motivated hypothesis lives here |

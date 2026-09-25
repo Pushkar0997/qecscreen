@@ -16,7 +16,7 @@ The load-bearing assumption of this entire project is that cheap structural feat
 
 **Deliverables**
 - Working BB code generator, validated against the published `[[72,12,6]]` reference
-- Stim circuit builder with edge-coloured syndrome extraction
+- Stim circuit builder with X-then-Z monomial-matching syndrome extraction, Z-basis memory (D-025)
 - BP+OSD evaluation loop with the censoring rule and resume-from-disk
 - ~250–300 labelled BB codes at one budget and one `p`
 - ~20 cheap structural features per code

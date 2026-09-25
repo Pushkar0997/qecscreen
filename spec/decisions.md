@@ -383,6 +383,35 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-025 — Circuit protocol v1: Z memory, pinned noise placement, monomial-matching schedule
+
+**Status:** decided (owner, 2026-09-25). Memory basis and schedule are **provisional — revisit at M1**.
+**Decision:** Five linked choices that together fix what one label measures.
+
+1. **Memory basis: Z only.** Data prepared in `|0…0⟩`, final data measurement in Z, observables are `k` Z-logical operators. `memory_basis = "Z"` is a new `protocol_hash` field (INV-6). The label is a **Z-memory LER**, stated in INV-4, the pinned conventions, `AGENTS.md §6` and the `true_ler` schema row.
+2. **Noise placement in `uniform_depolarizing_v1`.** Native `RX`/`MX` for X-type ancillas, so the circuit has no single-qubit gates and CONTRACT's "single-qubit gates and idle" line covers idles only. `DEPOLARIZE1(p)` on every qubit not acted on in a tick. `DEPOLARIZE2(p)` after every CX. `X_ERROR(p)` after `R`, `Z_ERROR(p)` after `RX`. `M(p)`/`MX(p)` classical flips. Initial data preparation and final data measurement are **noiseless**. Tick layout per round: one reset tick (all ancillas), the X-phase CX ticks, the Z-phase CX ticks, one measurement tick (all ancillas). Data qubits idle in the reset and measurement ticks, and each ancilla type idles through the other type's phase.
+3. **Scheduling: `bb_monomial_matching_xz_phased_v1`**, which replaces `tanner_edge_colouring_v1`. X checks in one phase, then Z checks, never interleaved. Each monomial of `A` or `B` is a permutation matrix, so it is a perfect matching between the `lm` ancillas and one data block. One CX tick per monomial. X phase: `A`'s monomials (data block `0..lm-1`), then `B`'s (block `lm..2lm-1`), each in stored `a_exps`/`b_exps` order, CX ancilla → data. Z phase: `B^T`'s monomials (block `0..lm-1`), then `A^T`'s (block `lm..2lm-1`), same order, CX data → ancilla. Depth `|A| + |B|` per phase (12 per round for weight-6 BB), which is the König minimum (max Tanner-graph degree). Deterministic, with no colouring strategy to pin.
+4. **Rounds:** `r = d_upper` noisy rounds **in total, the first included** (D-006, INV-4). No extra noiseless round.
+5. **Observables:** the `k` Z logicals are derived deterministically. Take `gf2_nullspace(H_X)` rows in order and keep each one that raises the GF(2) rank of `H_Z` stacked with the kept rows. No RNG. Failure is "any observable flipped" per INV-4, which does not depend on basis.
+
+**Rationale:**
+- *Basis.* For BB codes `H_Z = [B^T|A^T]` is `H_X` with halves swapped and transposed, so X memory mirrors Z memory, and running both would double decode cost to measure the same thing. That symmetry does not hold for HGP/GB, hence the M1 revisit.
+- *Noiseless boundaries: the reason that matters most.* `r` varies by code (`r = d_upper`). Noise at the boundaries (state preparation, final readout) happens once per experiment, not once per round. After INV-4 divides by `r`, it is diluted more for high-distance codes than for low-distance ones. That biases the per-round rate by distance, which is exactly the ranking this project measures. Noiseless boundaries at both ends keep all noise inside the `r` rounds that INV-4 normalises. (Symmetry with D-006's noiseless final measurement is a weaker, secondary reason.)
+- *Phased schedule.* Within one check type all CXs point the same way and commute, so their order cannot change what is measured. Interleaving X and Z checks in an arbitrary order can measure something other than the stabilisers. Greedy networkx line-graph colouring (the original M0-CIRC-01 wording) would add a strategy parameter to pin and may exceed the König minimum. The BB group-algebra structure gives an optimal schedule for free.
+
+**Free only because no labelled row exists yet.** Changing the basis, noise placement or scheduling string after labels exist would invalidate every one of them (the `protocol_hash` changes). These changes cost nothing on 2026-09-25 because the dataset is empty.
+
+**Rejected:**
+- *X and Z memory both.* Twice the decode budget, plus a rule to combine two `P_L` into INV-4's single one that CONTRACT does not give.
+- *`R` + `H` for X ancillas.* Adds single-qubit gate noise sites for no benefit, and makes the gate line of the noise model apply to something.
+- *Noisy initial preparation.* Distance-dependent dilution bias, see above.
+- *Interleaved X/Z schedule (e.g. `bravyi2024_8step`).* Correct only for a specifically verified order. Still available for BB under its own string if ever wanted.
+- *networkx greedy edge colouring.* Strategy-dependent, and not guaranteed minimal.
+
+**Revisit if:** M1 adds families without BB's X/Z symmetry (basis) or without group-algebra structure (schedule: needs a general, verified bipartite edge colouring under a new string).
+
+---
+
 ## Template
 
 ```

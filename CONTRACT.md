@@ -57,6 +57,8 @@ p_LER = 1 - (1 - P_L) ** (1 / (r * k))
 
 where `P_L` is the fraction of shots in which **any** logical observable was incorrect, `r` is the number of noisy syndrome-extraction rounds, and `k` is the number of logical qubits. No other normalisation appears anywhere in the codebase, in a plot, or in a paper draft.
 
+The label is a **Z-basis memory** logical error rate (`MEMORY_BASIS = "Z"`, D-025): the `k` observables are the code's `Z` logical operators, and `true_ler` measures protection of a `|0…0⟩`-encoded state. It is not an X-memory rate and not an average of the two.
+
 **Why:** Published papers use per-shot, per-round, per-logical-qubit and per-round-per-logical-qubit interchangeably and often without saying which. Mixing two of them inside one dataset produces a ranking that is wrong by a factor that varies with `k` — precisely the quantity we are trying to rank against. This would silently destroy the entire result.
 
 **Violated by:** Copying an LER computation out of a paper's repository without checking its normalisation, then merging with rows computed our way.
@@ -79,7 +81,7 @@ where `P_L` is the fraction of shots in which **any** logical observable was inc
 
 ### INV-6 — Every row stores a protocol hash, and rows with different hashes are never compared
 
-**Rule:** Each measurement row carries `protocol_hash`, a SHA-256 over the canonical JSON of: noise model name and version, `p`, the **rule** for choosing the number of rounds (`rounds_rule`, pinned to `"r = d_upper"`), decoder name, decoder version, decoder parameters, syndrome-extraction scheduling method, and the schema version. Any function that ranks, plots, correlates or trains across rows asserts a single distinct `protocol_hash` in its input, or raises.
+**Rule:** Each measurement row carries `protocol_hash`, a SHA-256 over the canonical JSON of: noise model name and version, `p`, the **rule** for choosing the number of rounds (`rounds_rule`, pinned to `"r = d_upper"`), the memory-experiment basis (`memory_basis`, D-025), decoder name, decoder version, decoder parameters, syndrome-extraction scheduling method, and the schema version. Any function that ranks, plots, correlates or trains across rows asserts a single distinct `protocol_hash` in its input, or raises.
 
 The **concrete value of `r` is deliberately not in the hash.** It is a per-row stored column instead. The decoder version is the version actually installed at the time of the run — a placeholder such as `"unset"` is never acceptable, because a hash that silently omits the thing it claims to carry is worse than no hash at all.
 
@@ -149,7 +151,8 @@ Every choice below could reasonably go two ways. Each is pinned. Divergence is a
 | Rank | `qecscreen.linalg.gf2_rank` only. Never `numpy.linalg.matrix_rank`. |
 | Qubit indexing | 0-based. Data qubits `0..n-1`; X-ancillas then Z-ancillas follow, in that order. |
 | Check matrix orientation | Rows are checks, columns are qubits. `H_X` has shape `(m_x, n)`. |
-| LER units | Per round, per logical qubit. Formula in INV-4. Column `true_ler`. |
+| LER units | Per round, per logical qubit, **Z-basis memory**. Formula in INV-4. Column `true_ler`. |
+| Memory basis | `Z` only (D-025). Enters `protocol_hash` as `memory_basis`. **Provisional — revisit at M1**, when families without BB's X/Z symmetry arrive. |
 | Error rate `p` | Float, the physical error rate of the noise model. Stored to 6 decimal places. |
 | Rounds `r` | `r = d_upper` (field convention, matches published BB numbers). Stored explicitly per row. The **rule** goes in `protocol_hash`, never the value — see D-014. **Provisional — revisit at M2**, see D-006. |
 | Random seeds | Every generator and sampler takes an explicit `seed: int`. No implicit global RNG. |
@@ -168,12 +171,26 @@ Every choice below could reasonably go two ways. Each is pinned. Divergence is a
 Constants agents would otherwise recompute slightly differently.
 
 ```
+MEMORY_BASIS            = "Z"          # D-025. Enters protocol_hash.
+
 NOISE_MODEL             = "uniform_depolarizing_v1"
   single-qubit gates and idle : depolarizing, each of X,Y,Z at p/3
+                                The circuit contains NO single-qubit gates
+                                (X-type ancillas use native RX/MX, no H), so
+                                this line covers idles only: DEPOLARIZE1(p) on
+                                every qubit not acted on in a tick.
   two-qubit gates (CX)        : two-qubit depolarizing, each of 15 non-identity Paulis at p/15
+                                (DEPOLARIZE2(p) after every CX)
   reset                       : orthogonal-state preparation error at p
+                                (X_ERROR(p) after R, Z_ERROR(p) after RX)
   measurement                 : classical flip of the outcome at p
+                                (M(p) / MX(p))
+  initial data preparation    : noiseless
   final data measurement      : noiseless
+  Tick layout per round (D-025): one reset tick (all ancillas), |A|+|B| CX
+  ticks per phase (X phase then Z phase), one measurement tick (all ancillas). Data qubits
+  idle in the reset and measurement ticks; each ancilla type idles through
+  the other type's phase. All noise lives inside the r rounds.
 
 DECODER                 = "BpOsdDecoder"
   library               = ldpc (Roffe)
@@ -183,7 +200,14 @@ DECODER                 = "BpOsdDecoder"
   osd_method            = "osd_cs"
   osd_order             = 10
 
-SCHEDULING              = "tanner_edge_colouring_v1"
+SCHEDULING              = "bb_monomial_matching_xz_phased_v1"   # D-025
+  X phase then Z phase, never interleaved. One CX tick per monomial: each
+  monomial of A or B is a permutation matrix, i.e. a perfect matching between
+  ancillas and one data block. X phase: A's monomials (data 0..lm-1) then B's
+  (data lm..2lm-1), each in stored a_exps / b_exps order; CX ancilla -> data.
+  Z phase: B^T's monomials (data 0..lm-1) then A^T's (data lm..2lm-1), same
+  order; CX data -> ancilla. Depth |A|+|B| per phase, the Konig minimum.
+  BB-only; revisit at M1 for families without group-algebra structure.
   (BB codes additionally have "bravyi2024_8step" available; record which was used)
 
 ROUNDS_RULE             = "r = d_upper"   # D-006. The rule is hashed, never the
