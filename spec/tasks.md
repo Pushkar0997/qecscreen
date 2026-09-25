@@ -42,7 +42,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 ### EVAL — sampling and labels
 
 - [ ] **M0-EVAL-01** Implement `src/qecscreen/evaluate/run.py`: batched sample-and-decode with BP+OSD, stopping at `MIN_FAILURES` or `MAX_SHOTS`
-- [ ] **M0-EVAL-02** Implement the censoring rule (INV-3) and Wilson interval population; write `tests/test_inv_3_censoring.py`
+- [x] **M0-EVAL-02** Implement the censoring rule (INV-3) and Wilson interval population; write `tests/test_inv_3_censoring.py` — `evaluate/label.py`: `make_label()` returns a `Label` of the schema's measurement columns. Wilson is taken on per-shot `P_L` and mapped through `logical_error_rate` (monotone), so `true_ler_ci_low/high` are in per-round per-qubit units and are populated on every row; `true_ler_ub == true_ler_ci_high`. Everything goes through `protocol.py`. The one local step is clamping the ~-1e-18 float residue that `wilson_interval(0, n)` returns for some `n` (17,314 values of `n` <= 200k), which `logical_error_rate` would otherwise reject
 - [ ] **M0-EVAL-03** Implement `protocol_hash` computation and `assert_single_protocol()`; write `tests/test_inv_6_protocol.py`
 - [ ] **M0-EVAL-04** Add resume-from-disk: write a Parquet shard per batch of codes, skip `code_id`s already present on restart
 - [ ] **M0-EVAL-05** Measure real per-shot decode cost on 5 representative codes; **update `spec/architecture.md §6` in the same commit**
