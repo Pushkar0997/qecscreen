@@ -6,6 +6,55 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-25 (kk) — Claude Opus 5.5 / Claude Code — M0-CIRC-01/02/03: circuit protocol v1 (D-025), schedule, Z-memory circuit
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-CIRC-01`, `M0-CIRC-02`, `M0-CIRC-03` together, tests first. **Merged task IDs in one commit** because the owner asked for the three together and the tests (CIRC-03) exercise both CIRC-01 and CIRC-02. The spec/protocol change was committed separately, as instructed.
+
+**Stopped before writing code.** Of the four conventions the owner listed, only the rounds convention was pinned: D-006 plus INV-4 give `r` noisy rounds in total, the first included. The memory basis was not pinned anywhere. For noise placement, CONTRACT pinned the channel types but not where they go. The scheduling string was pinned (`tanner_edge_colouring_v1`), but its meaning was not, and the requested phased schedule could not be recorded in it without editing CONTRACT.md and protocol.py, which were off-limits. The owner answered all four and authorised edits to CONTRACT.md and protocol.py for items 1–3.
+
+**Landed:**
+- `c50c36b` (spec/protocol, D-025 "Circuit protocol v1"). `MEMORY_BASIS = "Z"` becomes a new `Protocol` field, so it enters `protocol_hash`. `SCHEDULING` is renamed to `bb_monomial_matching_xz_phased_v1`. The exact noise placement and tick layout are now in CONTRACT's exact-values block. The label is stated as a Z-memory LER in INV-4, the pinned conventions, `AGENTS.md §6` and the `true_ler` schema row. The M0-CIRC-01 wording in tasks.md and plan.md now describes monomial matching instead of networkx greedy colouring. Two tests were added to `test_protocol.py`: basis and schedule string are both in the hash.
+- `bade606` (circuits). `schedule.bb_schedule()` has one perfect-matching CX layer per monomial, X phase then Z phase, and raises if the layers don't rebuild `H_X`/`H_Z` edge for edge. `build.build_memory_circuit(code, p, rounds)` builds the circuit, and `build.z_logical_basis()` takes the in-order nullspace rows of `H_X` that raise `rank([H_Z; kept])`, with no RNG. Also 19 tests in `tests/test_circuit_sanity.py`, evals N-10 (sensitivity), and the CIRC-01/02/03 checkboxes ticked.
+
+**Confirmed from INV-4 before building observables:** failure is "`P_L` = fraction of shots in which **any** logical observable was incorrect", which does not depend on basis.
+
+**Report:**
+- Scheduling method string: `bb_monomial_matching_xz_phased_v1`.
+- CNOT depth per round: **12** (6 X + 6 Z) for [[72,12,6]], the König minimum. Per phase it is `|A| + |B|` (8 + 8 for the `mixed_3_5` test code).
+- Detectors: `m_z + (r-1)(m_x+m_z) + m_z`. [[72,12,6]] at r=6 gives **432**; the gross code at r=12 gives **1728**. Observables: **12** (= k) for both.
+- Sensitivity (p=0, error injected after round index 1's measurements):
+  - X on data qubit 0 fires Z detectors (check, round, basis) `(3,2,0) (6,2,0) (12,2,0)` and flips observables `[0,1,3,6,8,9,10,11]`.
+  - X on qubit 40 fires `(0,2,0) (5,2,0) (22,2,0)` and flips no observables.
+  - Z on qubit 0 fires X detectors `(4,2,1) (5,2,1) (18,2,1)`.
+  - Z on qubit 40 fires `(1,2,1) (28,2,1) (34,2,1)`.
+  - In every case the fired set is exactly that qubit's column of `H_Z` (or `H_X`), in the round after the injection.
+- Gross code [[144,12,12]] at r=12, p=0.005: build **~1.6 s** (3 runs: 1.77, 1.58, 1.60). Of that, `z_logical_basis` + validate + schedule take 0.05 s; the rest is stim instruction assembly in Python. The DEM builds in 0.21 s (67,104 error mechanisms). 1,000 shots at p=0 give 0 detection events. None of this is in the suite: tests use codes of 72 qubits or fewer.
+- Suite: **107 passed**, clean under `-W error`. The circuit tests take 2.8 s. The pre-existing 88 tests took 92 s on this run against ~80 s recorded before; that is machine variance, since they run the same time without the new file.
+
+**Mutation check:** 8 builder mutants, all caught:
+- true X/Z interleave: fails p=0, DEM, sensitivity and phase-order tests;
+- Z phase before X: phase-order test;
+- noisy data preparation, missing CX idles, noisy final readout: per-tick placement test;
+- identity vectors as observables: p=0, DEM, logical-basis and sensitivity tests;
+- a detector comparing against the wrong check: sensitivity test;
+- missing final detectors: count test.
+A within-phase reorder (legitimate, since those CNOTs commute) passes, as it should.
+
+**Owner decision (recorded in D-025, restated here):** noiseless boundaries are not about symmetry. Boundary noise happens once per experiment. Dividing by `r = d_upper` then dilutes it more for high-distance codes, which biases the per-round rate by distance.
+
+**One structural detail I derived rather than being told:** all X ancillas stay unmeasured (idle) through the Z phase, because every ancilla is measured in one tick at the end of the round. This follows from the approved "single reset tick" layout and is written into CONTRACT's tick layout. The alternative, measuring X ancillas straight after the X phase, would shorten their idle window. If the owner prefers that, it is a D-025 amendment and changes every label.
+
+**Did not land:** EVAL-*, CORE-05/06. `codes/` untouched (schedule imports `bb._monomial_matrix`, a private helper, so the matchings come from the same function as the generator).
+**Blockers:** none.
+**Noticed, did not fix:**
+1. Detectors from the 6 redundant checks per type (rank 30 of 36) are kept. They are deterministic and harmless, but BP+OSD will see a check matrix with dependent rows. That is for M0-EVAL-01 to confirm.
+2. `circuits/__init__.py` still has the "Placeholder" docstring.
+3. The gross-code build time could drop by using `REPEAT` blocks. Not done, because the plan says don't optimise before the real per-shot decode cost is measured, and 1.6 s is small next to it.
+**Spec changes:** `CONTRACT.md`, `spec/decisions.md` (D-025), `spec/architecture.md`, `spec/plan.md`, `spec/tasks.md`, `spec/evals.md` (N-10), `AGENTS.md §6` (label definition, per owner instruction), `protocol.py`. `NARRATIVE.md` entry.
+
+---
+
 ## 2026-09-25 (jj) — Claude Opus 5.5 / Claude Code — M0-CODES-05 correction: duplicate programs, d <= 2 codes, D-024
 
 **Milestone:** M0 — Falsification

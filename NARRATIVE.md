@@ -19,6 +19,20 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-25 — Where the noise sits decides which codes look good
+
+Building the simulated experiment meant pinning details the protocol had left open. One of them
+turned out to matter for the ranking itself, not just for tidiness. Each code is run for as many
+rounds as its distance, then its error rate is divided by that number of rounds. Noise at the
+very start and end of an experiment happens once, not once per round. After the division it gets
+spread thinner over the long runs of strong codes than over the short runs of weak ones. That
+tilts the per-round number by distance, which is the ranking the project exists to measure. The
+fix is to make the start and end noiseless, so every bit of noise lives inside the rounds that
+get divided out. The same session confirmed, by deliberately breaking the circuit, that mixing
+the two kinds of checks in an arbitrary order really does measure the wrong thing: Stim refuses
+to build an error model for that circuit at all.
+
+
 ## 2026-09-25 — The tests checked the names, not the codes
 
 An independent check by the owner found two things the test suite had waved through. First,
