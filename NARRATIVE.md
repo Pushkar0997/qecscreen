@@ -19,6 +19,19 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-25 — The tests checked the names, not the codes
+
+An independent check by the owner found two things the test suite had waved through. First,
+two pairs of "different" code recipes were the same recipe written two ways: swapping the two
+polynomials just relabels the qubits. That let near-identical codes sit on both sides of the
+train/test split the project's headline metric depends on. Second, one recipe used the same
+polynomial twice, which guarantees distance at most 2. Codes like that correct nothing, and
+they made up 14-23% of the samples drawn so far. Every test had passed, because every test
+checked that the *labels* were consistent and none checked the *codes*. The fix removes the
+duplicates, adds a rule that nothing below distance 3 gets in, and rewrites the tests to
+generate the codes and compare them. The lesson for the rest of the project: a
+consistency check on identifiers can't catch errors in the objects they point to.
+
 ## 2026-09-25 — Nearly a third of the "diverse" sample was the same codes twice
 
 The first code sampler drew polynomial templates uniformly, which sounds fair until you notice

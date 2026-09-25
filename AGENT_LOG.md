@@ -6,6 +6,39 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-25 (jj) — Claude Opus 5.5 / Claude Code — M0-CODES-05 correction: duplicate programs, d <= 2 codes, D-024
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** `M0-CODES-05` correction, from two template defects the owner found by independent check
+
+**Both defects confirmed before changing anything** (row-space comparison of generated codes at `l = m = 7`): `quad_4_2`~`quad_2_4` and `mixed_3_5`~`mixed_5_3` are identical after the half-swap permutation. `quad_4_4` has `A == B`, and **all 189** of its `k >= 1` grid codes have `d_upper <= 2`. So 69/300 codes in the M0-CODES-05 draw (entry hh), and 42/300 in my own D-023 balanced draw (entry ii), were codes that correct no errors. My D-023 session measured balance and duplicates but never looked at distance; the id-level tests passed throughout, which is the owner's point.
+
+**Beyond what was asked, checked because the same argument applies:** `(A, B) -> (Ag, Bh)` for monomials `g`, `h` is also a qubit relabelling within each half, so a translated copy would be the same program too. `template_key` covers it; none of the templates collided.
+
+**Landed (`a686569`):**
+- Removed `quad_2_4`, `mixed_5_3`, `quad_4_4`. Added `bb288_3_3`, `tri_3_3`, `diag_3_3`, `sq_4_2` → **11 templates**. Each clears 10 admissible `(l, m)` on the full 189-pair grid at budget=150, and each is checked for A/B-swap identity against every other template. Two others screened and **not** added: one with 0 `k>=1` lattices, one with 1. `bb288_3_3` shares `sym_3_3`'s B and its viable count, so I compared per-lattice `(k, d_upper)`: they differ (e.g. `(3,18)`: 10 vs 6).
+- `MIN_D_UPPER = 3` admission via `estimate_d_upper(h_x, h_z, seed=0)` at `DEFAULT_ATTEMPTS`. `BBSample.rejections` is now a dict by cause (`k<1`, `d_upper<3`). An exact weight-≤2 logical search agreed with `d_upper <= 2` on every `k >= 1` code screened: 0 disagreements.
+- `template_key()`: canonical form under A/B swap and per-polynomial monomial shift.
+- `tests/test_sample.py` rewritten around the codes. No two templates are A/B swaps (generated at `(8, 9)`, half-swap row-space comparison). Keys are unique. No template has `A ~ B`. Every emitted code has `d_upper >= 3`, for both `balanced` modes. Rejections are reported by cause. The D-023 balance/determinism/shortfall tests are kept. **Mutation check:** run against the old 10-template list, the three new template tests fail naming `quad_4_2`/`quad_2_4`, the key collision, and `quad_4_4`.
+- **Removed `test_unbalanced_unchanged_from_m0_codes_05`.** It pinned `balanced=False` to a draw from a template set that no longer exists. Recorded in D-024.
+- Large-draw tests share one module-scoped 300-code fixture because admission made sampling ~10x slower. Suite: **86 passed** (83 before), clean under `-W error`, 80 s.
+
+**Report — 300 codes, budget=150, seed=0, balanced=True:**
+- Histogram: `quad_4_2` 42, `pair_2_2` 41, `diag_3_3` 41, `mod_2_3` 40, `sq_4_2` 40, `sym_3_3` 19, `bb288_3_3` 19, `tri_3_3` 19, `mixed_3_5` 17, `rare_3_4` 12, `rare_2_3` 10. max/mean 1.54, min 10. Six templates exhausted. 300 distinct codes.
+- `k`: 2→78, 4→104, 6→57, 8→51, 12→9, 18→1; `k <= 4` fraction **0.607**.
+- `d_upper`: 3→40, 4→114, 5→11, 6→74, 7→5, 8→29, 9→3, 10→14, 12→5, 14→4, 16→1. **No d <= 2** (was 69 codes in the original draw).
+- Rejections: 1227/1527 = **80.4%**, split into `k<1` **1165** and `d_upper<3` **62**. The `d_upper<3` rejections came from `diag_3_3` 33, `sq_4_2` 13, `rare_2_3` 7, `rare_3_4` 5, and one each from `sym_3_3`, `bb288_3_3`, `mod_2_3` and `tri_3_3`. (Grid-level rates are in D-024.)
+- Wall-clock **23.8 s** (was 2.5 s), almost all of it `estimate_d_upper` on `k >= 1` candidates.
+
+**x↔y (+ A/B) check, reported rather than asserted:** no template equals another under x↔y exchange, alone or combined with A/B swap (generated at `l = m = 7`). Informational: `sym_3_3` and `pair_2_2` are self-symmetric under x↔y+AB, and `quad_4_2`, `tri_3_3` and `diag_3_3` under x↔y. Harmless. It is a real equivalence at program level (the image at `(l, m)` is the template at `(m, l)`), so D-024 says to add it to `template_key` when a template is next added.
+
+**Did not land:** `CONTRACT.md`, `protocol.py`, `generate()`, `validate()`, `estimate_d_upper()` untouched. No new dependency. `M0-CIRC-01` not started.
+**Blockers:** none.
+**Noticed, did not fix:** (1) `rare_2_3` is exactly at the 10-admissible-pair bar at budget=150, so any budget reduction drops it below. (2) `template_key` doesn't catch lattice-specific equivalences (e.g. `y -> y^5` when `gcd(5, m) = 1`); the per-lattice fingerprints separated every pair I checked, but that is evidence, not proof. (3) Sampling cost rose ~10x, which is fine at M0 scale. The d_upper computed at admission is thrown away and recomputed later for features, and could be returned instead; not done, since that's an M0-FEAT concern.
+**Spec changes:** `spec/decisions.md` (D-024), `spec/tasks.md` (correction note on `M0-CODES-05`). `NARRATIVE.md` entry.
+
+---
+
 ## 2026-09-25 (ii) — Claude Opus 5.5 / Claude Code — M0-CODES-05 follow-up: balanced template allocation, D-023
 
 **Milestone:** M0 — Falsification
