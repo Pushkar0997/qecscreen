@@ -24,6 +24,7 @@ from qecscreen.protocol import SCHEDULING
 
 REF = {"l": 6, "m": 6, "a_exps": [(3, 0), (0, 1), (0, 2)], "b_exps": [(0, 3), (1, 0), (2, 0)]}
 REF_ROUNDS = 6  # r = d_upper = 6 (D-006)
+REF_Z_ANC = 72 + 36  # first Z-ancilla qubit (CONTRACT indexing)
 MIXED = {"l": 3, "m": 7, "a_exps": [(4, 0), (0, 1), (1, 3)],
          "b_exps": [(0, 4), (1, 0), (2, 1), (3, 0), (0, 2)]}
 MIXED_ROUNDS = 3
@@ -186,12 +187,13 @@ def test_z_logical_basis_is_a_deterministic_basis():
 
 def _inject_after_round(circuit: stim.Circuit, round_index: int, gate: str, qubit: int):
     """Insert a deterministic Pauli error right after round ``round_index``'s
-    X-ancilla measurement (0-based), before the next round touches the data."""
+    Z-ancilla measurement (0-based), before the next round's X phase touches
+    the data. That measurement sits in the next round's open tick (D-025)."""
     out = stim.Circuit()
     seen = 0
     for inst in circuit.flattened():
         out.append(inst)
-        if inst.name == "MX":
+        if inst.name == "M" and _qubits(inst)[0] >= REF_Z_ANC:
             if seen == round_index:
                 out.append(gate, [qubit], 1.0)
             seen += 1
@@ -216,7 +218,24 @@ def test_x_error_on_data_fires_its_z_checks(ref_clean, qubit):
     assert len(expected) == 3
     assert fired == expected
     logicals = z_logical_basis(h_x, h_z)
-    assert np.array_equal(obs, logicals[:, qubit].astype(bool))
+    flipped = {int(i) for i in np.flatnonzero(obs)}
+    assert flipped == {i for i in range(len(logicals)) if logicals[i][qubit] == 1}
+
+
+def test_x_error_flips_exactly_the_observables_containing_it(ref_clean):
+    """Every data qubit, not just two: the flipped observables are exactly
+    the Z logicals whose support contains the qubit. Some qubits flip none,
+    so a sweep is what shows the observables are the right operators."""
+    h_x, h_z = _matrices(REF)
+    logicals = z_logical_basis(h_x, h_z)
+    nonempty = 0
+    for qubit in range(72):
+        _, obs = _fired(_inject_after_round(ref_clean, 1, "X_ERROR", qubit))
+        flipped = {int(i) for i in np.flatnonzero(obs)}
+        expected = {i for i in range(len(logicals)) if logicals[i][qubit] == 1}
+        assert flipped == expected, qubit
+        nonempty += bool(expected)
+    assert nonempty > 0
 
 
 @pytest.mark.parametrize("qubit", [0, 40])
@@ -253,16 +272,18 @@ def test_noise_channel_counts_match_contract(ref_noisy):
             assert inst.gate_args_copy() in ([P], [])
             bucket[name] += len(_qubits(inst))
 
-    # Per round: idle on data in the reset and measurement ticks; in each of
-    # the 2*depth CX ticks, 2*lm qubits act and the rest idle.
+    # Per round: idle on data in the open and swap ticks; in each of the
+    # 2*depth CX ticks, 2*lm qubits act and the rest idle. Outside that: the
+    # Z-ancillas before their first reset (round 0's open tick) and the
+    # X-ancillas in the last tick, both between a readout and a reset.
     idle_per_round = 2 * n + 2 * depth * (total - 2 * lm)
     assert counts == {
-        "DEPOLARIZE1": r * idle_per_round,
+        "DEPOLARIZE1": r * idle_per_round + m_z + m_x,
         "DEPOLARIZE2": r * 2 * depth * lm,
         "X_ERROR": r * m_z,  # after R on Z ancillas
         "Z_ERROR": r * m_x,  # after RX on X ancillas
     }
-    assert counts["DEPOLARIZE1"] == 6 * 1008 and counts["DEPOLARIZE2"] == 6 * 432
+    assert counts["DEPOLARIZE1"] == 6 * 1008 + 72 and counts["DEPOLARIZE2"] == 6 * 432
     assert noisy_meas == {"M": r * m_z, "MX": r * m_x}
     # Final data measurement is noiseless.
     assert clean_meas == {"M": n, "MX": 0}
@@ -272,12 +293,17 @@ def test_noise_placement_per_tick(ref_noisy):
     """Every noise instruction sits where D-025 says, tick by tick."""
     total = 72 + 36 + 36
     ticks = _ticks(ref_noisy)
-    # First tick is the noiseless data preparation, last the noiseless readout.
-    for boundary in (ticks[0], ticks[-1]):
-        assert not any(inst.name in NOISE_NAMES for inst in boundary)
-        assert all(not inst.gate_args_copy() for inst in boundary if inst.name in GATE_NAMES)
+    # First tick is the noiseless data preparation.
+    assert not any(inst.name in NOISE_NAMES for inst in ticks[0])
+    assert all(not inst.gate_args_copy() for inst in ticks[0] if inst.name in GATE_NAMES)
+    # Last tick: noiseless data readout, sharing the tick with the last Z
+    # readout; no noise channel touches a data qubit there.
+    data_reads = [inst for inst in ticks[-1] if inst.name == "M" and _qubits(inst)[0] < 72]
+    assert len(data_reads) == 1 and _qubits(data_reads[0]) == list(range(72))
+    assert not data_reads[0].gate_args_copy()
+    assert not any(q < 72 for inst in ticks[-1] if inst.name in NOISE_NAMES for q in _qubits(inst))
 
-    for tick in ticks[1:-1]:
+    for tick in ticks[1:]:
         acted = {q for inst in tick if inst.name in GATE_NAMES for q in _qubits(inst)}
         idle = {q for inst in tick if inst.name == "DEPOLARIZE1" for q in _qubits(inst)}
         assert idle == set(range(total)) - acted
@@ -296,8 +322,98 @@ def test_noise_placement_per_tick(ref_noisy):
                 assert names.index(noise) > names.index(gate)
         # Nothing else, e.g. no Y_ERROR or PAULI_CHANNEL sneaking in.
         assert {inst.name for inst in tick} <= GATE_NAMES | {
-            "DEPOLARIZE1", "DEPOLARIZE2", "X_ERROR", "Z_ERROR", "DETECTOR", "SHIFT_COORDS",
+            "DEPOLARIZE1", "DEPOLARIZE2", "X_ERROR", "Z_ERROR", "DETECTOR", "OBSERVABLE_INCLUDE",
+            "SHIFT_COORDS",
         }
+
+
+def _tick_signature(tick, n: int, m_x: int) -> tuple[str, ...]:
+    """Gates in a tick, each tagged with the qubit class it acts on."""
+    def cls(q: int) -> str:
+        return "data" if q < n else ("xa" if q < n + m_x else "za")
+    sig = set()
+    for inst in tick:
+        if inst.name == "CX":
+            sig.add("CX:" + ("X" if cls(_qubits(inst)[0]) == "xa" else "Z"))
+        elif inst.name in GATE_NAMES:
+            sig |= {f"{inst.name}:{cls(q)}" for q in _qubits(inst)}
+    return tuple(sorted(sig))
+
+
+@pytest.mark.parametrize("code,rounds,n,m_x,depth",
+                         [(REF, REF_ROUNDS, 72, 36, 6), (MIXED, MIXED_ROUNDS, 42, 21, 8)],
+                         ids=["ref72", "mixed42"])
+def test_tick_layout_per_round(code, rounds, n, m_x, depth):
+    """D-025 as amended: open tick (RX X-ancillas, plus the previous round's
+    Z readout), X phase, swap tick (MX X-ancillas + R Z-ancillas), Z phase;
+    one closing tick reads the last Z-ancillas with the data. 2*depth + 2
+    ticks per round, the same depth as before the amendment."""
+    ticks = _ticks(build_memory_circuit(code, p=P, rounds=rounds))
+    sigs = [_tick_signature(t, n, m_x) for t in ticks]
+    swap = ("MX:xa", "R:za")
+    expected = [("R:data",)]
+    for t in range(rounds):
+        expected.append(("RX:xa",) if t == 0 else ("M:za", "RX:xa"))
+        expected += [("CX:X",)] * depth + [swap] + [("CX:Z",)] * depth
+    expected.append(("M:data", "M:za"))
+    assert sigs == expected
+    assert len(ticks) == 2 + rounds * (2 * depth + 2)
+
+
+@pytest.mark.parametrize("code,rounds,n", [(REF, REF_ROUNDS, 72), (MIXED, MIXED_ROUNDS, 42)],
+                         ids=["ref72", "mixed42"])
+def test_no_ancilla_idles_while_it_holds_syndrome(code, rounds, n):
+    """The amendment's point: a reset ancilla does its first CX in the very
+    next tick, and never idles between its reset and its measurement. The
+    old layout idled Z-ancillas in |0> through the whole X phase."""
+    ticks = _ticks(build_memory_circuit(code, p=P, rounds=rounds))
+    live: set[int] = set()         # reset, not yet measured
+    awaiting_cx: set[int] = set()  # reset, no CX yet
+    resets = 0
+    for tick in ticks:
+        acted: dict[str, set[int]] = {}
+        for inst in tick:
+            if inst.name in GATE_NAMES:
+                acted.setdefault(inst.name, set()).update(_qubits(inst))
+        idle = {q for inst in tick if inst.name == "DEPOLARIZE1" for q in _qubits(inst)}
+        cx = acted.get("CX", set())
+        # Anything reset in the previous tick is in a CX now.
+        assert awaiting_cx <= cx, sorted(awaiting_cx - cx)[:5]
+        awaiting_cx.clear()
+        assert not (idle & live), sorted(idle & live)[:5]
+        live -= acted.get("M", set()) | acted.get("MX", set())
+        new = {q for name in ("R", "RX") for q in acted.get(name, set()) if q >= n}
+        live |= new
+        awaiting_cx |= new
+        resets += len(new)
+    assert not live and not awaiting_cx
+    assert resets > 0
+
+
+def test_idles_off_the_syndrome_window_do_not_reach_the_dem(ref_noisy):
+    """Ancilla idles between a readout and the next reset keep CONTRACT's
+    "every qubit not acted on" rule literal; they cannot change any outcome.
+    Stripping them leaves the detector error model identical."""
+    n = 72
+    stripped = stim.Circuit()
+    live: set[int] = set()
+    dropped = 0
+    for inst in ref_noisy.flattened():
+        if inst.name in ("R", "RX"):
+            live |= {q for q in _qubits(inst) if q >= n}
+        if inst.name in ("M", "MX"):
+            live -= set(_qubits(inst))
+        if inst.name == "DEPOLARIZE1":
+            qs = _qubits(inst)
+            keep = [q for q in qs if q < n or q in live]
+            dropped += len(qs) - len(keep)
+            if keep:
+                stripped.append("DEPOLARIZE1", keep, inst.gate_args_copy())
+            continue
+        stripped.append(inst)
+    assert dropped > 0
+    assert (stripped.detector_error_model(decompose_errors=False)
+            == ref_noisy.detector_error_model(decompose_errors=False))
 
 
 def test_rejects_bad_arguments():

@@ -187,10 +187,18 @@ NOISE_MODEL             = "uniform_depolarizing_v1"
                                 (M(p) / MX(p))
   initial data preparation    : noiseless
   final data measurement      : noiseless
-  Tick layout per round (D-025): one reset tick (all ancillas), |A|+|B| CX
-  ticks per phase (X phase then Z phase), one measurement tick (all ancillas). Data qubits
-  idle in the reset and measurement ticks; each ancilla type idles through
-  the other type's phase. All noise lives inside the r rounds.
+  Tick layout per round (D-025, ancilla timing amended 2026-09-25):
+    open tick  RX X-ancillas (+ M of the previous round's Z-ancillas)
+    X phase    |A|+|B| CX ticks
+    swap tick  MX X-ancillas + R Z-ancillas, one tick
+    Z phase    |A|+|B| CX ticks
+  The last round's Z-ancillas are measured in the tick of the noiseless
+  data readout. Each ancilla is reset in the tick before its first CX and
+  measured in the tick after its last, so no ancilla idles while it holds
+  syndrome information; its idles fall between readout and next reset,
+  where they affect no outcome. 2(|A|+|B|)+2 ticks per round, unchanged.
+  Data qubits idle in the open and swap ticks. All noise that can affect
+  an outcome lives inside the r rounds.
 
 DECODER                 = "BpOsdDecoder"
   library               = ldpc (Roffe)

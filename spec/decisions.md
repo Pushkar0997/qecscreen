@@ -410,6 +410,23 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 **Revisit if:** M1 adds families without BB's X/Z symmetry (basis) or without group-algebra structure (schedule: needs a general, verified bipartite edge colouring under a new string).
 
+### D-025 amendment (2026-09-25) — ancilla timing
+
+**Status:** decided (owner, 2026-09-25). Replaces the tick layout in item 2; every other D-025 choice is unchanged.
+**Decision:** Per round: reset X-ancillas → X phase → [measure X-ancillas + reset Z-ancillas, one tick] → Z phase → measure Z-ancillas. The Z readout of round `t` shares a tick with the X reset of round `t+1`, and the last one shares the tick of the noiseless data readout, so a round stays `2(|A|+|B|) + 2` ticks: no added depth, and data qubits still idle exactly twice per round. `DEPOLARIZE1(p)` still goes on every qubit not acted on in a tick. For an ancilla that now only happens between its readout and its next reset, where it cannot change any outcome (the detector error model is identical with those idles stripped, which a test asserts).
+
+**Rationale:**
+- *Measurement error on the Z checks.* In the original layout the Z-ancillas were reset at round start and idled in `|0⟩` through the whole X phase before their first CX. Each idle tick flips them with probability `2p/3`, adding about `(|A|+|B|) · 2p/3` measurement error to the Z checks, and in Z memory those are the checks that protect the observables. (X-ancillas idled through the Z phase too; that matters far less in Z memory.)
+- *Feature leakage, the reason this could not wait.* The X-phase length is `|A|+|B|`, which varies by template, so that penalty correlated with check weight, a planned cheap feature. A model could learn "heavier checks → worse label" from a circuit artefact instead of from code quality. That is a screening signal manufactured by the label pipeline.
+- **Free only because no labelled row exists yet.** Like D-025 itself, this changes every label; on 2026-09-25 the dataset is empty, so it costs nothing. The scheduling string and noise-model name are unchanged (owner instruction: keep every other D-025 choice), so rows built before and after this amendment would share a `protocol_hash`. None were built before.
+
+**Measured on [[72,12,6]], r = 6:** ticks per round 14 before and after (86 in the circuit, both). Ancilla idle ticks while holding syndrome, per round: 432 before (216 of them between reset and first CX), 0 after. Detectors 432 and DEM error mechanisms 15,840, both unchanged.
+
+**Rejected:**
+- *The same order with a separate final Z-measurement tick per round.* One extra tick per round, and one extra data idle per round (`n · p` more depolarising noise each round), which is the added depth the owner excluded.
+- *A separate closing tick for the last Z readout, before the data readout.* One data idle outside the rounds, i.e. boundary noise, which D-025 excludes for the distance-dilution reason.
+- *Dropping idle noise on ancillas outside their syndrome window.* Same DEM, but it would need CONTRACT's "every qubit not acted on" line reworded, for no change in any label.
+
 ---
 
 ## Template
