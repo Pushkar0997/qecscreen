@@ -1,0 +1,27 @@
+# Packaging only. Dependencies are NOT listed here: they are read from
+# requirements.txt, which stays the single list of pins (AGENTS.md section 3,
+# spec/architecture.md section 1). Kaggle and Colab install this with
+#   pip install git+https://github.com/Pushkar0997/qecscreen@<40-hex sha>
+# and a notebook then reads the commit back with
+# qecscreen.provenance.resolved_commit() (D-017, D-028).
+
+[build-system]
+# Build-time only, fetched by pip's build isolation; not a runtime dependency.
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qecscreen"
+description = "Circuit-level screening for quantum LDPC code search."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+dynamic = ["version", "dependencies"]
+
+[tool.setuptools.dynamic]
+version = { attr = "qecscreen.__version__" }
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["src"]

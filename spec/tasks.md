@@ -16,6 +16,8 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 - [x] **M0-SETUP-02** Add `pytest.ini` and `.github/workflows/ci.yml` running `pytest` on push; confirm the badge is green — `pytest.ini` already present; `ci.yml` added, YAML-validated, matrix on 3.11 + 3.13 because they resolve different `sinter` versions, install runs normally and fails the step if a C toolchain was actually invoked (compiler grep on the pip log, `cf5542e`; D-018) rather than being forced to `--only-binary=:all:`. Badge added to README but **green not yet confirmed** — needs a push, which is the owner's call
 - [x] **M0-SETUP-03** Add `.gitignore` excluding `data/`, `*.parquet`, `__pycache__`, `.ipynb_checkpoints` — written as `data/*` plus `!data/LICENSE` so the CC-BY-4.0 dataset licence stays committable at M1; verified by creating and removing test files. `venv/` and `.pytest_cache/` deliberately omitted, they self-ignore
 
+- [ ] **M0-SETUP-04** Add `pyproject.toml` so Kaggle/Colab can `pip install git+https://github.com/Pushkar0997/qecscreen@<sha>` (D-028): src-layout, runtime dependencies read from `requirements.txt`, no new dependency. Verify with a clean-venv install from a local git URL
+
 ### CORE — protocol and linear algebra
 
 - [x] **M0-CORE-01** Implement `src/qecscreen/protocol.py`: frozen constants from `CONTRACT.md`, `logical_error_rate`, `wilson_interval`, `protocol_hash`. No other module may compute an LER — constants and both formulas verified against `CONTRACT.md` and independently recomputed at 50 digits; `protocol_hash()` added; `decoder_version` now required and read from the installed `ldpc`; `rounds` replaced by `rounds_rule` in the hash per D-014, which unblocks `M0-RUN-04`

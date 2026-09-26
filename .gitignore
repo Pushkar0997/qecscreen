@@ -13,6 +13,11 @@ data/*
 __pycache__/
 .ipynb_checkpoints/
 
+# Packaging build output (pyproject.toml, M0-SETUP-04).
+build/
+dist/
+*.egg-info/
+
 # Not listed, because they already exclude themselves: `venv/` and
 # `.pytest_cache/` each contain a `.gitignore` written by the tool that made
 # them. A differently-named environment directory would need adding here.
