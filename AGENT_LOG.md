@@ -6,6 +6,53 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-26 (pp) — Claude Opus 5.5 / Claude Code — Part 1 owner items (M1 criterion, INV-9 summary, CI installs the package, requirements header); M0-EVAL-06 decoder calibration (D-029)
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** Part 1, four owner items in separate commits (edits authorised to plan.md, AGENTS.md's INV-9 summary, ci.yml and requirements.txt). Part 2: the decoder calibration, now task `M0-EVAL-06` (ticked) with the Kaggle run as `M0-EVAL-07` (open, owner's). Nothing was run on Kaggle. `DECODER_PARAMS`, `P_PILOT`, `SHOT_BATCH`, `MAX_SHOTS`, `codes/` and `circuits/` are untouched, and there is no new dependency.
+
+**Landed:**
+- `cbf1e5d` plan.md: the M1 regeneration criterion is now a per-row two-sided two-proportion test of regenerated against published `failures`/`shots` at α = 0.05/10. The text says the Bonferroni level caps the false-fail rate for correct code at about 5%, and why the Wilson wording failed ~40% of the time. It does not pick a test variant, such as a pooled z-test or Fisher's exact test; that choice is made when the check is written.
+- `9dc274e` AGENTS.md INV-9 summary matches D-028: no paid services or APIs, the package needs no key, and the one credential permitted is a read-only token for this repo, read from platform secrets.
+- `9adb049` ci.yml gains a step on every leg. It runs `pip install "$GITHUB_WORKSPACE"` from `$RUNNER_TEMP`, asserts `qecscreen.__file__` is in site-packages and outside the checkout, then runs `python -m qecscreen.selfcheck`. Verified in a fresh 3.13 scratch venv: the step passes on the installed package and exits 1 when `PYTHONPATH=src` shadows it. The YAML was not parsed locally because PyYAML is not installed; CI is the first real parse.
+- `1cbd728` requirements.txt header: Kaggle runs 3.12 (measured 3.12.13, D-020), and all three interpreters are listed.
+- `0193b9b` **M0-EVAL-06**, spec and code in one commit, following D-029.
+  - `evaluate/calibrate.py`: `CalibrationConfig`, `run_calibration`, `run_cell`, `summarize`, `format_summary`.
+  - `evaluate/rows.py`: `reject_calibration`.
+  - `notebooks/calibrate.ipynb`: cells 1–2 are byte-identical to the template.
+  - `tests/test_calibrate.py`: 19 tests. The smoke config (one [[12,2,3]] code, one p, two decoders, 300 shots) runs in about 0.3 s. Two tests are marked slow: the default 300-code draw (41 s) and the 2-process pool (3 s).
+  - Mutants: 4 of 4 caught (no marker on a cell file, no resume check, LSD fed a second seeded stream, no `data/` guard).
+  - Spec: D-029, evals N-14, tasks EVAL-06/07 plus a RUN-01 note, and architecture §2/§4.
+- **Code ids the Kaggle run will use** (dev box; `d_upper` from `estimate_d_upper(seed=0)`):
+  - `ref72` `bb_v1_sym_3_3-6d2a992b16a4` [[72,12,≤6]]
+  - `gross144` `bb_v1_sym_3_3-e2a88777e704` [[144,12,≤12]]
+  - `bb_v1_pair_2_2-afbf55db2c35` [[12,2,≤3]]
+  - `bb_v1_mixed_3_5-cf5649b397df` [[42,6,≤6]]
+  - `bb_v1_quad_4_2-c7c6d07a81bf` [[48,4,≤8]]
+  - `bb_v1_pair_2_2-deb94a2172e3` [[136,2,≤11]]
+  - `bb_v1_mixed_3_5-3a2afa35a12f` [[112,6,≤14]]
+  - `bb_v1_mixed_3_5-3fde0f6a646a` [[140,6,≤16]]
+
+  The population's `d_upper` runs from 3 to 16.
+- **Projected wall time before sampling:** 32 cells on 4 processes, capped at 20 min each, gives ≤ 2.67 h, plus at most one shot per decoder per cell past the cap. Selecting the codes takes ~40 s on the dev box before that.
+
+**Suite:** default **238 passed, 16 deselected, 17 s**. Full (`-m "slow or not slow"`) **254 passed, 141 s**. Both under `filterwarnings = error`.
+**Blockers:** none. The owner runs `calibrate.ipynb` on Kaggle.
+**Noticed, did not fix:**
+1. **No row writer exists**, so "the row writer rejects calibration output" is tested against the guard the writer must call, `reject_calibration`, not against a writer. M0-EVAL-04's tests must drive calibration output through the real writer (D-029 "Revisit if").
+2. **ldpc's BP+LSD appears to hang on a syndrome no error can produce.** A mutant that fed LSD a rotated syndrome ran for more than 4 minutes on [[12,2,3]] before I killed it. Real shots are always producible, so the calibration is unaffected, but a hang inside a worker would stall the run with no error. Not investigated further.
+3. The largest sampled code, [[140,6,≤16]] at r = 16, has more detectors (~2,240) than gross (~1,728). By (mm)'s power-law fit, one BP+OSD shot there could take ~15–20 s, so these cells will likely hit the wall cap with few shots and wide intervals. The summary records `stopped_by` for each cell.
+4. The calibration's `sampling_seed` is derived from `code_id` and the pinned protocol's hash. If the pilot uses the same code, the same `code_id` canonicalisation and the same `p`, it draws identical shots. That does not matter for labels, but the pilot's first rows of such a code would not be independent of the calibration.
+5. Out of scope and left alone:
+   - `verify_env_colab.ipynb` cell 1 still says "Kaggle runs 3.11";
+   - README line 43 says "no API keys";
+   - D-027's text quotes the superseded M1 wording, which is history and is not edited.
+6. `evaluate/__init__.py` still has the placeholder docstring.
+7. Resuming on Kaggle only works within one session unless the owner copies a saved version's output back into `OUT_DIR`. The notebook's cell 4 says so.
+**Spec changes:** `spec/plan.md` (M1 criterion), `AGENTS.md` (INV-9 summary), `spec/decisions.md` (D-029), `spec/evals.md` (N-14), `spec/tasks.md` (EVAL-06/07, RUN-01 note), `spec/architecture.md` (§2 notebooks, §4 capability). No NARRATIVE entry: the M1 criterion correction was already written up in (oo) as a finding, and the calibration's findings come from the Kaggle run.
+
+---
+
 ## 2026-09-26 (oo) — Claude Opus 5.5 / Claude Code — D-027 (seed, provenance columns, sinter claims), D-028 remote execution: pyproject, provenance, notebook template and contract
 
 **Milestone:** M0 — Falsification
