@@ -69,6 +69,19 @@ jobs:
           fi
           echo "no compiler invocation detected"
 
+      - name: Install the package and self-check it from site-packages
+        # Kaggle and Colab run the *installed* package (pip install git+...@<sha>,
+        # D-028), never src/. pytest.ini puts src/ on sys.path, so the test step
+        # alone would not notice a broken pyproject.toml or a module missing from
+        # the built wheel. Run from outside the checkout so src/ cannot shadow it,
+        # and fail if the import resolves anywhere but site-packages.
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          pip install "$GITHUB_WORKSPACE"
+          python -c "import os, pathlib, sys, qecscreen; f = pathlib.Path(qecscreen.__file__).resolve(); print('qecscreen', qecscreen.__version__, 'from', f); sys.exit(0 if 'site-packages' in f.parts and pathlib.Path(os.environ['GITHUB_WORKSPACE']).resolve() not in f.parents else 'qecscreen was not imported from the installed package')"
+          python -m qecscreen.selfcheck
+
       - name: Record resolved versions
         # ldpc's version enters protocol_hash (INV-6) and stim's is a per-row
         # column (D-027), so a run's log has to say which ones it actually used.
