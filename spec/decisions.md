@@ -430,6 +430,38 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-026 — Seeded sampling loop without sinter; Wilson clamp; P_PILOT exported; DEM conversion and ldpc `schedule` pinned
+
+**Status:** decided (owner, 2026-09-26). Answers the stops in AGENT_LOG (mm).
+**Decision:** Four items. The owner authorised `CONTRACT.md` and `protocol.py` edits for these only.
+
+1. **Sampling is our own seeded loop, and sinter leaves the data path.** `stim.Circuit.compile_detector_sampler(seed=seed)` per code, one code per process, batches of exactly `SHOT_BATCH` shots, stopping rule checked between batches. CONTRACT's pinned convention "every generator and sampler takes an explicit `seed: int`" stays as written, **with no exemption for Monte Carlo sampling**. `sinter` stays in `requirements.txt` for now, but nothing on the label path imports it.
+2. **`wilson_interval` clamps to `[0, 1]` in `protocol.py`.** At zero failures, `centre - half` cancels to about -1e-18 for 17,314 values of `shots` ≤ 200,000 (the first is 21), and `logical_error_rate` rejects it. The clamp moves only float residue, because the true interval always lies in `[0, 1]`. The local clamp in `evaluate/label.py` is removed, so there is one Wilson implementation again. The golden values G-05/G-06 are interior and unchanged.
+3. **`P_PILOT = 0.005` is exported from `protocol.py`.** Tests import it rather than pin a copy. Its value is unchanged: it will be decided from a Kaggle calibration run, not from local measurements.
+4. **Two label-changing settings that were unpinned are now in `DECODER_PARAMS`, and so in `protocol_hash`:**
+   - `dem_to_matrix = "dem_undecomposed_merge_by_symptom_v1"`, defined exactly in CONTRACT. It is the conversion `evaluate/run.py` already implemented: an undecomposed, flattened DEM; one column per distinct (detectors, observables) symptom, with instructions merged, not one per instruction; priors from each instruction's probability, merged as independent flips; columns in order of first appearance. `run.py` refuses to run if `DECODER_PARAMS` names a different conversion.
+   - `schedule = "parallel"`, ldpc 2.4.1's default, now set explicitly and passed to `BpOsdDecoder`.
+
+**Rationale:**
+- *Seed.* `sinter.collect` builds its stim samplers unseeded (`sinter/_decoding/_stim_then_decode_sampler.py`) and sizes batches from wall-clock time. Stim's own documentation says seeded output "MAY NOT be consistent if you vary how many shots are taken", so a timing-sized batch breaks reproducibility even with a seed. With more than one worker, per-worker seed streams could also repeat seeds, and that silently double-counts identical shots. Parallelism across codes, one code per process, gives Kaggle's 4 cores the same use without either problem.
+- *DEM conversion.* The conversion determines the decoder's input. ldpc's own `detector_error_model_to_check_matrices` merges by detectors only and keeps one observable set, so two reasonable implementations give different labels wherever two mechanisms share detectors. A setting that changes labels but is not hashed is the failure INV-6 exists to prevent. Column order is pinned too. OSD ranks columns by BP's soft output, and where soft values tie, the result can depend on position. That was not checked in ldpc's source, so it is pinned rather than argued.
+- *`schedule`.* It changes BP's messages and therefore results. The hashed ldpc version would catch a change of default, but only by accident of a version bump, and it would not say what changed.
+
+**What "reproducible" now means, and does not.** Same code, `p`, seed, stim version **and machine SIMD width** give identical shots and failures (a test asserts it on one machine). Stim states that seeded results are not consistent across stim versions, and may not be across machines with different SIMD widths (SSE vs AVX). So labels regenerate bit-for-bit only on a matching stim version and CPU class. Elsewhere they regenerate statistically. The stim version is not in `protocol_hash` today (only the decoder version is). That is flagged for the owner, not changed: the sampler is distribution-neutral across versions, but plan.md's M1 criterion "regenerate 10 rows … bit-for-bit" depends on it.
+
+**Free only because no labelled row exists yet.** Items 1 and 4 change `protocol_hash` or which shots a label sees. On 2026-09-26 the dataset is empty.
+
+**Rejected:**
+- *Keep sinter and exempt sampling from the seed rule.* Labels would reproduce only statistically, the M1 regeneration criterion would need rewording, and one pinned convention would gain its first exception.
+- *A custom seeded `sinter.Sampler`.* sinter still sizes batches from timing, and its workers would share or repeat seed streams.
+- *Wall-clock-sized or adaptive batches.* Breaks seeded determinism by stim's own statement. The overshoot this causes at ~2 s/shot (AGENT_LOG (mm) item 5) is a `SHOT_BATCH` value question for the Kaggle calibration, not a reason to size by time.
+- *One column per error instruction.* Also a valid conversion, but it is not what was implemented and tested, and it gives duplicate columns that BP treats as independent. Either would be defensible. Merged is pinned because it is what exists.
+- *Clamp only in `label.py`.* Two places that compute or correct an interval would eventually disagree. `protocol.py` is the one place (INV-4 module docstring).
+
+**Revisit if:** the Kaggle calibration changes the decoder, `P_PILOT` or `SHOT_BATCH`. Also if bit-for-bit label regeneration across machines is required: then the stim version, and possibly the SIMD width, must enter the hash or the row.
+
+---
+
 ## Template
 
 ```

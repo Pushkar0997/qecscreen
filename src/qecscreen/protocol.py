@@ -27,6 +27,7 @@ __all__ = [
     "DECODER_PARAMS",
     "SCHEDULING",
     "MEMORY_BASIS",
+    "P_PILOT",
     "ROUNDS_RULE",
     "installed_decoder_version",
     "Protocol",
@@ -43,13 +44,22 @@ SCHEMA_VERSION = 1
 
 MIN_FAILURES = 100  # below this a row is censored (INV-3)
 MAX_SHOTS = 200_000  # hard cap per (code, p)
-SHOT_BATCH = 10_000  # sample/decode in batches, check the stopping rule between
+SHOT_BATCH = 10_000  # fixed batch size; sample/decode in batches, check the stopping rule between
 
 CONFIDENCE = 0.95
 Z_95 = 1.959963984540054
 
 NOISE_MODEL = "uniform_depolarizing_v1"
 
+# M0 only (D-016). A value of p, not part of the protocol tuple: p is hashed per
+# row through Protocol.p.
+P_PILOT = 0.005
+
+# D-026: every setting that changes a label is pinned here, so it enters
+# protocol_hash. "schedule" is ldpc's own default, set explicitly so a change of
+# default cannot move labels silently. "dem_to_matrix" names how the detector
+# error model becomes the decoder's check matrix and priors; CONTRACT defines it
+# and qecscreen.evaluate.run implements exactly that name.
 DECODER_PARAMS = {
     "library": "ldpc",
     "decoder": "BpOsdDecoder",
@@ -58,6 +68,8 @@ DECODER_PARAMS = {
     "ms_scaling_factor": 0.625,
     "osd_method": "osd_cs",
     "osd_order": 10,
+    "schedule": "parallel",
+    "dem_to_matrix": "dem_undecomposed_merge_by_symptom_v1",
 }
 
 # D-025: X-check phase then Z-check phase, one CX tick per monomial of A / B.
@@ -186,6 +198,12 @@ def wilson_interval(
     Used instead of the normal approximation because the interesting regime has
     very few failures, where the normal approximation is badly wrong and can
     produce negative lower bounds.
+
+    The result is clamped to ``[0, 1]`` (D-026). At ``failures == 0`` the lower
+    bound is 0 exactly, but ``centre - half`` cancels to about -1e-18 for some
+    ``shots`` (the first is 21), and ``logical_error_rate`` rightly rejects a
+    negative fraction. The clamp moves only float residue: the true interval
+    always lies inside ``[0, 1]``.
     """
     if shots <= 0:
         raise ValueError(f"shots must be > 0; got {shots!r}")
@@ -198,7 +216,7 @@ def wilson_interval(
     half = (
         z * math.sqrt(p * (1.0 - p) / shots + z * z / (4.0 * shots * shots))
     ) / denom
-    return centre - half, centre + half
+    return max(0.0, centre - half), min(1.0, centre + half)
 
 
 def is_censored(failures: int) -> bool:

@@ -207,6 +207,38 @@ DECODER                 = "BpOsdDecoder"
   ms_scaling_factor     = 0.625
   osd_method            = "osd_cs"
   osd_order             = 10
+  schedule              = "parallel"      # ldpc's default (2.4.1), set explicitly
+                                          # so a default change cannot move labels
+                                          # without moving the hash. D-026.
+  dem_to_matrix         = "dem_undecomposed_merge_by_symptom_v1"   # D-026
+    How the circuit becomes the decoder's input. Exactly:
+    DEM          circuit.detector_error_model(decompose_errors=False), every
+                 other argument at stim's default (no gauge detectors, no
+                 approximate disjoint errors), then .flattened(): REPEAT blocks
+                 unrolled, detector shifts applied.
+    symptom      of an `error` instruction: the pair (set of detectors, set of
+                 observables) it flips. Other instruction types are ignored.
+    columns      MERGED: one column per distinct symptom, not one per error
+                 instruction. Instructions with the same detectors but
+                 different observables are different symptoms and stay
+                 separate columns.
+    priors       each instruction's probability argument. Instructions merged
+                 into one column combine as independent flips:
+                 p <- p(1 - q) + q(1 - p).
+    column order first appearance of the symptom in the flattened DEM.
+    matrices     check matrix (detectors x columns) and observable matrix
+                 (observables x columns), uint8 over GF(2). A correction c
+                 predicts the observable flips (observable matrix) @ c mod 2.
+  Every key above, both identity keys included, is in DECODER_PARAMS and so in
+  protocol_hash (INV-6). Parameters not listed run at ldpc's defaults, which the
+  hashed decoder version covers.
+
+SAMPLING                = our own seeded loop, never sinter (D-026)
+  One stim.Circuit.compile_detector_sampler(seed=seed) per code, one code per
+  process. Batches of exactly SHOT_BATCH shots, never sized by wall-clock time:
+  stim's seeded output depends on how the shots are split into calls. The
+  stopping rule is checked between batches. Same code, p, seed, stim version
+  and machine SIMD width -> identical shots and failures.
 
 SCHEDULING              = "bb_monomial_matching_xz_phased_v2"   # D-025 + amendment
   X phase then Z phase, never interleaved. One CX tick per monomial: each
@@ -223,8 +255,11 @@ ROUNDS_RULE             = "r = d_upper"   # D-006. The rule is hashed, never the
 
 MIN_FAILURES            = 100          # below this the row is censored (INV-3)
 MAX_SHOTS               = 200_000      # hard cap per (code, p)
-SHOT_BATCH              = 10_000       # sample and decode in batches, check stopping rule between
-CONFIDENCE              = 0.95         # Wilson score interval, two-sided
+SHOT_BATCH              = 10_000       # fixed batch size; sample and decode in batches,
+                                       # check stopping rule between
+CONFIDENCE              = 0.95         # Wilson score interval, two-sided, clamped
+                                       # to [0, 1] (D-026: float cancellation
+                                       # leaves ~-1e-18 at 0 failures)
 Z_95                    = 1.959963984540054
 SCHEMA_VERSION          = 1
 
@@ -232,7 +267,9 @@ P_PILOT                 = 0.005        # M0 only. Below the BB [[72,12,6]]
                                        # circuit-level threshold (~0.7%),
                                        # consistent with the planning figure
                                        # already assumed in architecture.md §6.
-                                       # D-016.
+                                       # D-016. Exported by protocol.py.
+                                       # Not in the protocol tuple itself:
+                                       # p is hashed per row.
 ```
 
 ---

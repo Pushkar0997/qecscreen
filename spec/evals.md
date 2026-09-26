@@ -33,6 +33,8 @@ Literal. Copied from `CONTRACT.md`. If these two files ever disagree, `CONTRACT.
 | G-05 | `(100, 10000)` | `(0.008229336148148417, 0.012146982255114645)` |
 | G-06 | `(1, 1000)` | `(0.00017654637062607809, 0.0056425585979579355)` |
 
+The interval is clamped to `[0, 1]` (D-026): `wilson_interval(0, n)[0] >= 0` for every `n`, and exactly `0.0` at `n = 21`, where the unclamped formula gives -1.4e-17 (`test_d026_wilson_clamped_at_zero_failures`, `test_d026_wilson_residue_case_is_exactly_zero`). G-05 and G-06 are interior and not affected.
+
 BB reference code, `l=6, m=6, A=x^3+y+y^2, B=y^3+x+x^2`:
 
 | ID | Property | Expected |

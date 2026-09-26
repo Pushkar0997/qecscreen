@@ -44,8 +44,11 @@ __all__ = [
 # The name this decoder is registered under in sinter's custom_decoders.
 DECODER_KEY = "qecscreen_bposd"
 
-# DECODER_PARAMS minus the two identity keys; everything else goes to ldpc as is.
-_BPOSD_KWARGS = {k: v for k, v in DECODER_PARAMS.items() if k not in ("library", "decoder")}
+# DECODER_PARAMS minus the two identity keys and the DEM conversion's name;
+# everything else goes to ldpc as is.
+_BPOSD_KWARGS = {
+    k: v for k, v in DECODER_PARAMS.items() if k not in ("library", "decoder", "dem_to_matrix")
+}
 
 
 def detector_error_model(circuit: stim.Circuit) -> stim.DetectorErrorModel:

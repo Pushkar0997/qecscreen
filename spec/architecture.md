@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Language | Python | 3.11, 3.12 **and** 3.13 | Kaggle runs 3.12 (measured 3.12.13, D-020) and Colab runs 3.13 (measured 3.13.15); 3.11 is kept as the stack's lower-bound target. CI tests all three; code that works on only some is broken. |
 | Circuit simulation | `stim` | ≥1.14,<2 | The field standard. Fast enough that decoding, not sampling, is the bottleneck. Upper-bounded: the version enters `protocol_hash`. |
-| Sampling orchestration | `sinter` | ≥1.14,<2 | Ships with Stim, does parallel batched Monte Carlo with stopping rules. Saves writing a job runner. Upper-bounded: the version enters `protocol_hash`. |
+| Sampling orchestration | `sinter` | ≥1.14,<2 | **Not on the label path (D-026).** Sampling is our own seeded stim loop in `evaluate/run.py`, because sinter's samplers are unseeded and its batches are sized by wall-clock time. Still installed, pending removal. |
 | Decoder | `ldpc` (Roffe) | ≥2.1,<3 | `BpOsdDecoder` is the qLDPC baseline everyone reports against. Comparability matters more than speed here. Upper-bounded: the version enters `protocol_hash`. |
 | Arrays | `numpy` | ≥1.26,<3 | Upper bound because NumPy 3 will break dtype behaviour we rely on. |
 | Tables / storage | `pandas` + `pyarrow` | ≥2.2,<3 / ≥15 | Parquet is columnar, compresses well, and HuggingFace Datasets reads it natively. `pandas` upper-bounded so the dev box is never newer than the machine that runs the generation (D-015). `pyarrow` has no upper bound (D-019, supersedes the `pyarrow` half of D-015): the `<19` cap tracked Colab's 2026-08-30 ambient version and was forcing a downgrade on both platforms by 2026-09-14. |
@@ -21,7 +21,7 @@ Versions, not just names. Agents trained at different times generate different A
 
 Upper bounds are added for two distinct reasons, and only for those two.
 
-**Label-determining libraries** — `stim`, `sinter`, `ldpc` — are bounded because their versions are part of `protocol_hash` (INV-6). A major release that changed decoding or sampling behaviour would silently invalidate every label already generated; the bound makes that fail at install time instead.
+**Label-determining libraries** — `stim`, `ldpc` (and `sinter`, until D-026 took it off the label path) — are bounded because their versions are part of `protocol_hash` (INV-6). A major release that changed decoding or sampling behaviour would silently invalidate every label already generated; the bound makes that fail at install time instead.
 
 **Data-path libraries newer here than in production** — `pandas` — is bounded to what the execution environments actually ship, so the dev box is never ahead of the machine doing the generation (D-015). `pyarrow` was bounded the same way but the cap is removed (D-019): both target platforms' ambient `pyarrow` moved past `<19` within three weeks, so a snapshot-of-a-base-image cap does not hold long enough to be worth the downgrade it forces. Everything else keeps lower bounds only, because Kaggle and Colab ship their own numpy/scipy/scikit-learn and a tighter pin would force a downgrade of a preinstalled stack, breaking the one-cell install.
 
@@ -39,7 +39,7 @@ An earlier version of this section, and of `.github/workflows/ci.yml`, stated Ka
 
 **On `sinter` 1.15 vs 1.16 — this is wheel availability, not interpreter version.** `sinter` 1.16.0 is **sdist-only** on PyPI; there is no wheel for any Python version. A plain `pip install` builds it from that sdist — it is pure Python, so no compiler is involved — and yields 1.16.0 on 3.11, 3.12 and 3.13 alike. Only a *wheels-only* install (`--only-binary=:all:`) falls back to `sinter` 1.15.0, and it does so on every interpreter. An earlier version of this section claimed 1.16.0 required Python ≥3.12; that was an artifact of measuring with `--only-binary=:all:` and is wrong. See AGENT_LOG (n).
 
-Because `sinter` runs the sampling loop and its version enters `protocol_hash` (INV-6), the resolved version must be recorded alongside any generated labels.
+Since D-026, `sinter` does not run the sampling loop; our seeded stim loop does. The `ldpc` version enters `protocol_hash` (INV-6). The `stim` version does not, although seeded shots are only bit-identical on the same stim version (D-026). The resolved `stim` and `ldpc` versions must be recorded alongside any generated labels.
 
 `sinter` pulls `matplotlib`, and `ldpc` pulls `pymatching`. Neither is imported by this project; both are transitive and unpinned.
 

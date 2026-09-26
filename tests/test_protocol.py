@@ -9,7 +9,9 @@ import math
 import pytest
 
 from qecscreen.protocol import (
+    DECODER_PARAMS,
     MEMORY_BASIS,
+    P_PILOT,
     ROUNDS_RULE,
     SCHEDULING,
     Protocol,
@@ -81,6 +83,50 @@ def test_wilson_lower_bound_never_negative():
     """The reason we use Wilson rather than the normal approximation."""
     low, _ = wilson_interval(0, 200_000)
     assert low >= 0.0
+
+
+@pytest.mark.parametrize("shots", [1, 2, 21, 37, 100, 1_000, 10_000, 123_457, 200_000])
+def test_d026_wilson_clamped_at_zero_failures(shots):
+    """D-026: the unclamped formula returns ~-1e-18 at 0 failures for some
+    shots (21 is the first), which logical_error_rate rejects."""
+    low, high = wilson_interval(0, shots)
+    assert low >= 0.0
+    assert 0.0 < high <= 1.0
+    logical_error_rate(low, 6, 12)  # must not raise
+
+
+def test_d026_wilson_residue_case_is_exactly_zero():
+    """shots=21 is the first n whose unclamped lower bound is negative."""
+    assert wilson_interval(0, 21)[0] == 0.0
+
+
+@pytest.mark.parametrize("shots", [1, 21, 1_000, 200_000])
+def test_d026_wilson_clamped_at_all_failures(shots):
+    low, high = wilson_interval(shots, shots)
+    assert 0.0 <= low < 1.0
+    assert high <= 1.0
+
+
+def test_d026_p_pilot_exported():
+    import qecscreen.protocol as module
+
+    assert P_PILOT == 0.005  # CONTRACT.md exact values; D-016
+    assert "P_PILOT" in module.__all__
+
+
+def test_d026_label_changing_decoder_settings_are_pinned():
+    assert DECODER_PARAMS["schedule"] == "parallel"
+    assert DECODER_PARAMS["dem_to_matrix"] == "dem_undecomposed_merge_by_symptom_v1"
+
+
+@pytest.mark.parametrize(
+    "key, other",
+    [("schedule", "serial"), ("dem_to_matrix", "dem_undecomposed_one_column_per_instruction_v1")],
+)
+def test_d026_decoder_settings_enter_the_hash(monkeypatch, key, other):
+    before = _protocol().hash()
+    monkeypatch.setitem(DECODER_PARAMS, key, other)
+    assert _protocol().hash() != before
 
 
 def test_inv6_single_protocol_guard():
