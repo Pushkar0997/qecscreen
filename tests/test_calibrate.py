@@ -10,6 +10,7 @@ calibration marker, and the row guard refuses all of it.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
 import json
 
@@ -18,6 +19,7 @@ import pandas as pd
 import pytest
 
 import qecscreen.evaluate.calibrate as cal
+from _calibration_fakes import hang_factory
 from qecscreen.circuits.build import build_memory_circuit
 from qecscreen.evaluate.calibrate import (
     DECODERS,
@@ -105,18 +107,22 @@ def test_paired_counts_are_consistent(smoke):
                                                     pair["only_bplsd_cs_4_fails"])
 
 
+def _forbid_worker_starts(monkeypatch):
+    def must_not_start(ctx, job, progress):
+        raise AssertionError(f"started a worker for a cell that is done: {job['path']}")
+
+    monkeypatch.setattr(cal, "_start_worker", must_not_start)
+
+
 def test_restart_skips_completed_cells(smoke, monkeypatch):
     out, summary, _ = smoke
 
-    def must_not_run(job):
-        raise AssertionError(f"re-ran a completed cell: {job[-1]}")
-
-    monkeypatch.setattr(cal, "_cell_job", must_not_run)
+    _forbid_worker_starts(monkeypatch)
     assert run_calibration(SMOKE, out) == summary
 
 
 def test_restart_runs_only_the_missing_cells(tmp_path, monkeypatch):
-    cfg = dataclasses.replace(SMOKE, ps=(0.003, 0.002), max_shots=100)
+    cfg = dataclasses.replace(SMOKE, ps=(0.003, 0.002), max_shots=100, processes=2)
     first = run_calibration(cfg, tmp_path)
     cells = sorted(tmp_path.glob("cell_*.json"))
     assert len(cells) == 2
@@ -124,8 +130,10 @@ def test_restart_runs_only_the_missing_cells(tmp_path, monkeypatch):
     cells[1].unlink()
 
     ran = []
-    real = cal._cell_job
-    monkeypatch.setattr(cal, "_cell_job", lambda job: ran.append(job[-1]) or real(job))
+    real = cal._start_worker
+    monkeypatch.setattr(
+        cal, "_start_worker", lambda ctx, job, prog: ran.append(job["path"]) or real(ctx, job, prog)
+    )
     # Seeded, so the re-run cell has the same shots and failures (timings differ).
     assert _counts(run_calibration(cfg, tmp_path)) == _counts(first)
     assert ran == [str(cells[1])]
@@ -190,7 +198,8 @@ def test_wall_clock_cap_stops_a_cell_and_is_recorded(tmp_path):
     summary = run_calibration(cfg, tmp_path)
     (cell,) = summary["per_cell"]
     assert cell["stopped_by"] == "wall_clock" and cell["shots"] == 0
-    assert summary["stopped_by"] == {"min_failures": 0, "max_shots": 0, "wall_clock": 1}
+    assert summary["stopped_by"] == {"min_failures": 0, "max_shots": 0, "wall_clock": 1,
+                                     "killed": 0, "died": 0}
 
 
 def test_decoders_differ_only_where_intended():
@@ -285,3 +294,42 @@ def test_calibrate_notebook_follows_the_template():
     assert calib[:2] == template[:2]  # install by SHA, provenance read back
     assert "run_calibration(CONFIG, OUT_DIR)" in calib[4]
     assert '"calibration": True' in calib[5]
+
+
+def test_a_hung_decoder_is_killed_recorded_and_never_retried(tmp_path, monkeypatch):
+    """A decode() that never returns: the run completes, the cell is ``killed``
+    with the shot that hung, the flushed partial is kept, and resume skips it."""
+    hang_on = 150  # batch 1, row 50, with sample_batch=100
+    factory = functools.partial(hang_factory, hang_decoder="bplsd_cs_4", hang_on=hang_on)
+    cfg = dataclasses.replace(SMOKE, cell_wall_seconds=3.0, cell_kill_margin_seconds=2.0)
+    summary = run_calibration(cfg, tmp_path, _decoder_factory=factory)
+
+    (path,) = tmp_path.glob("cell_*.json")
+    cell = json.loads(path.read_text(encoding="utf-8"))
+    assert cell["status"] == "killed" and cell["calibration"] is True
+    assert (cell["batch_index"], cell["shot_in_batch"], cell["shot_index"]) == (1, 50, hang_on)
+    assert cell["decoder"] == "bplsd_cs_4"
+    h = protocol_hash(Protocol(p=0.003, decoder_version=installed_decoder_version()))
+    assert cell["sampling_seed"] == sampling_seed(cell["code"]["code_id"], h)
+    # Kept: the tally flushed at the end of batch 0, every decoder done on each shot.
+    part = cell["partial"]
+    assert part["shots"] == 100 and set(part["decoders"]) == {"bposd", "bplsd_cs_4"}
+    assert all(r["syndromes_sha256"] == part["decoders"]["bposd"]["syndromes_sha256"]
+               for r in part["decoders"].values())
+    assert not list(tmp_path.glob("partial_*.json"))
+    assert summary["stopped_by"]["killed"] == 1 and summary["per_cell"] == []
+    (u,) = summary["unfinished_cells"]
+    assert u["shot_index"] == hang_on and u["partial"]["shots"] == 100
+
+    # The shot is reproducible from the record alone.
+    circuit = build_memory_circuit(cell["code"], cell["p"], cell["rounds"])
+    sampler = circuit.compile_detector_sampler(seed=cell["sampling_seed"])
+    for _ in range(cell["batch_index"] + 1):
+        dets, _ = sampler.sample(cell["sample_batch"], separate_observables=True)
+    assert dets[cell["shot_in_batch"]].any()  # a real, non-trivial syndrome row
+
+    _forbid_worker_starts(monkeypatch)
+    again = run_calibration(cfg, tmp_path, _decoder_factory=factory)
+    assert again["unfinished_cells"] == summary["unfinished_cells"]
+    with pytest.raises(CalibrationOutputError):
+        reject_calibration(path)

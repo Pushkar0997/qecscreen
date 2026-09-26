@@ -13,12 +13,18 @@ difference is then measured on shared noise: McNemar's exact test on the
 shots where exactly one of the two decoders fails.
 
 **Limits.** A cell stops when every decoder has ``MIN_FAILURES`` failures, at
-``max_shots``, or at the wall-clock cap (checked between shots, so a cell
-can overrun by one shot of every decoder), and records which. Cells run in
-``processes`` worker processes. Before any sampling the run prints an upper
-bound on its wall time, ``ceil(cells / processes) * cap``, and refuses to
-start if that exceeds ``max_hours``: every cell is shorter than the cap, so
-list scheduling cannot take longer.
+``max_shots``, or at the wall-clock cap (checked between shots), and records
+which. Every cell runs in its own worker process, at most ``processes`` at a
+time, and a worker still alive ``cap + cell_kill_margin_seconds`` after it
+started is killed: a hang inside ``decode()`` cannot be interrupted by the
+between-shot cap. The killed cell's file has ``status: "killed"`` and the
+sampling seed, batch, shot and decoder that were running, so the syndrome can
+be reproduced locally, plus the partial tally the worker last flushed. Resume
+treats it as done and never retries it: the same seed would hang again.
+Before any sampling the run prints an upper bound on its wall time,
+``ceil(cells / processes) * (cap + margin)``, and refuses to start if that
+exceeds ``max_hours``: no cell outlives its kill deadline, so list
+scheduling cannot take longer.
 
 **Not dataset rows.** Every file written has ``"calibration": true``; the
 output directory may not be under a directory named ``data``; and
@@ -34,12 +40,12 @@ pilot ids for the same code will differ, which affects nothing here.
 
 from __future__ import annotations
 
-import concurrent.futures
 import dataclasses
 import hashlib
 import json
 import math
 import multiprocessing
+import multiprocessing.connection
 import os
 import time
 from collections.abc import Mapping, Sequence
@@ -148,6 +154,11 @@ class CalibrationConfig:
     code_seed: int = CALIBRATION_CODE_SEED
     codes: tuple[Mapping[str, Any], ...] = ()
     cell_wall_seconds: float = 1200.0
+    # Hard kill at cell_wall_seconds + this, counted from the worker's start.
+    # Covers the cap's overrun of one shot per decoder (~1 min on the largest
+    # code, from AGENT_LOG (mm)'s cost fit) and the worker's imports; small
+    # enough that the default grid's bound, 8 x 22 min, stays under 3 h.
+    cell_kill_margin_seconds: float = 120.0
     max_shots: int = MAX_SHOTS
     sample_batch: int = 256
     processes: int = 4
@@ -167,8 +178,8 @@ class CalibrationConfig:
             raise ValueError(f"max_shots must be in (0, MAX_SHOTS={MAX_SHOTS}]")
         if self.sample_batch < 1 or self.processes < 1:
             raise ValueError("sample_batch and processes must be >= 1")
-        if self.cell_wall_seconds <= 0 or self.max_hours <= 0:
-            raise ValueError("cell_wall_seconds and max_hours must be > 0")
+        if min(self.cell_wall_seconds, self.cell_kill_margin_seconds, self.max_hours) <= 0:
+            raise ValueError("cell_wall_seconds, cell_kill_margin_seconds and max_hours must be > 0")
 
     def to_json(self) -> dict[str, Any]:
         return json.loads(json.dumps(dataclasses.asdict(self)))
@@ -285,64 +296,21 @@ def mcnemar_exact(only_a_fails: int, only_b_fails: int) -> float:
     return 1.0 if n == 0 else float(binomtest(only_a_fails, n, 0.5).pvalue)
 
 
-def run_cell(
-    code: Mapping[str, Any],
-    p: float,
+def _tally(
     decoders: Sequence[str],
-    *,
-    wall_seconds: float,
-    max_shots: int,
-    sample_batch: int,
+    p: float,
+    rounds: int,
+    k: int,
+    shots: int,
+    fails: Mapping[str, list[bool]],
+    seconds: Mapping[str, float],
+    converged: Mapping[str, int],
+    digests: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Sample one ``(p, code)`` cell once and decode every shot with every decoder."""
-    start = time.monotonic()
-    rounds = int(code["d_upper"])
-    circuit = build_memory_circuit(code, p, rounds)
-    dem = detector_error_model(circuit)
-    mats = dem_matrices(dem)
-    obs_matrix = mats.observables_matrix
-    h = protocol_hash(Protocol(p=p, decoder_version=installed_decoder_version()))
-    seed = sampling_seed(code["code_id"], h)
-    decs = {name: _make_decoder(name, dem, mats) for name in decoders}
-    setup_seconds = time.monotonic() - start
-
-    fails = {name: [] for name in decoders}
-    n_fails = dict.fromkeys(decoders, 0)
-    seconds = dict.fromkeys(decoders, 0.0)
-    converged = dict.fromkeys(decoders, 0)
-    digests = {name: hashlib.sha256() for name in decoders}
-    samples = hashlib.sha256()
-    sampler = circuit.compile_detector_sampler(seed=seed)
-    shots = 0
-    stopped_by = None
-    while stopped_by is None:
-        dets, obs = sampler.sample(sample_batch, separate_observables=True)
-        for syndrome, actual in zip(dets.astype(np.uint8), obs.astype(np.uint8)):
-            if all(f >= MIN_FAILURES for f in n_fails.values()):
-                stopped_by = "min_failures"
-            elif shots >= max_shots:
-                stopped_by = "max_shots"
-            elif time.monotonic() - start >= wall_seconds:
-                stopped_by = "wall_clock"
-            if stopped_by:
-                break
-            samples.update(syndrome.tobytes())
-            samples.update(actual.tobytes())
-            for name, dec in decs.items():
-                digests[name].update(syndrome.tobytes())
-                t = time.perf_counter()
-                correction = dec.decode(syndrome)
-                seconds[name] += time.perf_counter() - t
-                converged[name] += bool(dec.converge)
-                failed = bool(((obs_matrix @ correction) % 2 != actual).any())
-                fails[name].append(failed)
-                n_fails[name] += failed
-            shots += 1
-
-    k = circuit.num_observables
+    """Per-decoder results and paired comparisons over the first ``shots`` shots."""
     per_decoder = {}
     for name in decoders:
-        f = n_fails[name]
+        f = int(sum(fails[name]))
         per_decoder[name] = {
             "ldpc_class": DECODERS[name][0],
             "params": DECODERS[name][1],
@@ -370,10 +338,107 @@ def run_cell(
                 "neither_fails": int((~ref & ~other).sum()),
                 "mcnemar_exact_p": mcnemar_exact(only_ref, only_other),
             }
+    return {"shots": shots, "decoders": per_decoder, "paired": paired}
+
+
+# Besides every batch end, a worker flushes its partial tally this often, so a
+# killed cell keeps most of what it decoded even when one batch outlasts the
+# cap (the largest codes decode a few dozen shots per cell).
+_FLUSH_SECONDS = 30.0
+
+
+def run_cell(
+    code: Mapping[str, Any],
+    p: float,
+    decoders: Sequence[str],
+    *,
+    wall_seconds: float,
+    max_shots: int,
+    sample_batch: int,
+    progress: Any = None,
+    partial_path: str | os.PathLike | None = None,
+    decoder_factory: Any = None,
+) -> dict[str, Any]:
+    """Sample one ``(p, code)`` cell once and decode every shot with every decoder.
+
+    ``progress``, if given, is a 3-slot integer array that receives ``(batch
+    index, shot index within the batch, decoder index)`` before every
+    ``decode()`` call, so the parent can say what was running if it has to
+    kill this process. ``partial_path``, if given, receives the tally over
+    every shot completed so far (all decoders done on it) at each batch end
+    and every ``_FLUSH_SECONDS``. ``decoder_factory(name, dem, mats)``
+    replaces ``_make_decoder``; it exists for tests.
+    """
+    make_decoder = decoder_factory or _make_decoder
+    start = time.monotonic()
+    rounds = int(code["d_upper"])
+    circuit = build_memory_circuit(code, p, rounds)
+    dem = detector_error_model(circuit)
+    mats = dem_matrices(dem)
+    obs_matrix = mats.observables_matrix
+    h = protocol_hash(Protocol(p=p, decoder_version=installed_decoder_version()))
+    seed = sampling_seed(code["code_id"], h)
+    decs = {name: make_decoder(name, dem, mats) for name in decoders}
+    setup_seconds = time.monotonic() - start
+
+    k = circuit.num_observables
+    fails: dict[str, list[bool]] = {name: [] for name in decoders}
+    n_fails = dict.fromkeys(decoders, 0)
+    seconds = dict.fromkeys(decoders, 0.0)
+    converged = dict.fromkeys(decoders, 0)
+    digests = {name: hashlib.sha256() for name in decoders}
+    samples = hashlib.sha256()
+    sampler = circuit.compile_detector_sampler(seed=seed)
+    shots = 0
+    stopped_by = None
+    batch_index = -1
+    last_flush = time.monotonic()
+
+    def flush() -> None:
+        if partial_path is not None:
+            _write_json(Path(partial_path), {
+                CALIBRATION_MARKER: True, "format": _FORMAT, "status": "partial",
+                **_tally(decoders, p, rounds, k, shots, fails, seconds, converged, digests),
+            })
+
+    while stopped_by is None:
+        dets, obs = sampler.sample(sample_batch, separate_observables=True)
+        batch_index += 1
+        rows = zip(dets.astype(np.uint8), obs.astype(np.uint8))
+        for shot_in_batch, (syndrome, actual) in enumerate(rows):
+            if all(f >= MIN_FAILURES for f in n_fails.values()):
+                stopped_by = "min_failures"
+            elif shots >= max_shots:
+                stopped_by = "max_shots"
+            elif time.monotonic() - start >= wall_seconds:
+                stopped_by = "wall_clock"
+            if stopped_by:
+                break
+            if time.monotonic() - last_flush >= _FLUSH_SECONDS:
+                flush()
+                last_flush = time.monotonic()
+            samples.update(syndrome.tobytes())
+            samples.update(actual.tobytes())
+            for i, (name, dec) in enumerate(decs.items()):
+                if progress is not None:
+                    progress[0], progress[1], progress[2] = batch_index, shot_in_batch, i
+                digests[name].update(syndrome.tobytes())
+                t = time.perf_counter()
+                correction = dec.decode(syndrome)
+                seconds[name] += time.perf_counter() - t
+                converged[name] += bool(dec.converge)
+                failed = bool(((obs_matrix @ correction) % 2 != actual).any())
+                fails[name].append(failed)
+                n_fails[name] += failed
+            shots += 1
+        else:
+            flush()
+            last_flush = time.monotonic()
 
     return {
         CALIBRATION_MARKER: True,
         "format": _FORMAT,
+        "status": "completed",
         "p": p,
         "code": dict(code),
         "rounds": rounds,
@@ -382,13 +447,11 @@ def run_cell(
         "protocol_hash_pinned": h,
         "sampling_seed": seed,
         "sample_batch": sample_batch,
-        "shots": shots,
         "stopped_by": stopped_by,
         "wall_seconds": time.monotonic() - start,
         "setup_seconds": setup_seconds,
         "samples_sha256": samples.hexdigest(),
-        "decoders": per_decoder,
-        "paired": paired,
+        **_tally(decoders, p, rounds, k, shots, fails, seconds, converged, digests),
         "provenance": record(),
     }
 
@@ -397,18 +460,109 @@ def _cell_path(out_dir: Path, p: float, cid: str) -> Path:
     return out_dir / f"cell_p{p:.6f}_{cid}.json"
 
 
+def _partial_path(out_dir: Path, p: float, cid: str) -> Path:
+    return out_dir / f"partial_p{p:.6f}_{cid}.json"
+
+
 def _write_json(path: Path, obj: Mapping[str, Any]) -> None:
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(obj, indent=1, sort_keys=True), encoding="utf-8")
     os.replace(tmp, path)
 
 
-def _cell_job(args: tuple) -> str:
-    """Worker entry point: run one cell and write its file. Returns the path."""
-    code, p, decoders, wall, max_shots, batch, path = args
-    _write_json(Path(path), run_cell(code, p, decoders, wall_seconds=wall,
-                                     max_shots=max_shots, sample_batch=batch))
-    return path
+def _cell_worker(job: Mapping[str, Any], progress: Any) -> None:
+    """Worker process entry point: run one cell and write its file."""
+    result = run_cell(
+        job["code"], job["p"], job["decoders"], wall_seconds=job["wall_seconds"],
+        max_shots=job["max_shots"], sample_batch=job["sample_batch"], progress=progress,
+        partial_path=job["partial_path"], decoder_factory=job["decoder_factory"],
+    )
+    _write_json(Path(job["path"]), result)
+
+
+def _start_worker(ctx: Any, job: Mapping[str, Any], progress: Any) -> Any:
+    """Start one cell's worker process. Separate so tests can see every start."""
+    proc = ctx.Process(target=_cell_worker, args=(job, progress), daemon=True)
+    proc.start()
+    return proc
+
+
+def _write_unfinished(job: Mapping[str, Any], status: str, progress: Any, **extra: Any) -> None:
+    """The result file of a cell whose worker was killed (or died on its own).
+
+    Records what reproduces the syndrome being decoded: the sampling seed and
+    batch size, and the batch, shot and decoder from the shared progress
+    array. Keeps the partial tally the worker last flushed, which covers shots
+    ``0 .. partial.shots - 1`` with every decoder done on each; everything
+    decoded after that flush is lost, including the shot that was running.
+    """
+    code, p = job["code"], job["p"]
+    h = protocol_hash(Protocol(p=p, decoder_version=installed_decoder_version()))
+    batch_index, shot_in_batch, decoder_index = (int(v) for v in progress[:3])
+    started = batch_index >= 0  # False if the worker never reached a decode
+    partial_file = Path(job["partial_path"])
+    partial = json.loads(partial_file.read_text(encoding="utf-8")) if partial_file.exists() else None
+    _write_json(Path(job["path"]), {
+        CALIBRATION_MARKER: True,
+        "format": _FORMAT,
+        "status": status,
+        "p": p,
+        "code": dict(code),
+        "rounds": int(code["d_upper"]),
+        "protocol_hash_pinned": h,
+        "sampling_seed": sampling_seed(code["code_id"], h),
+        "sample_batch": job["sample_batch"],
+        "batch_index": batch_index if started else None,
+        "shot_in_batch": shot_in_batch if started else None,
+        "shot_index": batch_index * job["sample_batch"] + shot_in_batch if started else None,
+        "decoder": job["decoders"][decoder_index] if started else None,
+        "reproduce": (
+            "build_memory_circuit(code, p, rounds).compile_detector_sampler(seed=sampling_seed); "
+            "call .sample(sample_batch, separate_observables=True) batch_index + 1 times; the "
+            "syndrome is row shot_in_batch of the last call, as uint8"
+        ),
+        "partial": partial,
+        "provenance": record(),
+        **extra,
+    })
+    partial_file.unlink(missing_ok=True)
+
+
+def _run_jobs(jobs: Sequence[Mapping[str, Any]], processes: int, kill_after: float) -> None:
+    """Run every job in its own process, at most ``processes`` at once.
+
+    A worker still alive ``kill_after`` seconds after it started is killed and
+    its cell written as ``killed``; one that exits without writing its result
+    is written as ``died``. Either way the run goes on to the next cell.
+    """
+    ctx = multiprocessing.get_context("spawn")  # no fork of a threaded kernel
+    pending = list(jobs)
+    running: dict[Any, tuple[Mapping[str, Any], Any, float, Any]] = {}
+    while pending or running:
+        while pending and len(running) < processes:
+            job = pending.pop(0)
+            progress = ctx.Array("q", [-1, -1, -1], lock=False)
+            proc = _start_worker(ctx, job, progress)
+            running[proc.sentinel] = (job, progress, time.monotonic() + kill_after, proc)
+        timeout = max(0.0, min(r[2] for r in running.values()) - time.monotonic())
+        multiprocessing.connection.wait(list(running), timeout=timeout)
+        for sentinel, (job, progress, deadline, proc) in list(running.items()):
+            name = Path(job["path"]).name
+            if not proc.is_alive():
+                proc.join()
+                del running[sentinel]
+                if proc.exitcode == 0 and Path(job["path"]).exists():
+                    Path(job["partial_path"]).unlink(missing_ok=True)
+                    print("done:", name, flush=True)
+                else:
+                    _write_unfinished(job, "died", progress, exitcode=proc.exitcode)
+                    print(f"DIED (exit code {proc.exitcode}):", name, flush=True)
+            elif time.monotonic() >= deadline:
+                proc.kill()
+                proc.join()
+                del running[sentinel]
+                _write_unfinished(job, "killed", progress, killed_after_seconds=kill_after)
+                print(f"KILLED after {kill_after:.0f} s:", name, flush=True)
 
 
 # --- the run ----------------------------------------------------------------
@@ -424,14 +578,18 @@ def _check_out_dir(out_dir: Path) -> Path:
     return resolved
 
 
-def run_calibration(config: CalibrationConfig, out_dir: str | os.PathLike) -> dict[str, Any]:
+def run_calibration(
+    config: CalibrationConfig, out_dir: str | os.PathLike, *, _decoder_factory: Any = None
+) -> dict[str, Any]:
     """Run (or resume) the calibration grid into ``out_dir``; return the summary.
 
     Writes ``plan.json`` (config and code ids), one ``cell_*.json`` per
     ``(p, code)``, and ``summary.json``. A restart with the same config skips
-    every cell whose file exists; a different config refuses to reuse the
-    directory. Raises before any sampling if the projected wall time exceeds
-    ``config.max_hours``.
+    every cell whose file exists, ``killed`` and ``died`` ones included; a
+    different config refuses to reuse the directory. Raises before any
+    sampling if the projected wall time exceeds ``config.max_hours``.
+    ``_decoder_factory`` is a test seam handed to ``run_cell`` in each worker;
+    it must be picklable.
     """
     out = _check_out_dir(Path(out_dir))
     out.mkdir(parents=True, exist_ok=True)
@@ -466,11 +624,12 @@ def run_calibration(config: CalibrationConfig, out_dir: str | os.PathLike) -> di
 
     cells = [(p, c) for p in config.ps for c in codes]
     todo = [(p, c) for p, c in cells if not _cell_path(out, p, c["code_id"]).exists()]
-    bound_h = math.ceil(len(todo) / config.processes) * config.cell_wall_seconds / 3600.0
+    kill_after = config.cell_wall_seconds + config.cell_kill_margin_seconds
+    bound_h = math.ceil(len(todo) / config.processes) * kill_after / 3600.0
     print(
-        f"{len(cells)} cells, {len(cells) - len(todo)} already done, {len(todo)} to run on "
-        f"{config.processes} processes, each capped at {config.cell_wall_seconds / 60:.1f} min "
-        f"(+ at most one shot per decoder past the cap).\n"
+        f"{len(cells)} cells, {len(cells) - len(todo)} already done (killed ones included, "
+        f"never retried), {len(todo)} to run on {config.processes} processes, each capped at "
+        f"{config.cell_wall_seconds / 60:.1f} min and killed at {kill_after / 60:.1f} min.\n"
         f"projected wall time <= {bound_h:.2f} h (<= {bound_h * config.processes:.1f} core-hours); "
         f"limit {config.max_hours:.2f} h"
     )
@@ -483,18 +642,14 @@ def run_calibration(config: CalibrationConfig, out_dir: str | os.PathLike) -> di
     # Largest circuits first, so the long cells do not all land at the end.
     todo.sort(key=lambda pc: -pc[1]["n"] * pc[1]["d_upper"])
     jobs = [
-        (c, p, tuple(config.decoders), config.cell_wall_seconds, config.max_shots,
-         config.sample_batch, str(_cell_path(out, p, c["code_id"])))
+        {"code": c, "p": p, "decoders": tuple(config.decoders),
+         "wall_seconds": config.cell_wall_seconds, "max_shots": config.max_shots,
+         "sample_batch": config.sample_batch, "decoder_factory": _decoder_factory,
+         "path": str(_cell_path(out, p, c["code_id"])),
+         "partial_path": str(_partial_path(out, p, c["code_id"]))}
         for p, c in todo
     ]
-    if config.processes == 1 or len(jobs) <= 1:
-        for job in jobs:
-            print("done:", Path(_cell_job(job)).name, flush=True)
-    else:
-        ctx = multiprocessing.get_context("spawn")  # no fork of a threaded kernel
-        with concurrent.futures.ProcessPoolExecutor(config.processes, mp_context=ctx) as pool:
-            for path in pool.map(_cell_job, jobs):
-                print("done:", Path(path).name, flush=True)
+    _run_jobs(jobs, config.processes, kill_after)
 
     summary = summarize(out)
     _write_json(out / _SUMMARY_FILE, summary)
@@ -514,9 +669,10 @@ def _load_cells(out: Path, plan: Mapping[str, Any]) -> list[dict[str, Any]]:
             if not path.exists():
                 continue
             cell = json.loads(path.read_text(encoding="utf-8"))
+            decs = cell["decoders"] if cell.get("status") == "completed" else cfg["decoders"]
             if (not cell.get(CALIBRATION_MARKER) or cell["p"] != p
                     or cell["code"]["code_id"] != c["code_id"]
-                    or sorted(cell["decoders"]) != sorted(cfg["decoders"])):
+                    or sorted(decs) != sorted(cfg["decoders"])):
                 raise ValueError(f"{path} does not belong to this calibration run")
             cells.append(cell)
     return cells
@@ -611,7 +767,16 @@ def summarize(out_dir: str | os.PathLike) -> dict[str, Any]:
     """Summary of a calibration directory: measurements and projections, no advice."""
     out = Path(out_dir)
     plan = json.loads((out / _PLAN_FILE).read_text(encoding="utf-8"))
-    cells = _load_cells(out, plan)
+    loaded = _load_cells(out, plan)
+    # Killed or died cells are listed with what reproduces the syndrome and the
+    # partial tally they kept; they take no part in the comparisons below.
+    cells = [c for c in loaded if c["status"] == "completed"]
+    unfinished = [
+        {key: c[key] for key in ("status", "p", "sampling_seed", "sample_batch", "batch_index",
+                                 "shot_in_batch", "shot_index", "decoder", "partial")}
+        | {"code_id": c["code"]["code_id"], "name": c["code"]["name"]}
+        for c in loaded if c["status"] != "completed"
+    ]
     decoders = plan["config"]["decoders"]
 
     size_scaling = []
@@ -664,10 +829,12 @@ def summarize(out_dir: str | os.PathLike) -> dict[str, Any]:
         "constants_used": {"MIN_FAILURES": MIN_FAILURES, "MAX_SHOTS": MAX_SHOTS,
                            "SHOT_BATCH": SHOT_BATCH},
         "code_ids": {c["name"]: c["code_id"] for c in plan["codes"]},
-        "cells_done": len(cells),
+        "cells_done": len(loaded),
         "cells_total": len(plan["config"]["ps"]) * len(plan["codes"]),
         "stopped_by": {s: sum(c["stopped_by"] == s for c in cells)
-                       for s in ("min_failures", "max_shots", "wall_clock")},
+                       for s in ("min_failures", "max_shots", "wall_clock")}
+        | {s: sum(c["status"] == s for c in loaded) for s in ("killed", "died")},
+        "unfinished_cells": unfinished,
         "size_scaling": size_scaling,
         "per_cell": per_cell,
         "pilot_projection": pilot,
@@ -682,6 +849,13 @@ def format_summary(summary: Mapping[str, Any]) -> str:
     """The summary as text, for printing. Measurements and projections only."""
     lines = [f"cells {summary['cells_done']}/{summary['cells_total']}, "
              f"stopped by {summary['stopped_by']}"]
+    for u in summary["unfinished_cells"]:
+        kept = u["partial"]["shots"] if u["partial"] else 0
+        lines.append(
+            f"  {u['status'].upper()}: p={u['p']} {u['code_id']} sampling_seed={u['sampling_seed']} "
+            f"batch={u['batch_index']} shot_in_batch={u['shot_in_batch']} (shot {u['shot_index']}) "
+            f"decoder={u['decoder']}; partial kept: {kept} shots"
+        )
     lines.append("\nsize scaling (per-round LER, 95% Wilson):")
     for s in summary["size_scaling"]:
         a, b = s["ref72"], s["gross144"]

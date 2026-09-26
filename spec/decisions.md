@@ -528,6 +528,20 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 **Revisit if:** the grid changes enough that the default bound exceeds 3 h, or M0-EVAL-04's writer lands (its tests must then drive the calibration output through the writer itself).
 
+**Amendment (owner, 2026-09-26) — hard per-cell kill, because BP+LSD can hang.** A hang inside `decode()` cannot be interrupted by the between-shot wall cap. And since resume skips only completed cells, a hung cell would hang again on every restart: same seed, same syndrome.
+- **What happens now.** Every cell runs in its own spawned worker process, at most `processes` at a time. A worker still alive `cell_wall_seconds + cell_kill_margin_seconds` after it started is killed.
+- **The kill record.** The parent writes the cell's file with `status: "killed"`. It holds:
+  - `sampling_seed`, `sample_batch`, `batch_index`, `shot_in_batch`, `shot_index` and the `decoder` that was running, all read from a shared array the worker updates before every `decode()` call;
+  - a `reproduce` recipe.
+
+  That is enough to regenerate the exact syndrome locally.
+- **What is kept.** The worker flushes a partial tally at every batch end and every 30 s. The kill record keeps the last flush as `partial`: shots `0 .. partial.shots - 1`, every decoder done on each, with per-decoder counts and paired comparisons. Everything decoded after that flush is lost, including the shot that hung.
+- **Unexpected exits.** A worker that exits without writing its result, for example on a segfault, is written the same way as `status: "died"` with its exit code.
+- **Resume and summary.** Resume treats `killed` and `died` as done and never retries them. The summary lists them under `unfinished_cells` and leaves them out of every comparison and projection.
+- **Margin and bound.** The margin defaults to 120 s: one shot per decoder past the cap (~1 min on the largest code) plus the worker's imports. The projected bound is now the real hard one, `ceil(cells / processes) × (cap + margin)`. For the default grid that is 8 × 22 min = **2.93 h**, which supersedes the 2.67 h above and is still under 3 h.
+
+**Why a hang on a real sampled shot would matter.** A hang is only expected on a syndrome no error can produce. The mutant that found it fed LSD a rotated syndrome. Every syndrome the sampler emits is the detector image of some set of circuit faults. Each of those faults is a mechanism in the DEM. So every sampled syndrome lies in the column span of the DEM check matrix built from that DEM (merging mechanisms by symptom keeps their columns). If LSD hangs on a *real* shot, the most likely cause is that the DEM → matrix conversion (`dem_undecomposed_merge_by_symptom_v1`) dropped a mechanism. That would make the matrix a wrong model of the circuit for every decoder, BP+OSD on the label path included, not only for LSD. The kill record is how that would be found: rebuild the syndrome from `sampling_seed`, batch and shot, then check it against the column span of `dem_matrices(...)` over GF(2). If it is outside the span, the conversion is wrong. If it is inside, the hang is an ldpc bug on a valid input.
+
 ---
 
 ## Template
