@@ -68,9 +68,22 @@ qecscreen/
 ├── tests/                 ← Mirrors src/. Invariant tests named test_inv_<n>_*.
 ├── data/                  ← Gitignored. Local Parquet. Releases go to Zenodo.
 └── notebooks/             ← Kaggle/Colab runners. Thin: import and call, no logic.
+                             template_run.ipynb is the six-cell shape (rules below).
 ```
 
 The rule that matters: **logic never lives in a notebook or a script.** Notebooks die, are not tested, and cannot be reviewed in a diff. They import from `src/` and call one function.
+
+### Notebook rules (D-028)
+
+All sampling and decoding runs on Kaggle or Colab, in notebooks the owner runs. **Agents never execute notebooks**: they write and test the package, and the template that calls it.
+
+1. **No definitions.** No code cell defines a function, a class or a lambda. Enforced by `tests/test_notebook_contract.py`, which parses every code cell (IPython `!`/`%` line magics blanked, cell magics refused) and runs in CI. Anything that needs a definition belongs in `src/qecscreen`, where it is tested.
+2. **Six cells, in this order.** `notebooks/template_run.ipynb` is the shape every run notebook copies: (1) install pinned by SHA, (2) provenance, (3) config constants, (4) output path, (5) one package call, (6) write the artifact and print a summary. Only cells 3 and 5 change between runs.
+3. **Install by a full 40-hex commit, never a branch or tag:** `pip install git+https://github.com/Pushkar0997/qecscreen@<sha>` (`pyproject.toml`; dependencies come from `requirements.txt`).
+4. **Provenance is read back, not echoed.** Cell 2 calls `provenance.record()` (`commit_sha` from `resolved_commit()`, `stim_version`, `cpu_class`, `decoder_version`, `python_version`) and asserts `commit_sha` equals the pin (D-017). An artifact's provenance is that dict, whole.
+5. **Credentials only from the platform's secret store.** While the repo is private (D-013), cell 1 reads `GITHUB_TOKEN` from Kaggle Secrets or Colab `userdata` and masks it in pip's output. A token never appears in a cell's source or output; the contract test scans every notebook for token-shaped strings.
+6. **Constants are not retyped.** Protocol values come from `qecscreen.protocol`; cell 3 holds only run-level settings such as a run name.
+7. **`notebooks/runs/` is evidence.** Executed copies are kept there, dated, and never edited, so rule 1 does not apply to them (rule 5's scan does).
 
 ## 3. Data model
 
