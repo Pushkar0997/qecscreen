@@ -53,8 +53,9 @@ jobs:
         # This guard used to be `--only-binary=:all:`, which was the wrong test.
         # That flag demands a *wheel*, and `sinter` 1.16.0 is sdist-only on PyPI
         # — so it silently pinned CI to `sinter` 1.15.0 while every real install
-        # builds 1.16.0 from the sdist. CI was not testing what users run, and
-        # `sinter`'s version enters `protocol_hash` (INV-6).
+        # builds 1.16.0 from the sdist. CI was not testing what users run.
+        # (This comment used to add that sinter's version enters protocol_hash.
+        # It never did; sinter is installed only because ldpc depends on it.)
         #
         # Building a pure-Python sdist is fine. Invoking a C toolchain is not.
         # So: install normally, then fail if a compiler actually ran.
@@ -69,8 +70,8 @@ jobs:
           echo "no compiler invocation detected"
 
       - name: Record resolved versions
-        # stim/sinter/ldpc versions enter protocol_hash (INV-6), so a run's log
-        # has to say which ones it actually used.
+        # ldpc's version enters protocol_hash (INV-6) and stim's is a per-row
+        # column (D-027), so a run's log has to say which ones it actually used.
         run: pip list
 
       - name: Run tests

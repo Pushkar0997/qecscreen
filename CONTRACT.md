@@ -91,6 +91,8 @@ The **concrete value of `r` is deliberately not in the hash.** It is a per-row s
 
 **Every row also stores `commit_sha`, and it is deliberately not part of the hash.** `protocol_hash` identifies the measurement recipe — noise model, decoder, decoder version, scheduling, rounds rule — never which version of this project's own code executed it. Two rows can carry an identical `protocol_hash` while one was produced before a bug fix and one after; without a recorded commit, that difference is undetectable and unattributable later. `commit_sha` is required on every row, populated from `qecscreen.provenance.resolved_commit()`, which reads what is actually installed and importable at run time — never a value copied from a notebook's pinned install SHA, which records intent, not fact. See D-017.
 
+**Every row also stores `sampling_seed`, `stim_version` and `cpu_class`, and none of them is part of the hash (D-027).** `sampling_seed` is derived from the row by a pinned rule (below), so it adds nothing the hash does not already fix. `stim_version` and `cpu_class` change which bits are sampled, not the distribution a label is drawn from: hashing them would split rows that measure the same thing, and hashing `cpu_class` would split a dataset by which Kaggle machine a session happened to land on. They are per-row provenance, recorded so that bit-for-bit regeneration can be checked where it is possible, and sourced from `qecscreen.provenance`.
+
 **Violated by:** Appending a re-run with `osd_order=5` to a table generated with `osd_order=10` because "it's the same decoder." Also by trusting `!pip install git+...@<sha>` in a notebook cell as proof of what code ran, instead of reading it back from the installed package.
 
 **Detected by:** `test_single_protocol_guard` — asserts `assert_single_protocol()` raises on a mixed-hash frame; and every ranking/training entry point calls it.
@@ -156,6 +158,8 @@ Every choice below could reasonably go two ways. Each is pinned. Divergence is a
 | Error rate `p` | Float, the physical error rate of the noise model. Stored to 6 decimal places. |
 | Rounds `r` | `r = d_upper` (field convention, matches published BB numbers). Stored explicitly per row. The **rule** goes in `protocol_hash`, never the value — see D-014. **Provisional — revisit at M2**, see D-006. |
 | Random seeds | Every generator and sampler takes an explicit `seed: int`. No implicit global RNG. |
+| `sampling_seed` | Required int64 row column: the seed given to the stim sampler, `SAMPLING_SEED` rule below, computed only by `qecscreen.protocol.sampling_seed`. Never chosen by hand, never reused across rows. D-027. |
+| `stim_version`, `cpu_class` | Required str row columns, provenance only, **not** in `protocol_hash`. `stim_version` is the installed stim; `cpu_class` is `<machine>/<stim SIMD backend>` (e.g. `x86_64/sse2`), the backend being the compiled module stim actually loaded. Sourced from `qecscreen.provenance`. D-027. |
 | IDs | `construction_program_id` is a slug: `bb_v1`, `gb_v1`, `hgp_v1`. `code_id` is `{program_id}-{sha256(params_json)[:12]}`. |
 | `commit_sha` | Required on every row. Sourced from `qecscreen.provenance.resolved_commit()`, never from a notebook's pinned install SHA. See D-017. |
 | Dataset format | Parquet, one row per (code, protocol) pair. Schema version in every row. |
@@ -234,11 +238,20 @@ DECODER                 = "BpOsdDecoder"
   hashed decoder version covers.
 
 SAMPLING                = our own seeded loop, never sinter (D-026)
-  One stim.Circuit.compile_detector_sampler(seed=seed) per code, one code per
-  process. Batches of exactly SHOT_BATCH shots, never sized by wall-clock time:
-  stim's seeded output depends on how the shots are split into calls. The
-  stopping rule is checked between batches. Same code, p, seed, stim version
-  and machine SIMD width -> identical shots and failures.
+  One stim.Circuit.compile_detector_sampler(seed=sampling_seed) per code, one
+  code per process. Batches of exactly SHOT_BATCH shots, never sized by
+  wall-clock time: stim's seeded output depends on how the shots are split into
+  calls. The stopping rule is checked between batches. Same code, p, seed,
+  stim_version and cpu_class -> identical shots and failures. Otherwise the
+  same distribution, not the same bits (D-027).
+
+SAMPLING_SEED           = D-027. The seed for a row, stored as sampling_seed:
+  first 8 bytes of sha256(f"{code_id}|{protocol_hash}"), the string UTF-8
+  encoded and protocol_hash the 64-char lowercase hex digest, read as an
+  unsigned big-endian int, masked to 63 bits (& (2**63 - 1)). Equivalently
+  int(sha256(...).hexdigest()[:16], 16) & (2**63 - 1).
+  Golden: code_id "bb_v1_ref-0123456789ab", protocol_hash "a"*64
+          -> 6435667380748351026
 
 SCHEDULING              = "bb_monomial_matching_xz_phased_v2"   # D-025 + amendment
   X phase then Z phase, never interleaved. One CX tick per monomial: each

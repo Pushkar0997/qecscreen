@@ -20,6 +20,7 @@ from qecscreen.protocol import (
     is_censored,
     logical_error_rate,
     protocol_hash,
+    sampling_seed,
     wilson_interval,
 )
 
@@ -245,3 +246,67 @@ def test_p_canonicalised_to_6dp_different_hash():
     a = _protocol(p=0.005)
     b = _protocol(p=0.006)
     assert a.hash() != b.hash()
+
+
+# --- D-027: the sampling seed is derived from the row, never chosen ----------
+
+SEED_CODE_ID = "bb_v1_ref-0123456789ab"
+SEED_HASH = "a" * 64
+# sha256("bb_v1_ref-0123456789ab|" + "a" * 64), first 8 bytes big-endian,
+# masked to 63 bits. Recomputed independently below from the hex digest.
+SEED_GOLDEN = 6435667380748351026
+
+
+def test_d027_sampling_seed_golden():
+    assert sampling_seed(SEED_CODE_ID, SEED_HASH) == SEED_GOLDEN
+
+
+def test_d027_sampling_seed_matches_an_independent_derivation():
+    import hashlib
+
+    for code_id in (SEED_CODE_ID, "bb_v1_tri_3_3-ffffffffffff", "x"):
+        h = protocol_hash(_protocol())
+        hexdigest = hashlib.sha256(f"{code_id}|{h}".encode()).hexdigest()
+        assert sampling_seed(code_id, h) == int(hexdigest[:16], 16) % 2**63
+
+
+def test_d027_sampling_seed_is_stable():
+    h = protocol_hash(_protocol())
+    assert sampling_seed(SEED_CODE_ID, h) == sampling_seed(SEED_CODE_ID, h)
+
+
+def test_d027_sampling_seed_changes_with_code_id():
+    h = protocol_hash(_protocol())
+    assert sampling_seed(SEED_CODE_ID, h) != sampling_seed("bb_v1_ref-0123456789ac", h)
+
+
+def test_d027_sampling_seed_changes_with_protocol_hash():
+    h1 = protocol_hash(_protocol(p=0.005))
+    h2 = protocol_hash(_protocol(p=0.004))
+    assert h1 != h2
+    assert sampling_seed(SEED_CODE_ID, h1) != sampling_seed(SEED_CODE_ID, h2)
+
+
+def test_d027_sampling_seed_fits_int64_and_seeds_stim():
+    import stim
+
+    seeds = [sampling_seed(f"bb_v1_t-{i:012x}", SEED_HASH) for i in range(2000)]
+    assert all(0 <= s < 2**63 for s in seeds)
+    assert max(seeds) >= 2**62  # the mask keeps 63 bits, it does not truncate to 32
+    stim.Circuit("M 0").compile_detector_sampler(seed=max(seeds))
+
+
+@pytest.mark.parametrize(
+    "code_id,h",
+    [
+        ("", SEED_HASH),
+        (None, SEED_HASH),
+        (SEED_CODE_ID, ""),
+        (SEED_CODE_ID, "A" * 64),   # uppercase: not what protocol_hash() returns
+        (SEED_CODE_ID, "a" * 63),
+        (SEED_CODE_ID, 12345),
+    ],
+)
+def test_d027_sampling_seed_rejects_bad_inputs(code_id, h):
+    with pytest.raises(ValueError):
+        sampling_seed(code_id, h)

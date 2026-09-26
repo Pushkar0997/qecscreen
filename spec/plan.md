@@ -56,7 +56,7 @@ Only if M0 says proceed. The dataset is the artifact with the longest half-life 
 - [ ] ≥1,500 non-censored rows across ≥3 families
 - [ ] Every row passes INV-3, INV-5, INV-6, INV-7, INV-8 checks in CI
 - [ ] Zenodo DOI issued and resolvable
-- [ ] A stranger can clone the repo, run one command, and regenerate 10 rows that match the published ones bit-for-bit
+- [ ] A stranger can clone the repo, run one command, and regenerate 10 rows that match the published ones bit-for-bit on the same stim version and CPU class (the rows' `stim_version` and `cpu_class` columns), and within their Wilson intervals otherwise (D-027)
 - [ ] Dataset card states the censoring rate and the per-family row counts honestly
 
 ---

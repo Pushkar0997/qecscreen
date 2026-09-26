@@ -462,6 +462,30 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-027 — Sampling seed derived from the row; `stim_version` and `cpu_class` are provenance columns, not hash inputs; sinter claims corrected
+
+**Status:** decided (owner, 2026-09-26). Answers AGENT_LOG (nn) "noticed" items 2, 3 and 4.
+**Decision:** Three items. The owner authorised `CONTRACT.md`, `protocol.py` and `plan.md` edits for items 1–2.
+
+1. **`sampling_seed` = first 8 bytes of `sha256(f"{code_id}|{protocol_hash}")` as an unsigned int, masked to 63 bits.** A required int64 row column, computed only by `qecscreen.protocol.sampling_seed`. The owner's wording left two things open, and both are pinned in CONTRACT's `SAMPLING_SEED` block: the string is UTF-8 encoded, and the 8 bytes are read **big-endian**, i.e. `int(hexdigest[:16], 16)`, which is the reading of "first 8 bytes" that matches the hex digest a person would look at. A golden value is in CONTRACT and in `test_protocol.py`. `protocol_hash` must be the 64-char lowercase hex digest or the function raises.
+2. **`stim_version` and `cpu_class` are required per-row provenance columns, not `protocol_hash` inputs.** `cpu_class` is `<machine>/<stim SIMD backend>`, the backend being the compiled extension stim actually loaded (`_stim_sse2`, `_stim_avx2` or `_stim_polyfill`). That is the "or equivalent" of the owner's "cpu_flags": stim chooses the backend from the CPU flags at import, and the backend, not the flag list, decides the bits. A raw flag list would differ between Kaggle machines that produce identical bits. plan.md's M1 regeneration criterion now reads: bit-for-bit on the same stim version and CPU class, within Wilson intervals otherwise.
+3. **Stale sinter claims corrected** in `AGENTS.md §3`, `.github/workflows/ci.yml` and `requirements.txt`, and in `spec/architecture.md §1` (which also said stim's version enters the hash). sinter's version never entered `protocol_hash`; only ldpc's does. sinter stays installed only because `ldpc` depends on it.
+
+**Rationale:**
+- *Seed.* A label is reproducible only if the sampler's seed can be recovered. Deriving it from two columns the row already has means it cannot be lost or mistyped. Storing it too means nobody has to trust the derivation to read it. Including `protocol_hash` gives each `p` a different stream for the same code, so rows at different `p` never share shots. 63 bits fit int64 Parquet and stim's seed argument.
+- *Provenance, not hash.* The hash says which rows are comparable. Two rows sampled on different stim versions or CPU classes, under the same protocol, estimate the same quantity; they differ in which shots were drawn, exactly like two different seeds. Hashing `cpu_class` would split one Kaggle dataset into as many protocols as there were machine types, and `assert_single_protocol()` would then refuse legitimate rankings.
+
+**Rejected:**
+- *A seed chosen per run and stored.* Works, but a stored-only seed can be lost or copied wrong, and a derived one cannot.
+- *Little-endian bytes.* Equally valid; big-endian is pinned because it matches the hex digest.
+- *`stim_version` / `cpu_class` in `protocol_hash`.* See rationale: it splits comparable rows.
+- *Raw CPU flag list as the column.* Too fine: it varies across machines that give identical bits.
+- *Removing sinter from `requirements.txt` now.* It would still be installed by ldpc, so the line's removal changes nothing but the file; left for a separate change.
+
+**Revisit if:** stim changes how it chooses its backend (e.g. re-enables AVX2, stim issue 432), which changes what `cpu_class` must capture. Or if ldpc drops its sinter dependency.
+
+---
+
 ## Template
 
 ```

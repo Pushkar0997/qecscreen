@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass, asdict
 from importlib.metadata import PackageNotFoundError, version
 
@@ -32,6 +33,7 @@ __all__ = [
     "installed_decoder_version",
     "Protocol",
     "protocol_hash",
+    "sampling_seed",
     "logical_error_rate",
     "wilson_interval",
     "is_censored",
@@ -152,6 +154,35 @@ def protocol_hash(protocol: Protocol) -> str:
     would eventually disagree.
     """
     return protocol.hash()
+
+
+_PROTOCOL_HASH_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def sampling_seed(code_id: str, protocol_hash: str) -> int:
+    """The seed given to the stim sampler for one (code, protocol) row (D-027).
+
+        first 8 bytes of sha256(f"{code_id}|{protocol_hash}"), UTF-8,
+        read big-endian as an unsigned int, masked to 63 bits
+
+    Derived, never chosen, so the seed is a function of what the row already
+    stores and a label can be regenerated from the row alone. Masked to 63 bits
+    so it fits the int64 ``sampling_seed`` column. It is stored on every row
+    anyway, so a reader never has to re-derive it to trust it.
+
+    ``protocol_hash`` must be the 64-character lowercase hex digest that
+    ``protocol_hash()`` returns: anything else is a caller passing the wrong
+    value, and a wrong value would still produce a perfectly plausible seed.
+    """
+    if not isinstance(code_id, str) or not code_id:
+        raise ValueError(f"code_id must be a non-empty str; got {code_id!r}")
+    if not isinstance(protocol_hash, str) or not _PROTOCOL_HASH_RE.fullmatch(protocol_hash):
+        raise ValueError(
+            "protocol_hash must be a 64-character lowercase hex sha256 digest; "
+            f"got {protocol_hash!r}"
+        )
+    digest = hashlib.sha256(f"{code_id}|{protocol_hash}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
 
 
 # --- The one LER formula (INV-4) --------------------------------------------

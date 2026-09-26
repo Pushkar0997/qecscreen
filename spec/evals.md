@@ -35,6 +35,14 @@ Literal. Copied from `CONTRACT.md`. If these two files ever disagree, `CONTRACT.
 
 The interval is clamped to `[0, 1]` (D-026): `wilson_interval(0, n)[0] >= 0` for every `n`, and exactly `0.0` at `n = 21`, where the unclamped formula gives -1.4e-17 (`test_d026_wilson_clamped_at_zero_failures`, `test_d026_wilson_residue_case_is_exactly_zero`). G-05 and G-06 are interior and not affected.
 
+`sampling_seed(code_id, protocol_hash)` (D-027):
+
+| ID | Input | Expected |
+|---|---|---|
+| G-14 | `("bb_v1_ref-0123456789ab", "a" * 64)` | `6435667380748351026` |
+
+Exact integer equality (`test_d027_sampling_seed_golden`), plus an independent re-derivation from the hex digest and tests that a different `code_id` or `protocol_hash` gives a different seed.
+
 BB reference code, `l=6, m=6, A=x^3+y+y^2, B=y^3+x+x^2`:
 
 | ID | Property | Expected |

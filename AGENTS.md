@@ -57,7 +57,7 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 |---|---|---|
 | Language | Python | 3.11, 3.12 **and** 3.13 |
 | Circuit simulation | `stim` | ≥1.14,<2 |
-| Sampling orchestration | `sinter` | ≥1.14,<2 |
+| (transitive, not used) | `sinter` | ≥1.14,<2 — installed only because `ldpc` depends on it; off the label path (D-026), version never in `protocol_hash` |
 | Decoder | `ldpc` (Roffe) | ≥2.1,<3 |
 | Arrays | `numpy` | ≥1.26,<3 |
 | Tables | `pandas` + `pyarrow` | ≥2.2 / ≥15 |
