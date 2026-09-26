@@ -6,6 +6,54 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-26 (nn) — Claude Opus 5.5 / Claude Code — D-026 (owner decisions on the (mm) stops), M0-EVAL-01 finished on a seeded loop
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** D-026, owner items 1–4 (CONTRACT.md and protocol.py edits authorised for these only), then `M0-EVAL-01` on the seeded loop, plus the `_v1` docstrings in `circuits/schedule.py`. Tests only; no measurements.
+
+**Landed:**
+- `f751f14` **D-026, spec/protocol.**
+  - CONTRACT gains a `SAMPLING` block: our own seeded stim loop, one code per process, batches of exactly `SHOT_BATCH`, stopping rule between batches. The seed rule is unchanged, with no exemption.
+  - `wilson_interval` clamps to `[0, 1]` in `protocol.py`. `P_PILOT` is exported (value unchanged).
+  - `DECODER_PARAMS` gains `schedule="parallel"` (ldpc 2.4.1's default, read back from a constructed decoder before pinning) and `dem_to_matrix="dem_undecomposed_merge_by_symptom_v1"`, defined exactly in CONTRACT. It is merged by symptom, not one column per instruction. Priors come from each instruction's probability, merged as independent flips, with columns in first-appearance order. Both keys are hashed.
+  - Architecture's sinter lines and evals' Wilson note are updated.
+  - Tests: clamp at 0 failures for 9 values of `n` (and exactly 0.0 at `n=21`, where the unclamped value is -1.4e-17); clamp at all-fail; `P_PILOT` exported; both keys pinned; both keys change the hash.
+  - **This commit also touches `evaluate/run.py`, one line**: it filters `dem_to_matrix` out of the ldpc kwargs. ldpc raises `ValueError: Unknown parameter` on any key it doesn't know, so without that line the spec commit fails its own tests. That is the only code in it.
+- `eb03225` **M0-EVAL-01 (ticked).**
+  - `sample_and_decode(circuit, *, seed, batch_size=SHOT_BATCH, max_shots=MAX_SHOTS) -> RunResult` (seed, batch_size, shots, failures, `stopped_by`, osd_invocations, `samples_sha256` over every sampled byte, decode_seconds).
+  - `max_shots` must be ≤ `MAX_SHOTS` and a whole number of batches, so every batch in a run is the same size. The smaller values exist for tests.
+  - sinter is removed from `run.py`: `BpOsdSinterDecoder` and `DECODER_KEY` are gone, and `CompiledBpOsd` is a plain class taking a DEM. `dem_matrices` raises if `DECODER_PARAMS` names a conversion it does not implement.
+  - `label.py`'s local clamp is removed.
+  - New tests:
+    - determinism: same code, p and seed give identical `RunResult` apart from wall time, with failures > 0 so the test is not vacuous;
+    - a different seed gives a different sample digest;
+    - the run stops at `MIN_FAILURES` at the first batch boundary, checked by rerunning one batch shorter;
+    - the run stops at `max_shots` and the label is censored;
+    - p=0 at CONTRACT defaults: 200,000 shots in batches of 10,000, 0 failures;
+    - argument validation (7 cases), `seed` required, `schedule` read back from ldpc;
+    - no `import sinter` anywhere in `src/qecscreen`, mutation-checked by appending one to `label.py`, which the test caught.
+  - Kept: p=0 (ref72 and small), beats-trivial (both), monotonic in p, which now runs through the loop. Its three labels stop at `MIN_FAILURES`, are non-censored, and have disjoint intervals.
+  - evals N-11 added, tasks.md ticked.
+- `cc5747d` `schedule.py` lines 1 and 66 now say `_v2`. `build.py` line 1's `_v1` names the noise model, which is still `_v1`, so it is correct and untouched.
+
+**Suite:** default **159 passed, 14 deselected, 25 s**. Full (`-m "slow or not slow"`) **173 passed, 223 s**. Both clean under `-W error`.
+
+**Not changed, per instruction:** decoder settings (beyond pinning `schedule` at its current value), `P_PILOT`, `SHOT_BATCH`, `requirements.txt`.
+**Blockers:** none for EVAL-01. The (mm) blockers still open are the owner's Kaggle calibration: P_PILOT, likely at or above threshold, and the decode cost, ~600× the plan.
+**Noticed, did not fix:**
+1. **ldpc 2.4.1 declares `sinter>=1.12.0` as a dependency and imports it at import time.** Dropping sinter from `requirements.txt` later will not uninstall it, and "sinter not in `sys.modules`" can never be a test. The guard therefore checks our source instead.
+2. **The sampling seed has no home in the schema.** The `seed` column exists for regenerating the code (INV-7). A label is reproducible only if the seed given to `sample_and_decode` is stored too, or derived by a pinned rule. M0-RUN-01 needs an owner decision here, and I did not pick one.
+3. **The stim version is not in `protocol_hash`, and bit-for-bit reproduction depends on it and on SIMD width** (stim's own docstring). This is recorded in D-026. plan.md's M1 criterion "regenerate 10 rows … bit-for-bit" holds only on a matching stim version and CPU class.
+4. Stale sinter claims outside my scope:
+   - `AGENTS.md §3` still lists sinter as "Sampling orchestration";
+   - `requirements.txt` and `ci.yml` comments say sinter's version enters `protocol_hash`. In code it never did; only ldpc's does.
+5. `SHOT_BATCH = 10,000` at ~2 s/shot on [[72,12,6]] makes one batch ~5.5 core-hours, and at P_L ≈ 0.5 it overshoots 100 failures by ~100×. This is (mm) item 5, now concrete because the loop exists. It is a value for the Kaggle calibration.
+6. `evaluate/__init__.py` still has the placeholder docstring.
+7. Process: the `git checkout` I used to undo the sinter mutation also reverted my uncommitted `label.py` edit. I caught it from `git diff --stat` before committing and redid the edit. The committed state was verified by the full suite after the redo.
+**Spec changes:** `CONTRACT.md` (decoder block, SAMPLING, SHOT_BATCH/CONFIDENCE/P_PILOT comments), `spec/decisions.md` (D-026), `spec/architecture.md` (sinter rows), `spec/evals.md` (Wilson clamp note, N-11), `spec/tasks.md` (EVAL-01 ticked). No NARRATIVE entry: the sinter/seed finding was already reported in (mm), and this session carried out the decision.
+
+---
+
 ## 2026-09-25 (mm) — Claude Opus 5.5 / Claude Code — D-025 follow-ups, M0-EVAL-01 (partial) and M0-EVAL-02, decode-cost measurement
 
 **Milestone:** M0 — Falsification
