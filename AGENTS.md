@@ -38,7 +38,7 @@ Fewer than 100 observed logical failures means `censored = True` and a null `tru
 Per round, per logical qubit. Produced only by `qecscreen.protocol.logical_error_rate`.
 
 ### INV-9 — Zero recurring cost
-No servers, no paid APIs, no managed databases, no API keys. Runs on a laptop, Kaggle or Colab. If a task appears to need one of these, stop and flag it — there is always another way and the constraint is not negotiable.
+No servers, no paid services or APIs, no managed databases. The package needs no key; the one credential permitted is a read-only GitHub token for this project's own repository, read from Kaggle/Colab secrets by a notebook's install cell while the repo is private (D-028). Runs on a laptop, Kaggle or Colab. If a task appears to need one of these, stop and flag it — there is always another way and the constraint is not negotiable.
 
 ### INV-11 — Licence and attribution files are not optional
 `LICENSE`, `NOTICE` and `CITATION.cff` stay current. Never delete or empty them, never
