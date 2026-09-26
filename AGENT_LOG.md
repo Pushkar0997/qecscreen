@@ -6,6 +6,42 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-26 (qq) — Claude Opus 5.5 / Claude Code — M0-EVAL-06 fix: hard per-cell kill for a hung decoder (D-029 amendment)
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** the owner's single fix before the Kaggle calibration run: BP+LSD can hang (D-029), a hang inside `decode()` is not interruptible by the between-shot cap, and resume would retry it forever. Nothing else was changed, and nothing was run on Kaggle.
+
+**Landed:** `b6335be`, code and spec together.
+- **Workers.** Every `(p, code)` cell runs in its own spawned worker, at most `processes` at a time, including `processes=1`. The in-process path and the `ProcessPoolExecutor` are gone. The parent waits on the workers' sentinels and kills a worker still alive `cell_wall_seconds + cell_kill_margin_seconds` after it started. The margin is a new config field, default 120 s.
+- **Kill record.** The parent writes the cell file with `status: "killed"`, holding `sampling_seed`, `sample_batch`, `batch_index`, `shot_in_batch`, `shot_index`, `decoder` and a `reproduce` recipe. The batch, shot and decoder come from a 3-slot shared array the worker sets before every `decode()` call.
+- **Unexpected exits.** A worker that exits without writing its result is recorded the same way, as `status: "died"` with its exit code. This was not asked for, but without it a segfault would leave no file and be retried on every restart, which is the same problem.
+- **What is kept.** The worker flushes a partial tally at every batch end and every 30 s: shots `0 .. partial.shots - 1`, every decoder done on each, with counts, LER/Wilson, timings and paired comparisons. The kill record carries the last flush as `partial`. Everything decoded after it is lost, including the shot that hung. The `partial_*.json` file is deleted once folded in, or once the cell completes.
+- **Resume and summary.** Resume skips `killed` and `died` like completed cells. The summary lists them under `unfinished_cells`, adds `killed`/`died` to its stop counts, and leaves them out of every comparison and projection. Completed cells now carry `status: "completed"`.
+- **Projection.** The bound is now the hard one, `ceil(cells / processes) × (cap + margin)`. For the default grid it is **2.93 h** (8 × 22 min), up from 2.67 h and still under 3 h.
+- **D-029 amendment** records the above, plus why a hang on a *real* shot would matter. Every sampled syndrome lies in the column span of the DEM check matrix, so a real shot that hangs LSD most likely means the DEM → matrix conversion dropped a mechanism, which would be wrong for BP+OSD labels too. The kill record is how that would be found: regenerate the syndrome and check it against the span over GF(2).
+- **Tests.** `test_a_hung_decoder_is_killed_recorded_and_never_retried` runs in 5.1 s.
+  - Setup: `tests/_calibration_fakes.py`'s decoder hangs forever on shot 150 of `bplsd_cs_4`, with a 100-shot batch, a 3 s cap and a 2 s margin.
+  - The run completes, and the cell is `killed` at batch 1, row 50, shot 150, decoder `bplsd_cs_4`, with the right seed.
+  - The batch-0 partial (100 shots, identical syndrome digests across both decoders) is kept, and no partial file is left behind.
+  - The syndrome regenerates from the record.
+  - A restart starts no worker.
+
+  The two resume tests now patch `_start_worker` instead of the removed `_cell_job`.
+
+**Suite:** full (`-m "slow or not slow"`) **255 passed**, exit 0. The default run is **239 passed, 16 deselected**. Both are under `filterwarnings = error`.
+  - The first full run took 918 s because it competed with other test runs I had going at the same time. A clean rerun passed too, with normal durations: calibration tests 5–7 s each, the 300-code draw 41 s.
+  - Wall-time totals in this entry are unreliable for that reason. Spawning a worker per cell costs ~2 s on Windows, so the default run is about 10 s slower than in (pp).
+
+**Blockers:** none. The owner runs `calibrate.ipynb` on Kaggle.
+**Noticed, did not fix:**
+1. A kill leaves no file for the syndrome itself, only the recipe to regenerate it. That is enough with the same stim version and CPU class (D-027), both in the record's `provenance`. On a different CPU class, the regenerated shot may not be the one that hung.
+2. The span check described in the amendment is not implemented. It is a local step once a kill record exists.
+3. With `processes=1` every cell still pays a spawn. That is harmless on Kaggle, where cells are minutes long.
+4. `evaluate/__init__.py` still has the placeholder docstring.
+**Spec changes:** `spec/decisions.md` (D-029 amendment), `spec/evals.md` (N-14), `spec/tasks.md` (EVAL-06 note).
+
+---
+
 ## 2026-09-26 (pp) — Claude Opus 5.5 / Claude Code — Part 1 owner items (M1 criterion, INV-9 summary, CI installs the package, requirements header); M0-EVAL-06 decoder calibration (D-029)
 
 **Milestone:** M0 — Falsification
