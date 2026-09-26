@@ -6,6 +6,68 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-26 (oo) — Claude Opus 5.5 / Claude Code — D-027 (seed, provenance columns, sinter claims), D-028 remote execution: pyproject, provenance, notebook template and contract
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** Part 1, D-027 (owner items 1–3; CONTRACT.md, protocol.py and plan.md edits authorised for items 1–2). Part 2: `M0-SETUP-04` (pyproject), `M0-CORE-05`/`M0-CORE-06` (provenance), `M0-SETUP-05` (template notebook and contract test), recorded as D-028. SETUP-04/05 are new task IDs, added for the owner's items (a) and (c)–(e). No notebook executed. Decoder, P_PILOT, SHOT_BATCH, MAX_SHOTS, `codes/` and `circuits/` untouched.
+
+**Landed:**
+- `fe791fc` **D-027** (spec and code together).
+  - `protocol.sampling_seed(code_id, protocol_hash)` implements the owner's rule.
+  - Two readings were left open by the wording, and I pinned both in CONTRACT's new `SAMPLING_SEED` block:
+    - the string is UTF-8 encoded;
+    - the 8 bytes are read **big-endian**, which equals `int(hexdigest[:16], 16)`.
+  - Golden G-14: `("bb_v1_ref-0123456789ab", "a"*64)` → `6435667380748351026`, re-derived independently from the hex digest.
+  - Tests cover the golden value, stability, a different `code_id` giving a different seed, a different `protocol_hash` (a different `p`) giving a different seed, the 63-bit range, that stim accepts the seed, and 6 bad-input cases.
+  - The function raises unless `protocol_hash` is the 64-char lowercase hex digest.
+  - CONTRACT gains an INV-6 paragraph and pinned-convention rows. `sampling_seed`, `stim_version` and `cpu_class` are required columns, and none of them is in the hash.
+  - `cpu_class` is `<machine>/<stim SIMD backend>`, for example `x86_64/sse2`. That is my "or equivalent" for the owner's cpu_flags. stim picks `_stim_sse2`, `_stim_avx2` or `_stim_polyfill` from the CPU flags at import, and the backend is what decides the bits; AVX2 is disabled in stim 1.16. A raw flag list would split machines that give identical bits.
+  - plan.md's M1 criterion is reworded. The sinter claims are corrected in AGENTS §3, ci.yml and requirements.txt, and in architecture §1, which also wrongly said stim's version enters the hash.
+- `7cf22fe` **M0-CORE-05/06** (ticked).
+  - `provenance.resolved_commit()` returns `vcs_info.commit_id`. It returns `None` for editable, local-dir, archive and index installs, and when the package is not installed. It raises, without echoing the value, on malformed JSON or a commit id that is not bare 40/64 hex.
+  - `stim_version()`, `cpu_class()` and `record()` are added. `record()` is the whole provenance dict an artifact carries: no URL, no path, no env var.
+  - Tests use a fake `qecscreen-0.0.1.dist-info` on `sys.path`, which `importlib.metadata` finds normally.
+  - Credential tests: with a token in the install URL and in `GITHUB_TOKEN`/`PIP_INDEX_URL`, nothing in `record()` contains it.
+  - 4 of 4 mutants caught: returning the URL, ignoring vcs_info, dropping the hex check, adding a url field to `record()`.
+  - D-028 recorded, and architecture §7 no longer says "Secrets: none exist".
+- `a85b676` **M0-SETUP-04** `pyproject.toml`: setuptools backend (build-time only, not a runtime dependency), src-layout, dependencies read dynamically from `requirements.txt`. `.gitignore` gains `build/`, `dist/` and `*.egg-info/`.
+  - **Clean-venv verification:** fresh Python 3.13.7 venv, `pip install git+file:///D:/Coding_Work/qecscreen/qecscreen@a85b676936f0f51355b6a18f9466b4ddbde18681`.
+    - Install exited 0 and `pip check` is clean. The wheel metadata lists all 11 requirements.
+    - `qecscreen` imported from site-packages, not `src/`.
+    - `record()` = `{commit_sha: a85b676936f0f51355b6a18f9466b4ddbde18681, stim_version: 1.16.0, cpu_class: x86_64/sse2, decoder_version: 2.4.1, python_version: 3.13.7}`.
+    - `python -m qecscreen.selfcheck` passed.
+- `2dc779c` **M0-SETUP-05**.
+  - `notebooks/template_run.ipynb`, exactly six code cells:
+    1. install by full SHA, asserted 40-hex, with the token read from Kaggle `UserSecretsClient` or Colab `userdata` as `GITHUB_TOKEN`, and pip output printed with the token masked;
+    2. `record()`, asserting `commit_sha == QECSCREEN_SHA`;
+    3. `RUN_NAME`;
+    4. the output path;
+    5. `qecscreen.selfcheck.main()`;
+    6. the JSON artifact and a summary.
+  - `tests/test_notebook_contract.py`:
+    - no FunctionDef, AsyncFunctionDef, ClassDef or Lambda in any code cell, with `!`/`%` magics blanked and cell magics refused;
+    - no token-shaped string in any notebook, source or outputs;
+    - the template's shape;
+    - self-tests of the checker.
+  - `verify_env_colab.ipynb` defined two functions and failed the new test (checked against HEAD). Its search cell is flattened with the same search order, and its stale sinter print is fixed. Cell 2 was parsed, not run.
+  - `notebooks/runs/` is evidence and is exempt from the no-definition rule only.
+  - Notebook rules are in architecture §2, and evals gains N-12 and N-13.
+
+**Suite:** default **201 passed**, full (`-m "slow or not slow"`) **233 passed**, both under the ini's `filterwarnings = error`.
+**Blockers:** none. The template has not been run on Kaggle or Colab; that is the owner's step. Put a SHA in cell 1 and attach the `GITHUB_TOKEN` secret, a fine-grained read-only token for this one repo.
+**Noticed, did not fix:**
+1. **The M1 criterion "within Wilson intervals otherwise" fails a correct implementation about 40% of the time as literally read.** If each of 10 regenerated rows must fall inside the published row's 95% interval, P(all 10) = 0.95^10 ≈ 0.60. Wrote the owner's wording; it needs a reading, such as "intervals overlap" or a stated tolerance, before M1.
+2. AGENTS.md's INV-9 summary says "no API keys". D-028 explains why the install token is not what INV-9 forbids, but the AGENTS line itself was not edited, because that was not authorised.
+3. `requirements.txt`'s header and `verify_env_colab.ipynb` cell 1 still say "Kaggle runs 3.11", which D-020 corrected. Left alone because it is not a sinter claim.
+4. CI never builds or installs the package, so a broken `pyproject.toml` would first show on Kaggle. A `pip install --no-deps .` step would catch it.
+5. `pytest` is a runtime dependency of the installed package, because `requirements.txt` is the single list. Harmless on Kaggle; split it out if the list is ever divided.
+6. `sampling_seed` and the three new columns are specified but not yet wired into a row writer. That is M0-RUN-01, which must also refuse `commit_sha = None`.
+7. On Colab the template writes to `/content`, which disappears with the runtime.
+8. `evaluate/__init__.py` still has the placeholder docstring.
+**Spec changes:** `CONTRACT.md` (INV-6 paragraph, conventions rows, SAMPLING, SAMPLING_SEED), `spec/decisions.md` (D-027, D-028), `spec/architecture.md` (§1 stim/sinter, §2 notebook rules, §3 four columns, §7), `spec/plan.md` (M1 criterion), `spec/evals.md` (G-14, N-12, N-13), `spec/tasks.md`, `AGENTS.md §3`. No NARRATIVE entry: item 1 above may earn one once the owner decides the reading.
+
+---
+
 ## 2026-09-26 (nn) — Claude Opus 5.5 / Claude Code — D-026 (owner decisions on the (mm) stops), M0-EVAL-01 finished on a seeded loop
 
 **Milestone:** M0 — Falsification
