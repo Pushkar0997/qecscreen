@@ -507,6 +507,29 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-029 — Decoder calibration: paired BP+OSD vs BP+LSD run, kept out of the dataset
+
+**Status:** decided (owner, 2026-09-26: the grid, decoders, paired design, limits and summary contents are the owner's; the choices below marked *pinned here* are the agent's readings, listed so they can be overruled).
+**Decision:** `qecscreen.evaluate.calibrate.run_calibration(config, out_dir)`, run from `notebooks/calibrate.ipynb` on Kaggle, measures the decoders on p ∈ {0.001, 0.0015, 0.002, 0.003} × {[[72,12,6]], gross [[144,12,12]], 6 sampled codes}. Its output is what the owner will use to choose the decoder, `P_PILOT`, `SHOT_BATCH` and possibly `MAX_SHOTS`; it changes none of them and recommends nothing.
+- **Paired.** Per cell, one stim sampler seeded with `sampling_seed(code_id, h)`, `h` the pinned protocol's hash at that p. Every decoder decodes every shot, all decoders per shot, so a stop condition leaves all of them on the same shots. Per decoder: failures, per-round LER and Wilson interval (via `make_label`, so INV-3 censoring still nulls the point estimate under 100 failures), ms/shot, BP convergence fraction. For each LSD variant against OSD: discordant counts and an exact McNemar p-value.
+- **Decoders.** `bposd` is `run.CompiledBpOsd`, the label path's decoder. `bplsd_cs_0` and `bplsd_cs_4` are ldpc `BpLsdDecoder` with the pinned `bp_method`, `max_iter`, `ms_scaling_factor` and `schedule`, `lsd_method="lsd_cs"`, and `lsd_order` 0 and 4; everything else is at ldpc defaults.
+- **Limits.** A cell stops when every decoder has `MIN_FAILURES`, at `max_shots` (default `MAX_SHOTS`), or at a 20-min wall cap checked between shots, and records which. 4 processes. Before sampling it prints `ceil(cells / processes) × cap`, a hard bound for list scheduling when every job is shorter than the cap, and refuses to start above 3 h. The default grid's bound is 8 × 20 min = 2.67 h, plus at most one shot per decoder per cell past the cap.
+- **Not dataset rows.** One JSON per cell plus `plan.json` and `summary.json`, all `"calibration": true`. An out_dir with any path component named `data` is refused. `qecscreen.evaluate.rows.reject_calibration` refuses any of it; the row writer (M0-EVAL-04 / M0-RUN-01, not yet written) must call it on every input.
+- *Pinned here:* the sampled codes come from `sample_bb_params(300, budget=150, seed=CALIBRATION_CODE_SEED = 20260926)`. 150 is the budget every M0 measurement so far used, not a pinned constant. The 6 are chosen by `select_spanning`: targets evenly spaced from min to max `d_upper`, each taking the nearest unused code. The same 300 codes are the population the pilot projection is made over. M0-RUN-01 must not use this seed.
+- *Pinned here:* `code_id` is CONTRACT's formula over `params_json` = canonical JSON of `l`, `m`, `a_exps`, `b_exps`. The dataset's own `code_id` function does not exist yet; if M0-RUN-01 canonicalises differently, only calibration ids change.
+- *Pinned here:* stim sampling batches of 256 inside a cell (not `SHOT_BATCH`, which is under evaluation; a 10,000-shot batch would exceed the cap on most codes). Unused rows of the last batch are discarded, so the shots decoded are a prefix of a reproducible stream.
+- *Pinned here, summary projections:* shots to `MIN_FAILURES` = `100 × shots / failures`, with a range from the Wilson interval; with 0 failures, "exceeds `MAX_SHOTS`" is true only if even the Wilson upper bound needs more, else unknown. Core-hours use the label loop's `SHOT_BATCH` granularity, with an unbatched figure alongside; censored and unknown codes are costed at `MAX_SHOTS`. For the 300-code pilot: seconds/shot from a power law in `n × d_upper` fitted over the calibration codes, and failure fraction from the calibration code nearest in `d_upper` (then `n`). These are extrapolations from 8 codes, and the summary names the method.
+
+**Rejected:**
+- *Sampling separately per decoder.* The decoder difference would be buried in sampling noise; the paired design exists to remove it.
+- *Using `sample_and_decode` per decoder.* Label-path semantics: `SHOT_BATCH` batches and BP+OSD only.
+- *A per-cell time estimate from a probe before the run.* Probing is sampling; the cap already gives a hard bound without it.
+- *Guarding only by directory name.* The marker travels with every file and record, so it still works once output is copied elsewhere.
+
+**Revisit if:** the grid changes enough that the default bound exceeds 3 h, or M0-EVAL-04's writer lands (its tests must then drive the calibration output through the writer itself).
+
+---
+
 ## Template
 
 ```

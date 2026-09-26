@@ -48,6 +48,8 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 - [ ] **M0-EVAL-03** Implement `protocol_hash` computation and `assert_single_protocol()`; write `tests/test_inv_6_protocol.py`
 - [ ] **M0-EVAL-04** Add resume-from-disk: write a Parquet shard per batch of codes, skip `code_id`s already present on restart
 - [ ] **M0-EVAL-05** Measure real per-shot decode cost on 5 representative codes; **update `spec/architecture.md §6` in the same commit**
+- [x] **M0-EVAL-06** Decoder calibration (D-029): `qecscreen.evaluate.calibrate.run_calibration(config, out_dir)` and `notebooks/calibrate.ipynb` on the six-cell template. Grid p ∈ {0.001, 0.0015, 0.002, 0.003} × [[72,12,6]], gross, and 6 codes from `sample_bb_params(300, 150, seed=20260926)` spanning its `d_upper` range; decoders pinned BP+OSD, BP+LSD `lsd_cs` order 0 and 4, same BP settings. Paired: one seeded sample per cell, every decoder decodes every shot; McNemar exact on discordant shots. Stops at `MIN_FAILURES` on every decoder, `max_shots` or a 20-min wall cap; refuses to start if `ceil(cells/4) × cap` > 3 h (default grid: 2.67 h). Output marked `"calibration": true`, never under `data/`, refused by `evaluate.rows.reject_calibration`. Changes no protocol constant. **Not run** — the owner runs it on Kaggle (M0-EVAL-07)
+- [ ] **M0-EVAL-07** Run `notebooks/calibrate.ipynb` on Kaggle; record the summary. The owner then decides decoder, `P_PILOT`, `SHOT_BATCH` and possibly `MAX_SHOTS` (CONTRACT change, human approval)
 
 ### FEATURES
 
@@ -66,7 +68,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 
 ### RUN and RESULT
 
-- [ ] **M0-RUN-01** Write `scripts/run_m0_pilot.py` end to end: sample params → generate → validate → build → evaluate → save shards
+- [ ] **M0-RUN-01** Write `scripts/run_m0_pilot.py` end to end: sample params → generate → validate → build → evaluate → save shards. Must not draw codes with `CALIBRATION_CODE_SEED` (20260926, D-029), and the row writer calls `qecscreen.evaluate.rows.reject_calibration` on every input
 - [ ] **M0-RUN-02** Write `notebooks/m0_kaggle.ipynb` — imports and calls only, no logic
 - [ ] **M0-RUN-03** Execute the pilot; generate ≥250 rows; record censoring rate
 - [ ] **M0-RUN-04** Train LightGBM on grouped splits; produce the Φ-vs-model table with bootstrap CIs

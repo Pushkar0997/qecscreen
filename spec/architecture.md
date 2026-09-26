@@ -69,6 +69,7 @@ qecscreen/
 ├── data/                  ← Gitignored. Local Parquet. Releases go to Zenodo.
 └── notebooks/             ← Kaggle/Colab runners. Thin: import and call, no logic.
                              template_run.ipynb is the six-cell shape (rules below).
+                             calibrate.ipynb runs the decoder calibration (D-029).
 ```
 
 The rule that matters: **logic never lives in a notebook or a script.** Notebooks die, are not tested, and cannot be reviewed in a diff. They import from `src/` and call one function.
@@ -132,6 +133,7 @@ Feature columns live in a **separate** Parquet keyed on `code_id`, so features c
 | Distance upper bound via decoder-assisted search | M0 | Always `d_upper`, never `d_exact` |
 | Stim circuit from a BB code, monomial-matching X-then-Z schedule, Z memory | M0 | D-025. Other families need a general schedule (M1) |
 | BP+OSD decoding via `ldpc` | M0 | |
+| Decoder calibration: BP+OSD vs BP+LSD on shared shots | M0 | `evaluate/calibrate.py` (D-029). Calibration output only, never labels: marked `"calibration": true`, refused by `evaluate.rows.reject_calibration` |
 | Batched sampling with censoring rule | M0 | |
 | ~20 cheap structural features incl. 4-cycle counts | M0 | The physically motivated hypothesis lives here |
 | LightGBM ranking baseline | M0 | |
