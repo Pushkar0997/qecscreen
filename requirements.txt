@@ -1,10 +1,11 @@
 # Pinned per spec/architecture.md section 1.
 # Must install in a single Colab/Kaggle cell with no compiler and no API key.
 #
-# Interpreters: Python 3.11 AND 3.13, both supported, both target execution
-# environments - Kaggle runs 3.11, Colab runs 3.13 (spec/architecture.md
-# section 1). Verified to install with no compiler invoked and pass pytest on
-# 3.11.9 and on 3.13.7.
+# Interpreters: Python 3.11, 3.12 AND 3.13, all supported. Kaggle runs 3.12
+# (measured 3.12.13, D-020) and Colab runs 3.13 (measured 3.13.15); 3.11 is the
+# stack's lower-bound target (spec/architecture.md section 1). Verified to
+# install with no compiler invoked on 3.11.9, 3.12.13 (Kaggle) and 3.13.7; CI
+# runs pytest on all three.
 #
 # Bound style: lower bounds for the ambient scientific stack, because Kaggle and
 # Colab ship their own numpy/pandas/scipy and an exact pin forces a downgrade
