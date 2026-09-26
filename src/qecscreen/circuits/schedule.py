@@ -1,4 +1,4 @@
-"""Syndrome-extraction schedule ``bb_monomial_matching_xz_phased_v1`` (D-025).
+"""Syndrome-extraction schedule ``bb_monomial_matching_xz_phased_v2`` (D-025 and its amendment).
 
 For a BB code ``H_X = [A | B]`` and ``H_Z = [B^T | A^T]``, where ``A`` and
 ``B`` are sums of monomial permutation matrices. Each monomial is therefore a
@@ -63,7 +63,7 @@ def bb_schedule(
     a_exps: Sequence[tuple[int, int]],
     b_exps: Sequence[tuple[int, int]],
 ) -> Schedule:
-    """The ``bb_monomial_matching_xz_phased_v1`` schedule for a BB code.
+    """The ``bb_monomial_matching_xz_phased_v2`` schedule for a BB code.
 
     Raises if the layers do not reproduce ``generate``'s ``H_X`` and ``H_Z``
     edge for edge, e.g. when a polynomial repeats a monomial and two terms
