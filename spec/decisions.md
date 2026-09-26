@@ -486,6 +486,27 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ---
 
+## D-028 — Remote execution: install by pinned SHA from a private repo, token from platform secrets
+
+**Status:** decided (owner, 2026-09-26).
+**Decision:** All sampling and decoding runs on Kaggle or Colab, from notebooks the owner runs; agents never execute notebooks. A notebook installs this package with `pip install git+https://github.com/Pushkar0997/qecscreen@<40-hex sha>` (`pyproject.toml`, src-layout, runtime dependencies read from `requirements.txt`). While the repository is private (D-013), the install reads a GitHub token from the platform's secret store, Kaggle Secrets or Colab `userdata`, under the name `GITHUB_TOKEN`. The token never appears in a notebook's source, its outputs, or any artifact. Notebook rules are in `spec/architecture.md §2`.
+
+**How the no-credential rule is enforced:**
+- `provenance.py` returns no URL, no path and no environment variable. From `direct_url.json` it takes only `vcs_info.commit_id`, and only if it is a bare hex object id. `test_provenance.py` installs a fake distribution whose install URL carries a token, sets the token in the environment too, and asserts that neither `resolved_commit()` nor anything in `record()` contains it.
+- The install cell masks the token in pip's output before printing it. pip redacts credentials in its own logs and in `direct_url.json` (PEP 610), but that is pip's behaviour, not something this project controls.
+- `test_notebook_contract.py` scans every notebook's source and outputs for strings shaped like GitHub tokens.
+
+**Relation to INV-9 and `architecture.md §7`.** INV-9 forbids paid services and metered APIs, and AGENTS.md's summary says "no API keys". The token is neither a paid service nor a metered API: it is read access to the owner's own repository on GitHub's free tier, used only by the notebook's install cell. The package itself still needs no key, and a clone of a public repo needs none. The token exists only while D-013 keeps the repo private and is retired when it goes public.
+
+**Rejected:**
+- *Token in the cell, or in a Kaggle dataset.* It survives in Kaggle's version history and in every copy of the notebook.
+- *Uploading a wheel or a zip of the repo as a Kaggle dataset.* No commit to read back, so `resolved_commit()` returns `None` and no row can be written (D-017).
+- *Making the repo public early.* Contradicts D-013.
+
+**Revisit if:** the repository goes public (then the secret and its read are removed from the template), or Kaggle/Colab change their secrets APIs.
+
+---
+
 ## Template
 
 ```

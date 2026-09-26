@@ -167,6 +167,6 @@ Hard rule: if a projected run exceeds its milestone's stated budget, stop and re
 
 ## 7. Security and privacy
 
-Nothing stored about any person. No accounts, no telemetry, no analytics, no cookies, no network calls at import time (INV-9 test). Secrets: none exist. If a task appears to need an API key, that is a signal the design has gone wrong — stop and flag it.
+Nothing stored about any person. No accounts, no telemetry, no analytics, no cookies, no network calls at import time (INV-9 test). The package needs no secret. **One exists outside it:** while the repo is private (D-013), a notebook's install cell reads a read-only GitHub token from Kaggle Secrets or Colab `userdata` as `GITHUB_TOKEN` (D-028). It never appears in a notebook's source or outputs, and no provenance value can carry it (`test_provenance.py`, `test_notebook_contract.py`). It is retired when the repo goes public. Any other task that appears to need an API key is a signal the design has gone wrong — stop and flag it.
 
 Licence: Apache-2.0 for source (D-011), CC-BY-4.0 for the dataset. Permissive deliberately, to keep adoption friction at zero and commercial optionality open.
