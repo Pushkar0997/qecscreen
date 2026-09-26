@@ -73,8 +73,9 @@ def test_point_estimate_and_interval_come_from_protocol():
 
 
 def test_zero_failures_gives_a_zero_lower_bound_not_an_error():
-    """wilson_interval(0, n) can return ~-1e-18 from float cancellation (e.g.
-    n=21); that residue must not reach logical_error_rate, which rejects it."""
+    """The unclamped Wilson formula returns ~-1e-18 at 0 failures for some n
+    (e.g. 21). protocol.wilson_interval clamps it (D-026); label.py no longer
+    does, so this checks the clamp reaches the label."""
     for shots in (21, 37, 100, MAX_SHOTS):
         lab = _label(0, shots)
         assert lab.true_ler_ci_low == 0.0

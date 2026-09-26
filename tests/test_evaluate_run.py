@@ -1,11 +1,9 @@
-"""M0-EVAL-01 (decoder half): BP+OSD built from the detector error model.
+"""M0-EVAL-01: BP+OSD from the detector error model, and the seeded sampling loop.
 
-The decoder is a ``sinter.Decoder`` whose compiled form wraps ldpc's
-``BpOsdDecoder`` with CONTRACT's DECODER_PARAMS exactly. Sampling here is
-seeded stim, never sinter: sinter seeds its samplers from OS entropy, which
-CONTRACT's explicit-seed convention does not allow (see AGENT_LOG (mm)), so
-the stopping-rule loop is not built yet and these tests decode fixed,
-seeded shot counts.
+The decoder wraps ldpc's ``BpOsdDecoder`` with CONTRACT's DECODER_PARAMS
+exactly. Sampling is seeded stim, never sinter (D-026): ``sample_and_decode``
+runs fixed-size batches from one seeded sampler and stops at MIN_FAILURES or
+max_shots. Tests that need a raw decoder call sample seeded stim directly.
 
 Codes: [[72,12,6]] (the reference) where the claim is about it, and a
 [[12,2,3]] BB code from ``pair_2_2`` where the claim needs many shots.
@@ -15,25 +13,26 @@ small code.
 
 from __future__ import annotations
 
-import pickle
+import dataclasses
+import re
+from pathlib import Path
 
 import numpy as np
 import pytest
-import sinter
 import stim
 
+import qecscreen.evaluate.run as run_module
 from qecscreen.circuits.build import build_memory_circuit
 from qecscreen.evaluate.label import make_label
 from qecscreen.evaluate.run import (
-    BpOsdSinterDecoder,
     CompiledBpOsd,
+    RunResult,
     count_failures,
     dem_matrices,
     detector_error_model,
+    sample_and_decode,
 )
-from qecscreen.protocol import DECODER_PARAMS
-
-P_PILOT = 0.005  # CONTRACT.md P_PILOT; protocol.py does not export it (see AGENT_LOG (mm))
+from qecscreen.protocol import DECODER_PARAMS, MAX_SHOTS, MIN_FAILURES, P_PILOT, SHOT_BATCH
 
 REF = {"l": 6, "m": 6, "a_exps": [(3, 0), (0, 1), (0, 2)], "b_exps": [(0, 3), (1, 0), (2, 0)]}
 REF_ROUNDS = 6
@@ -42,7 +41,7 @@ SMALL_ROUNDS = 3
 
 
 def _compile(circuit: stim.Circuit) -> CompiledBpOsd:
-    return BpOsdSinterDecoder().compile_decoder_for_dem(dem=detector_error_model(circuit))
+    return CompiledBpOsd(detector_error_model(circuit))
 
 
 def _sample(circuit: stim.Circuit, shots: int, seed: int):
@@ -61,6 +60,13 @@ def _decoded_failures(circuit: stim.Circuit, shots: int, seed: int) -> tuple[int
     return count_failures(pred, obs, num_obs), count_failures(trivial, obs, num_obs)
 
 
+def _counts(result: RunResult) -> dict:
+    """Every field except decode_seconds, which is wall-clock telemetry."""
+    d = dataclasses.asdict(result)
+    del d["decode_seconds"]
+    return d
+
+
 # --- the decoder is CONTRACT's decoder --------------------------------------
 
 
@@ -72,16 +78,32 @@ def test_compiled_decoder_uses_contract_params_exactly():
     assert d.ms_scaling_factor == DECODER_PARAMS["ms_scaling_factor"]
     assert d.osd_method.lower() == DECODER_PARAMS["osd_method"]
     assert d.osd_order == DECODER_PARAMS["osd_order"]
+    assert d.schedule == DECODER_PARAMS["schedule"]  # D-026
     assert type(d).__name__ == DECODER_PARAMS["decoder"]
     assert type(d).__module__.split(".")[0] == DECODER_PARAMS["library"]
 
 
-def test_decoder_is_a_picklable_sinter_decoder():
-    """sinter ships decoders to worker processes by pickling."""
-    dec = BpOsdSinterDecoder()
-    assert isinstance(dec, sinter.Decoder)
-    assert isinstance(pickle.loads(pickle.dumps(dec)), BpOsdSinterDecoder)
-    assert isinstance(_compile(build_memory_circuit(SMALL, P_PILOT, SMALL_ROUNDS)), sinter.CompiledDecoder)
+def test_dem_conversion_refuses_a_name_it_does_not_implement(monkeypatch):
+    """D-026: the hashed dem_to_matrix name and the implementation cannot drift apart."""
+    dem = detector_error_model(build_memory_circuit(SMALL, P_PILOT, SMALL_ROUNDS))
+    monkeypatch.setitem(DECODER_PARAMS, "dem_to_matrix", "dem_undecomposed_one_column_per_instruction_v1")
+    with pytest.raises(ValueError, match="dem_to_matrix"):
+        dem_matrices(dem)
+
+
+def test_sinter_is_not_on_the_label_path():
+    """D-026: sinter's samplers are unseeded, so no qecscreen source may use it.
+
+    Checked in source, not sys.modules: ldpc 2.4.1 itself imports sinter (a
+    declared dependency), so sinter is loaded whether or not we use it.
+    """
+    package = Path(run_module.__file__).parents[1]
+    offenders = [
+        str(path.relative_to(package))
+        for path in package.rglob("*.py")
+        if re.search(r"^\s*(import|from)\s+sinter\b", path.read_text(encoding="utf-8"), re.M)
+    ]
+    assert offenders == []
 
 
 def test_dem_matrices_match_the_dem():
@@ -115,7 +137,7 @@ def test_osd_order_larger_than_free_columns_raises_instead_of_crashing():
     """ldpc segfaults (kills the process) when osd_order exceeds the free columns."""
     dem = stim.DetectorErrorModel("error(0.1) D0\nerror(0.1) D1\nerror(0.1) D0 D1 L0")
     with pytest.raises(ValueError, match="osd_order"):
-        BpOsdSinterDecoder().compile_decoder_for_dem(dem=dem)
+        CompiledBpOsd(dem)
 
 
 # --- INV-4 failure event -----------------------------------------------------
@@ -139,17 +161,92 @@ def test_failure_count_ignores_bit_packing_padding():
     assert count_failures(pred, actual, 12) == 0
 
 
+# --- the seeded loop (D-026) -------------------------------------------------
+
+
+def test_same_code_p_and_seed_give_identical_shots_and_failures():
+    circuit = build_memory_circuit(SMALL, 0.01, SMALL_ROUNDS)
+    a = sample_and_decode(circuit, seed=7, batch_size=500, max_shots=2_000)
+    b = sample_and_decode(build_memory_circuit(SMALL, 0.01, SMALL_ROUNDS), seed=7,
+                          batch_size=500, max_shots=2_000)
+    assert _counts(a) == _counts(b)
+    assert a.failures > 0  # a determinism test on an all-zero run proves nothing
+
+
+def test_a_different_seed_gives_different_shots():
+    circuit = build_memory_circuit(SMALL, 0.01, SMALL_ROUNDS)
+    a = sample_and_decode(circuit, seed=7, batch_size=500, max_shots=2_000)
+    b = sample_and_decode(circuit, seed=8, batch_size=500, max_shots=2_000)
+    assert a.samples_sha256 != b.samples_sha256
+
+
+def test_stops_at_min_failures_at_the_first_batch_boundary():
+    """p=0.012 on [[12,2,3]] fails ~1 shot in 3, so 100 failures come within a few batches."""
+    circuit = build_memory_circuit(SMALL, 0.012, SMALL_ROUNDS)
+    res = sample_and_decode(circuit, seed=11, batch_size=100, max_shots=20_000)
+    assert res.stopped_by == "min_failures"
+    assert res.failures >= MIN_FAILURES
+    assert res.shots % 100 == 0 and res.shots < 20_000
+    # One batch fewer, same seed, sees the same shots minus the last batch and
+    # has not yet reached MIN_FAILURES, so the loop stopped as soon as it could.
+    earlier = sample_and_decode(circuit, seed=11, batch_size=100, max_shots=res.shots - 100)
+    assert earlier.stopped_by == "max_shots"
+    assert earlier.failures < MIN_FAILURES
+
+
+def test_stops_at_max_shots_and_the_label_is_censored():
+    circuit = build_memory_circuit(SMALL, 0.002, SMALL_ROUNDS)
+    res = sample_and_decode(circuit, seed=12, batch_size=500, max_shots=1_000)
+    assert res.stopped_by == "max_shots"
+    assert res.shots == 1_000
+    assert res.failures < MIN_FAILURES
+    label = make_label(p=0.002, rounds=SMALL_ROUNDS, k=circuit.num_observables,
+                       shots=res.shots, failures=res.failures, decode_seconds=res.decode_seconds)
+    assert label.censored and label.true_ler is None
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        dict(seed=-1),
+        dict(seed=2**64),
+        dict(seed=1.0),
+        dict(seed=True),
+        dict(seed=0, batch_size=0),
+        dict(seed=0, max_shots=MAX_SHOTS + SHOT_BATCH),
+        dict(seed=0, batch_size=300, max_shots=1_000),  # not a whole number of batches
+    ],
+)
+def test_bad_run_arguments_raise(kwargs):
+    with pytest.raises(ValueError):
+        sample_and_decode(build_memory_circuit(SMALL, 0.0, SMALL_ROUNDS), **kwargs)
+
+
+def test_seed_is_required():
+    with pytest.raises(TypeError):
+        sample_and_decode(build_memory_circuit(SMALL, 0.0, SMALL_ROUNDS))  # type: ignore[call-arg]
+
+
 # --- behaviour ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("code, rounds", [(REF, REF_ROUNDS), (SMALL, SMALL_ROUNDS)], ids=["ref72", "small12"])
-def test_p0_gives_zero_failures(code, rounds):
-    circuit = build_memory_circuit(code, 0.0, rounds)
-    decoded, trivial = _decoded_failures(circuit, 2_000, seed=0)
-    assert decoded == trivial == 0
-    label = make_label(p=0.0, rounds=rounds, k=circuit.num_observables, shots=2_000,
-                       failures=decoded, decode_seconds=0.0)
+def test_p0_gives_zero_failures_at_contract_defaults():
+    """At CONTRACT's SHOT_BATCH and MAX_SHOTS: 200,000 silent shots, censored."""
+    circuit = build_memory_circuit(SMALL, 0.0, SMALL_ROUNDS)
+    res = sample_and_decode(circuit, seed=0)
+    assert (res.batch_size, res.shots, res.failures) == (SHOT_BATCH, MAX_SHOTS, 0)
+    assert res.stopped_by == "max_shots"
+    label = make_label(p=0.0, rounds=SMALL_ROUNDS, k=circuit.num_observables, shots=res.shots,
+                       failures=res.failures, decode_seconds=res.decode_seconds)
     assert label.censored and label.true_ler is None
+
+
+def test_p0_gives_zero_failures_on_ref72():
+    circuit = build_memory_circuit(REF, 0.0, REF_ROUNDS)
+    res = sample_and_decode(circuit, seed=0, batch_size=1_000, max_shots=2_000)
+    assert (res.shots, res.failures) == (2_000, 0)
+    _, trivial = _decoded_failures(circuit, 2_000, seed=0)
+    assert trivial == 0
 
 
 def test_zero_syndrome_decodes_to_no_flip_at_p_pilot():
@@ -190,14 +287,14 @@ def test_bposd_beats_trivial_decoder_on_small_code():
 
 @pytest.mark.slow
 def test_ler_increases_with_p():
-    """Non-censored labels, strictly increasing, with disjoint intervals."""
+    """Through the loop: non-censored labels, strictly increasing, disjoint intervals."""
     labels = []
     for i, p in enumerate((0.003, 0.006, 0.012)):
         circuit = build_memory_circuit(SMALL, p, SMALL_ROUNDS)
-        shots = 4_000
-        decoded, _ = _decoded_failures(circuit, shots, seed=10 + i)
+        res = sample_and_decode(circuit, seed=10 + i, batch_size=1_000, max_shots=10_000)
         labels.append(make_label(p=p, rounds=SMALL_ROUNDS, k=circuit.num_observables,
-                                 shots=shots, failures=decoded, decode_seconds=0.0))
+                                 shots=res.shots, failures=res.failures,
+                                 decode_seconds=res.decode_seconds))
     assert not any(lab.censored for lab in labels), [lab.failures for lab in labels]
     for lo, hi in zip(labels, labels[1:]):
         assert lo.true_ler < hi.true_ler

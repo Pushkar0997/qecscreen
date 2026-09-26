@@ -60,11 +60,7 @@ def make_label(
     if decode_seconds < 0:
         raise ValueError(f"decode_seconds must be >= 0; got {decode_seconds!r}")
 
-    lo, hi = wilson_interval(failures, shots)
-    # At failures == 0 the Wilson lower bound is 0 exactly, but the formula's
-    # cancellation can leave ~-1e-18 (e.g. shots=21), which logical_error_rate
-    # rightly rejects. Clamp only that float residue; nothing else is touched.
-    lo = max(lo, 0.0)
+    lo, hi = wilson_interval(failures, shots)  # clamped to [0, 1] in protocol (D-026)
     ci_low = logical_error_rate(lo, rounds, k)
     ci_high = logical_error_rate(hi, rounds, k)
 
