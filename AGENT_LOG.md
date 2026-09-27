@@ -6,6 +6,36 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-27 (rr) — Claude Opus 5.5 / Claude Code — D-030: the repo is public, the notebook install needs no token
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:** the owner's decision that the repo is public, recorded as D-030 (supersedes D-013 on visibility), and the install cell change it needs. Nothing else was changed, and no notebook was run on Kaggle or Colab.
+
+**Landed:** `f41e5da`, code and spec together.
+- **Cell 1** of `template_run.ipynb` and `calibrate.ipynb` (still identical, as `test_calibrate_notebook_follows_the_template` requires):
+  - It tries Kaggle's `UserSecretsClient().get_secret("GITHUB_TOKEN")`, then Colab's `userdata.get("GITHUB_TOKEN")`, each inside `except Exception`.
+  - With a token it installs from `git+https://<token>@github.com/...@<sha>` and masks the token in pip's output, as before.
+  - Without one it installs from the plain `git+https://github.com/Pushkar0997/qecscreen@<sha>`.
+  - `assert token` is gone. The cell prints which way it installed.
+  - Both platforms raise, rather than return `None`, for a secret that is not attached. That is why each read is wrapped. This is from the platforms' documented behaviour, not checked on either platform.
+- **Tests.** All credential-leak tests are kept: the provenance credential tests, the token scan and the template shape test. The shape test now also asserts there is no `assert token`. New in `test_notebook_contract.py`: 10 tests that execute cell 1 of both notebooks against fake secret stores, with `subprocess.run` replaced by a recorder, so there is no network and no install.
+  - No secret: on neither platform, on Kaggle with the secret missing, and on Colab with it missing. Each installs from the plain URL without raising.
+  - Secret on Kaggle, and on Colab: each installs from the token URL. The fake pip echoes the URL back, and the printed output holds `***` and not the token.
+  - Checked against HEAD's cell 1: the three no-secret cases and the shape test fail on it.
+- **Spec:** D-030 in `spec/decisions.md`, with status notes on D-013 and D-028. `spec/architecture.md` §2 rule 5 and §7 now say the token is optional. `spec/evals.md` N-13 describes the new tests.
+
+**Suite:** full (`-o addopts=""`, slow tests included) **265 passed**, exit 0, 279 s. That is 255 plus the 10 new tests. The default run passed too.
+**CI:** this entry is committed before CI runs on it, so the result is reported to the owner in the session reply. The next entry should record it.
+**Blockers:** none.
+**Noticed, did not fix:**
+1. **AGENTS.md's INV-9 summary** says the token is permitted "while the repo is private (D-028)". Read literally, that now forbids the token path the owner asked to keep. It needs an owner-authorised edit, as in (pp).
+2. `.github/workflows/ci.yml` line 11 says "The repo is private through M0 (D-013), so Actions minutes are metered". Public repos get free Actions minutes, so the comment is stale. The concurrency cap and timeout are still worth keeping.
+3. The notebooks' cell comment still points to Kaggle and Colab secrets. That is intended, since the secret is optional.
+4. `evaluate/__init__.py` still has the placeholder docstring.
+**Spec changes:** `spec/decisions.md` (D-030; status notes on D-013 and D-028), `spec/architecture.md` (§2 rule 5, §7), `spec/evals.md` (N-13). No `spec/tasks.md` change, because no task ID was assigned. No NARRATIVE entry: this is a routine visibility change.
+
+---
+
 ## 2026-09-26 (qq) — Claude Opus 5.5 / Claude Code — M0-EVAL-06 fix: hard per-cell kill for a hung decoder (D-029 amendment)
 
 **Milestone:** M0 — Falsification
