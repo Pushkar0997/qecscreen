@@ -175,7 +175,7 @@ The option only survives if **the copyright stays consolidated**. Once a third p
 
 ## D-013 — Private through M0, public from M1
 
-**Status:** decided
+**Status:** decided; on visibility, superseded by D-030 (the repo went public during M0)
 **Decision:** The repository stays private until the M0 verdict is recorded in `spec/evals.md §7`. It goes public at the start of M1, or at the moment a negative M0 result is published, whichever comes first.
 **Rationale:** M0 may kill the project and there is no reason to publish an unvalidated pilot. From M1 onward, every mechanism the plan depends on — Zenodo DOI, grant applications, adoption by the named groups, citations — requires a public repository. Privacy is a temporary state with a defined exit, not a posture.
 
@@ -488,7 +488,7 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 ## D-028 — Remote execution: install by pinned SHA from a private repo, token from platform secrets
 
-**Status:** decided (owner, 2026-09-26).
+**Status:** decided (owner, 2026-09-26). The token is optional since D-030: the install cell uses it only if the secret exists.
 **Decision:** All sampling and decoding runs on Kaggle or Colab, from notebooks the owner runs; agents never execute notebooks. A notebook installs this package with `pip install git+https://github.com/Pushkar0997/qecscreen@<40-hex sha>` (`pyproject.toml`, src-layout, runtime dependencies read from `requirements.txt`). While the repository is private (D-013), the install reads a GitHub token from the platform's secret store, Kaggle Secrets or Colab `userdata`, under the name `GITHUB_TOKEN`. The token never appears in a notebook's source, its outputs, or any artifact. Notebook rules are in `spec/architecture.md §2`.
 
 **How the no-credential rule is enforced:**
@@ -541,6 +541,22 @@ Replaced with random-information-set search: draw a random column permutation, u
 - **Margin and bound.** The margin defaults to 120 s: one shot per decoder past the cap (~1 min on the largest code) plus the worker's imports. The projected bound is now the real hard one, `ceil(cells / processes) × (cap + margin)`. For the default grid that is 8 × 22 min = **2.93 h**, which supersedes the 2.67 h above and is still under 3 h.
 
 **Why a hang on a real sampled shot would matter.** A hang is only expected on a syndrome no error can produce. The mutant that found it fed LSD a rotated syndrome. Every syndrome the sampler emits is the detector image of some set of circuit faults. Each of those faults is a mechanism in the DEM. So every sampled syndrome lies in the column span of the DEM check matrix built from that DEM (merging mechanisms by symptom keeps their columns). If LSD hangs on a *real* shot, the most likely cause is that the DEM → matrix conversion (`dem_undecomposed_merge_by_symptom_v1`) dropped a mechanism. That would make the matrix a wrong model of the circuit for every decoder, BP+OSD on the label path included, not only for LSD. The kill record is how that would be found: rebuild the syndrome from `sampling_seed`, batch and shot, then check it against the column span of `dem_matrices(...)` over GF(2). If it is outside the span, the conversion is wrong. If it is inside, the hang is an ldpc bug on a valid input.
+
+---
+
+## D-030 — The repository is public; the notebook install needs no token
+
+**Status:** decided (owner, 2026-09-27). Supersedes D-013 on visibility.
+**Decision:** The repository is public from 2026-09-27, before the M0 verdict. Cell 1 of `notebooks/template_run.ipynb` and `notebooks/calibrate.ipynb` reads the `GITHUB_TOKEN` secret (Kaggle Secrets, then Colab `userdata`) only if it exists, and otherwise installs from the plain URL `git+https://github.com/Pushkar0997/qecscreen@<40-hex sha>`. A missing secret, or neither platform, is not an error. The cell prints which way it installed. When a token is used, the D-028 rules still hold: it is masked in pip's output and never appears in a notebook or an artifact.
+**Rationale:** A public repo needs no credential to install, so requiring one would make a notebook fail for anyone without the owner's secret, the owner included on a fresh Kaggle account. The token path is kept rather than removed, so a notebook with the secret attached keeps working unchanged, and so is the credential-leak guard: `test_provenance.py`'s credential tests and `test_notebook_contract.py`'s token scan stay. `test_notebook_contract.py` now also executes cell 1 against fake Kaggle and Colab secret stores, with pip replaced by a recorder: with no secret it installs from the plain URL; with one, from the token URL, with the token masked in the printed output.
+- *Pinned here:* both platforms raise, rather than return `None`, when the secret is not attached (Kaggle's `get_secret` raises a backend error, Colab's `userdata.get` raises `SecretNotFoundError` or `NotebookAccessError`), so the cell catches `Exception` around each read. The cost: a Kaggle secrets-service failure also falls through to the public URL, which on a public repo installs the same commit.
+- D-013's rationale for going public at M1 (DOI, citations) is unchanged. INV-10 is unaffected: the M0 write-up still publishes within 7 days of the verdict.
+
+**Rejected:**
+- *Removing the token read.* A notebook with the secret attached would still work, but the masking would go untested, and the path returns if the repo is ever made private again.
+- *Keeping the token required.* A public repo would fail to install without a credential it does not need.
+
+**Revisit if:** the repository is made private again (then the token becomes required, and the cell should fail loudly without it), or Kaggle/Colab change their secrets APIs.
 
 ---
 

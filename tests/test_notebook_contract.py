@@ -1,4 +1,4 @@
-"""Notebook rules (spec/architecture.md §2, D-028).
+"""Notebook rules (spec/architecture.md §2, D-028, D-030).
 
 Logic never lives in a notebook: notebooks are not tested, cannot be reviewed
 in a diff, and run only on Kaggle or Colab, where nobody reads them closely. The
@@ -15,6 +15,9 @@ import ast
 import json
 import pathlib
 import re
+import subprocess
+import sys
+import types
 
 import pytest
 
@@ -108,8 +111,105 @@ def test_template_install_cell_pins_a_sha_and_reads_the_token_from_secrets():
     assert 'userdata.get("GITHUB_TOKEN")' in install      # Colab
     assert "[0-9a-f]{40}" in install                      # a full SHA, never a ref
     assert '.replace(token, "***")' in install            # pip's output is masked
+    assert "assert token" not in install                  # the secret is optional (D-030)
     assert "record()" in provenance
     assert 'PROVENANCE["commit_sha"] == QECSCREEN_SHA' in provenance
+
+
+# --- executing the install cell (D-030) ---------------------------------------
+#
+# Cell 1 runs here against fake Kaggle/Colab secret stores, with pip replaced by
+# a recorder, so no network and no install. The token is a fake that pip's fake
+# output echoes back, to check the masking.
+
+_SHA = "0123456789abcdef0123456789abcdef01234567"
+_FAKE_TOKEN = "fake-secret-value-for-tests"
+_PUBLIC_URL = f"git+https://github.com/Pushkar0997/qecscreen@{_SHA}"
+_TOKEN_URL = f"git+https://{_FAKE_TOKEN}@github.com/Pushkar0997/qecscreen@{_SHA}"
+_INSTALLING = ["template_run.ipynb", "calibrate.ipynb"]
+
+
+class _SecretNotFound(Exception):
+    pass
+
+
+def _getter(secret):
+    """Both platforms raise, rather than return None, for a secret not attached."""
+
+    def get(name):
+        if secret is None or name != "GITHUB_TOKEN":
+            raise _SecretNotFound(name)
+        return secret
+
+    return get
+
+
+def _kaggle(secret):
+    get = _getter(secret)
+
+    class UserSecretsClient:
+        def get_secret(self, name):
+            return get(name)
+
+    return types.SimpleNamespace(UserSecretsClient=UserSecretsClient)
+
+
+def _colab(secret):
+    return types.SimpleNamespace(userdata=types.SimpleNamespace(get=_getter(secret)))
+
+
+def _run_install_cell(notebook, monkeypatch, kaggle=None, colab=None):
+    """Execute cell 1 of ``notebook``; return the pip argv it ran.
+
+    ``kaggle``/``colab`` are fake modules, or None for "not on this platform".
+    """
+    source = _source(_cells(NOTEBOOKS / notebook)[0])
+    assert 'QECSCREEN_SHA = ""' in source
+    source = source.replace('QECSCREEN_SHA = ""', f'QECSCREEN_SHA = "{_SHA}"')
+    monkeypatch.setitem(sys.modules, "kaggle_secrets", kaggle)
+    monkeypatch.setitem(sys.modules, "google.colab", colab)
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(argv)
+        return types.SimpleNamespace(returncode=0, stdout=f"Collecting {argv[-1]}\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    exec(compile(source, notebook, "exec"), {"__name__": "__main__"})
+    assert len(calls) == 1
+    assert calls[0][:4] == [sys.executable, "-m", "pip", "install"]
+    return calls[0]
+
+
+@pytest.mark.parametrize("notebook", _INSTALLING)
+@pytest.mark.parametrize(
+    "platform",
+    [
+        pytest.param({}, id="neither"),
+        pytest.param({"kaggle": _kaggle(None)}, id="kaggle-no-secret"),
+        pytest.param({"colab": _colab(None)}, id="colab-no-secret"),
+    ],
+)
+def test_install_cell_without_a_secret_uses_the_public_url(notebook, platform, monkeypatch, capsys):
+    argv = _run_install_cell(notebook, monkeypatch, **platform)
+    assert argv[-1] == _PUBLIC_URL
+    assert "from the public URL, no token" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("notebook", _INSTALLING)
+@pytest.mark.parametrize(
+    "platform",
+    [
+        pytest.param({"kaggle": _kaggle(_FAKE_TOKEN)}, id="kaggle"),
+        pytest.param({"colab": _colab(_FAKE_TOKEN)}, id="colab"),
+    ],
+)
+def test_install_cell_with_a_secret_uses_it_and_masks_it(notebook, platform, monkeypatch, capsys):
+    argv = _run_install_cell(notebook, monkeypatch, **platform)
+    assert argv[-1] == _TOKEN_URL
+    out = capsys.readouterr().out
+    assert _FAKE_TOKEN not in out                          # pip echoed it; the cell masked it
+    assert "git+https://***@github.com" in out
 
 
 # --- the checker itself ------------------------------------------------------
