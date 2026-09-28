@@ -542,6 +542,15 @@ Replaced with random-information-set search: draw a random column permutation, u
 
 **Why a hang on a real sampled shot would matter.** A hang is only expected on a syndrome no error can produce. The mutant that found it fed LSD a rotated syndrome. Every syndrome the sampler emits is the detector image of some set of circuit faults. Each of those faults is a mechanism in the DEM. So every sampled syndrome lies in the column span of the DEM check matrix built from that DEM (merging mechanisms by symptom keeps their columns). If LSD hangs on a *real* shot, the most likely cause is that the DEM → matrix conversion (`dem_undecomposed_merge_by_symptom_v1`) dropped a mechanism. That would make the matrix a wrong model of the circuit for every decoder, BP+OSD on the label path included, not only for LSD. The kill record is how that would be found: rebuild the syndrome from `sampling_seed`, batch and shot, then check it against the column span of `dem_matrices(...)` over GF(2). If it is outside the span, the conversion is wrong. If it is inside, the hang is an ldpc bug on a valid input.
 
+**Note (owner's re-projection, 2026-09-28).** `summarize(out_dir, *, population=None, max_shots=MAX_SHOTS, shot_batch=SHOT_BATCH)` can re-project the same cells over another population or under other `max_shots` and `shot_batch` values. The defaults reproduce the stored summary. Each pilot projection now also reports:
+- `censored_overall`;
+- `max_code_core_hours`;
+- the fit codes' `n·d_upper`;
+- for each population code, the fit codes that bracket it (`interpolation_brackets`);
+- the codes outside the fit range (`outside_fit_range`).
+
+The models above are unchanged, and no protocol constant moves. The first use is `evidence/reprojection/2026-09-28/`, recorded in `spec/evals.md §7`.
+
 ---
 
 ## D-030 — The repository is public; the notebook install needs no token

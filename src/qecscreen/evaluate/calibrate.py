@@ -678,7 +678,7 @@ def _load_cells(out: Path, plan: Mapping[str, Any]) -> list[dict[str, Any]]:
     return cells
 
 
-def _shots_needed(shots: int, failures: int) -> dict[str, Any]:
+def _shots_needed(shots: int, failures: int, max_shots: int = MAX_SHOTS) -> dict[str, Any]:
     """Estimated shots to ``MIN_FAILURES`` at this cell's failure fraction."""
     if shots == 0:
         return {"estimate": None, "range": [None, None], "exceeds_max_shots": None}
@@ -686,22 +686,24 @@ def _shots_needed(shots: int, failures: int) -> dict[str, Any]:
     rng = [math.ceil(MIN_FAILURES / hi), math.ceil(MIN_FAILURES / lo) if lo > 0 else None]
     if failures:
         est = math.ceil(MIN_FAILURES * shots / failures)
-        exceeds: bool | None = est > MAX_SHOTS
+        exceeds: bool | None = est > max_shots
     else:
         est = None
-        exceeds = True if rng[0] > MAX_SHOTS else None
+        exceeds = True if rng[0] > max_shots else None
     return {"estimate": est, "range": rng, "exceeds_max_shots": exceeds}
 
 
-def _run_shots(needed: int | None, exceeds: bool | None) -> tuple[int, int]:
-    """Shots a label run would take: (at ``SHOT_BATCH`` granularity, unbatched).
+def _run_shots(
+    needed: int | None, exceeds: bool | None, max_shots: int = MAX_SHOTS, shot_batch: int = SHOT_BATCH
+) -> tuple[int, int]:
+    """Shots a label run would take: (at ``shot_batch`` granularity, unbatched).
 
     Unknown (no failures, not provably censored) and censored are costed at
-    ``MAX_SHOTS``.
+    ``max_shots``.
     """
     if needed is None or exceeds:
-        return MAX_SHOTS, MAX_SHOTS
-    return min(math.ceil(needed / SHOT_BATCH) * SHOT_BATCH, MAX_SHOTS), min(needed, MAX_SHOTS)
+        return max_shots, max_shots
+    return min(math.ceil(needed / shot_batch) * shot_batch, max_shots), min(needed, max_shots)
 
 
 def _separated(a: Mapping[str, Any], b: Mapping[str, Any]) -> bool | None:
@@ -710,15 +712,32 @@ def _separated(a: Mapping[str, Any], b: Mapping[str, Any]) -> bool | None:
     return a["ler_ci_high"] < b["ler_ci_low"] or b["ler_ci_high"] < a["ler_ci_low"]
 
 
+def _bracket(value: float, fit: Sequence[tuple[float, str]]) -> str:
+    """The fit codes whose ``n * d_upper`` bracket ``value`` (``fit`` sorted)."""
+    below = [name for x, name in fit if x <= value]
+    above = [name for x, name in fit if x >= value]
+    if not below:
+        return f"below {fit[0][1]}"
+    if not above:
+        return f"above {fit[-1][1]}"
+    return below[-1] if below[-1] == above[0] else f"{below[-1]} .. {above[0]}"
+
+
 def _project_pilot(
-    cells: Sequence[Mapping[str, Any]], population: Sequence[Mapping[str, Any]], decoder: str
+    cells: Sequence[Mapping[str, Any]],
+    population: Sequence[Mapping[str, Any]],
+    decoder: str,
+    *,
+    max_shots: int = MAX_SHOTS,
+    shot_batch: int = SHOT_BATCH,
 ) -> dict[str, Any] | None:
     """Core-hours and censoring for ``population`` from one ``(p, decoder)``'s cells.
 
     Seconds per shot: least-squares power law in ``n * d_upper`` (~detectors)
     over the calibration codes. Failure fraction: the calibration code nearest
     in ``d_upper``, then ``n``. Both are extrapolations from a handful of
-    codes, reported as such.
+    codes, reported as such: each code's ``n * d_upper`` is placed between the
+    fit codes that bracket it, and codes outside their range are listed.
     """
     obs = [c for c in cells if c["shots"] > 0]
     if not obs or not population:
@@ -730,14 +749,22 @@ def _project_pilot(
     else:
         slope, icept = 0.0, float(np.log(max(sec.mean(), 1e-12)))
 
+    fit = sorted((float(c["code"]["n"] * c["rounds"]), c["code"].get("name", c["code"]["code_id"]))
+                 for c in obs)
     per_code = []
     for code in population:
         near = min(obs, key=lambda c: (abs(c["code"]["d_upper"] - code["d_upper"]),
                                        abs(c["code"]["n"] - code["n"]), c["code"]["code_id"]))
-        need = _shots_needed(near["shots"], near["decoders"][decoder]["failures"])
-        batched, unbatched = _run_shots(need["estimate"], need["exceeds_max_shots"])
+        need = _shots_needed(near["shots"], near["decoders"][decoder]["failures"], max_shots)
+        batched, unbatched = _run_shots(need["estimate"], need["exceeds_max_shots"],
+                                        max_shots, shot_batch)
         s = float(np.exp(icept + slope * np.log(code["n"] * code["d_upper"])))
         per_code.append((code, need["exceeds_max_shots"], batched * s, unbatched * s))
+
+    brackets: dict[str, int] = {}
+    for code, *_ in per_code:
+        key = _bracket(code["n"] * code["d_upper"], fit)
+        brackets[key] = brackets.get(key, 0) + 1
 
     top = sorted(per_code, key=lambda r: (-r[0]["d_upper"], -r[0]["n"], r[0]["code_id"]))
     top = top[: math.ceil(len(top) / 3)]
@@ -748,7 +775,13 @@ def _project_pilot(
         "population_codes": len(per_code),
         "core_hours": core_h,
         "core_hours_unbatched": sum(r[3] for r in per_code) / 3600.0,
+        "max_code_core_hours": max(r[2] for r in per_code) / 3600.0,
         "unknown_costed_at_max_shots": sum(r[1] is None for r in per_code),
+        "censored_overall": {
+            "projected_censored": sum(r[1] is True for r in per_code),
+            "unknown": sum(r[1] is None for r in per_code),
+            "censored_fraction": sum(r[1] is True for r in per_code) / len(per_code),
+        },
         "top_third_by_d_upper": {
             "codes": len(top),
             "d_upper_min": min(r[0]["d_upper"] for r in top),
@@ -760,11 +793,32 @@ def _project_pilot(
         "seconds_per_shot_model": {"form": "exp(a + b*log(n*d_upper))", "a": float(icept),
                                    "b": float(slope), "fit_codes": len(obs)},
         "failure_fraction_model": "nearest calibration code in d_upper, then n",
+        "fit_codes": [{"name": name, "n_d_upper": x} for x, name in fit],
+        "interpolation_brackets": dict(sorted(brackets.items())),
+        "outside_fit_range": [
+            {"code_id": r[0]["code_id"], "n_d_upper": r[0]["n"] * r[0]["d_upper"]}
+            for r in per_code if not fit[0][0] <= r[0]["n"] * r[0]["d_upper"] <= fit[-1][0]
+        ],
     }
 
 
-def summarize(out_dir: str | os.PathLike) -> dict[str, Any]:
-    """Summary of a calibration directory: measurements and projections, no advice."""
+def summarize(
+    out_dir: str | os.PathLike,
+    *,
+    population: Sequence[Mapping[str, Any]] | None = None,
+    max_shots: int = MAX_SHOTS,
+    shot_batch: int = SHOT_BATCH,
+) -> dict[str, Any]:
+    """Summary of a calibration directory: measurements and projections, no advice.
+
+    By default the projections use the pinned ``MAX_SHOTS`` and ``SHOT_BATCH``
+    and the population in the run's ``plan.json``. Passing ``population``
+    (code records with ``code_id``, ``n`` and ``d_upper``), ``max_shots`` or
+    ``shot_batch`` re-projects the same measurements under other values:
+    nothing is decoded again and no protocol constant changes.
+    """
+    if max_shots < 1 or shot_batch < 1:
+        raise ValueError("max_shots and shot_batch must be >= 1")
     out = Path(out_dir)
     plan = json.loads((out / _PLAN_FILE).read_text(encoding="utf-8"))
     loaded = _load_cells(out, plan)
@@ -801,8 +855,9 @@ def summarize(out_dir: str | os.PathLike) -> dict[str, Any]:
                  "shots": c["shots"], "stopped_by": c["stopped_by"], "decoders": {}}
         for d in decoders:
             r = c["decoders"][d]
-            need = _shots_needed(c["shots"], r["failures"])
-            batched, unbatched = _run_shots(need["estimate"], need["exceeds_max_shots"])
+            need = _shots_needed(c["shots"], r["failures"], max_shots)
+            batched, unbatched = _run_shots(need["estimate"], need["exceeds_max_shots"],
+                                            max_shots, shot_batch)
             sec = r["decode_seconds"] / c["shots"] if c["shots"] else None
             entry["decoders"][d] = {
                 "failures": r["failures"], "ler": r["ler"],
@@ -819,15 +874,17 @@ def summarize(out_dir: str | os.PathLike) -> dict[str, Any]:
     pilot = []
     for p in plan["config"]["ps"]:
         for d in decoders:
-            proj = _project_pilot([c for c in cells if c["p"] == p], plan["population"], d)
+            proj = _project_pilot([c for c in cells if c["p"] == p],
+                                  plan["population"] if population is None else population, d,
+                                  max_shots=max_shots, shot_batch=shot_batch)
             if proj is not None:
                 pilot.append({"p": p, "decoder": d, **proj})
 
     return {
         CALIBRATION_MARKER: True,
         "format": _FORMAT,
-        "constants_used": {"MIN_FAILURES": MIN_FAILURES, "MAX_SHOTS": MAX_SHOTS,
-                           "SHOT_BATCH": SHOT_BATCH},
+        "constants_used": {"MIN_FAILURES": MIN_FAILURES, "MAX_SHOTS": max_shots,
+                           "SHOT_BATCH": shot_batch},
         "code_ids": {c["name"]: c["code_id"] for c in plan["codes"]},
         "cells_done": len(loaded),
         "cells_total": len(plan["config"]["ps"]) * len(plan["codes"]),

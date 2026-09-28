@@ -258,6 +258,45 @@ def test_pilot_projection_on_synthetic_cells():
     assert proj["core_hours"] == pytest.approx((2 * 10_000 * 0.001 + MAX_SHOTS * 0.1) / 3600)
 
 
+def test_projection_under_other_constants_and_population(smoke):
+    def cell(cid, n, d, shots, failures, sec):
+        return {"shots": shots, "rounds": d, "code": {"code_id": cid, "n": n, "d_upper": d},
+                "decoders": {"x": {"failures": failures, "decode_seconds": sec * shots}}}
+
+    # Same slope-1 fit as above: 1 ms at n*d = 36, 0.1 s at n*d = 1728.
+    cells = [cell("a", 12, 3, 1000, 500, 0.001), cell("b", 144, 12, MAX_SHOTS, 0, 0.1)]
+    population = [{"code_id": f"p{i}", "n": n, "d_upper": d}
+                  for i, (n, d) in enumerate([(12, 3), (24, 4), (144, 12), (200, 12)])]
+    proj = cal._project_pilot(cells, population, "x", max_shots=20_000, shot_batch=256)
+    sec = lambda nd: 0.001 * (nd / 36) ** (np.log(100) / np.log(48))  # noqa: E731
+    # 200 shots to 100 failures, rounded up to one 256-shot batch; the
+    # rest have 0 failures in MAX_SHOTS shots, so censored at max_shots.
+    expected = 256 * (sec(36) + sec(96)) + 20_000 * (sec(1728) + sec(2400))
+    assert proj["core_hours"] == pytest.approx(expected / 3600)
+    assert proj["max_code_core_hours"] == pytest.approx(20_000 * sec(2400) / 3600)
+    assert proj["censored_overall"] == {"projected_censored": 2, "unknown": 0,
+                                        "censored_fraction": 0.5}
+    assert proj["interpolation_brackets"] == {"a": 1, "a .. b": 1, "above b": 1, "b": 1}
+    assert proj["outside_fit_range"] == [{"code_id": "p3", "n_d_upper": 2400}]
+    assert [f["name"] for f in proj["fit_codes"]] == ["a", "b"]
+    # The defaults are still the pinned constants.
+    assert cal._project_pilot(cells, population[:3], "x")["core_hours"] == pytest.approx(
+        (10_000 * (sec(36) + sec(96)) + MAX_SHOTS * sec(1728)) / 3600)
+
+    # Through summarize: the stored run's population is replaced, nothing is re-decoded.
+    out, summary, cell_record = smoke
+    assert summary["pilot_projection"] == []  # the smoke run has no population
+    code = cell_record["code"]
+    pop = [{"code_id": code["code_id"], "n": code["n"], "d_upper": code["d_upper"]}]
+    again = summarize(out, population=pop, max_shots=20_000, shot_batch=256)
+    assert again["constants_used"]["MAX_SHOTS"] == 20_000
+    assert again["constants_used"]["SHOT_BATCH"] == 256
+    assert [pr["population_codes"] for pr in again["pilot_projection"]] == [1, 1]
+    assert _counts(again) == _counts(summary)
+    with pytest.raises(ValueError):
+        summarize(out, shot_batch=0)
+
+
 @pytest.mark.slow
 def test_default_codes_span_the_population():
     codes, population = calibration_codes(CalibrationConfig())

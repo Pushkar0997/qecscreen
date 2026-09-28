@@ -279,6 +279,102 @@ The 120 s margin was sized for "one shot per decoder past the cap (~1 min on the
 - The size-scaling readings cover three templates of 11.
 - Every ms/shot is from a Kaggle CPU under 4 concurrent workers.
 
+#### 2026-09-28 — Re-projection of the pilot from this calibration (owner's grid; no recommendation)
+
+**Evidence:** `evidence/reprojection/2026-09-28/`, which holds `reproject.py` (exactly what produced the numbers) and `reprojection.json`. Nothing was decoded. The script calls `summarize()` on the calibration directory with other `population`, `max_shots` and `shot_batch` values.
+
+**Setup:**
+- **Decoder:** pinned BP+OSD only.
+- **Grid:** p ∈ {0.0015, 0.002}, budget (max n) ∈ {48, 60, 72, 96}, MAX_SHOTS ∈ {10,000, 20,000, 50,000}, shot batch 256.
+- **Population:** every admitted code at the budget. That is every `(template, l, m)` on the balanced sampler's grid that passes `validate` and has `estimate_d_upper(seed=0) ≥ 3`. It was checked to equal `sample_bb_params(<that many>, budget, CALIBRATION_CODE_SEED)`. Budget 96 has more than 300 codes, so the 300-code balanced draw is projected too.
+
+**Models, unchanged from D-029:**
+- **Cost:** seconds/shot is the power law in `n·d_upper`, fitted at each p over the 7 completed calibration codes. The slope is 2.92 at p=0.0015 and 2.84 at p=0.002, so cost goes roughly as (n·d_upper)³.
+- **Failures:** each code takes the failure fraction of the calibration code nearest in `d_upper`, then `n`:
+  - d_upper 3–4 take [[12,2,≤3]].
+  - d_upper 5–6 take [[42,6,≤6]] or [[72,12,≤6]], whichever is nearer in `n`.
+  - d_upper 7 is equally near d = 6 and d = 8, so it takes whichever of [[42]], [[72]] and [[48,4,≤8]] is nearest in `n`.
+  - d_upper 8–9 take [[48,4,≤8]].
+  - d_upper 10 takes [[136,2,≤11]], which has 0 failures, so "unknown".
+- **Censored:** a code is censored if its shots to 100 failures exceed MAX_SHOTS. Unknown codes are costed at MAX_SHOTS.
+- **Wall-hours:** `max(core-h / 4, longest single code)`, because one code runs per process.
+
+**Above threshold at p** is read from the size-scaling table above. A template qualifies if it has at least two completed codes, its larger code's interval does not lie wholly below its smaller code's, and every completed code's interval lies wholly above p. At both p only **mixed_3_5** qualifies. pair_2_2 and sym_3_3 do not. The other 8 templates have no reading, and the last column reports their share.
+
+Admitted codes per template:
+
+| Budget | Codes | d_upper | Top third | sym_3_3 | pair_2_2 | quad_4_2 | rare_3_4 | rare_2_3 | mixed_3_5 | mod_2_3 | bb288_3_3 | tri_3_3 | diag_3_3 | sq_4_2 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 48 | 116 | 3–8 | d ≥ 4 | 2 | 33 | 36 | 1 | 1 | 2 | 10 | 2 | 2 | 8 | 19 |
+| 60 | 175 | 3–8 | d ≥ 4 | 4 | 48 | 51 | 2 | 1 | 4 | 15 | 4 | 4 | 12 | 30 |
+| 72 | 244 | 3–9 | d ≥ 5 | 7 | 65 | 68 | 3 | 2 | 5 | 21 | 7 | 7 | 17 | 42 |
+| 96 | 373 | 3–10 | d ≥ 5 | 9 | 99 | 102 | 5 | 4 | 8 | 32 | 9 | 9 | 29 | 67 |
+| 96, 300 drawn | 300 | 3–10 | d ≥ 6 | 9 | 65 | 65 | 5 | 4 | 8 | 32 | 9 | 9 | 29 | 65 |
+
+Projection:
+
+| Budget | p | MAX_SHOTS | Codes | Core-h | Wall-h, 4 cores | Longest code, core-h | Censored overall (+unknown) | Censored, top third (+unknown) | From above-threshold templates | From templates with no reading |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 48 | 0.0015 | 10,000 | 116 | 12.5 | 3.1 | 0.4 | 97 = 84% (+0) | 20/39 = 51% (+0) | 1.7% | 68.1% |
+| 48 | 0.0015 | 20,000 | 116 | 13.9 | 3.5 | 0.4 | 0% (+0) | 0/39 (+0) | 1.7% | 68.1% |
+| 48 | 0.0015 | 50,000 | 116 | 13.9 | 3.5 | 0.4 | 0% (+0) | 0/39 (+0) | 1.7% | 68.1% |
+| 48 | 0.002 | 10,000 | 116 | 8.4 | 2.1 | 0.2 | 0% (+0) | 0/39 (+0) | 1.7% | 68.1% |
+| 48 | 0.002 | 20,000 | 116 | 8.4 | 2.1 | 0.2 | 0% (+0) | 0/39 (+0) | 1.7% | 68.1% |
+| 48 | 0.002 | 50,000 | 116 | 8.4 | 2.1 | 0.2 | 0% (+0) | 0/39 (+0) | 1.7% | 68.1% |
+| 60 | 0.0015 | 10,000 | 175 | 33.4 | 8.3 | 0.7 | 128 = 73% (+0) | 12/59 = 20% (+0) | 2.3% | 68.0% |
+| 60 | 0.0015 | 20,000 | 175 | 36.6 | 9.1 | 0.7 | 0% (+0) | 0/59 (+0) | 2.3% | 68.0% |
+| 60 | 0.0015 | 50,000 | 175 | 36.6 | 9.1 | 0.7 | 0% (+0) | 0/59 (+0) | 2.3% | 68.0% |
+| 60 | 0.002 | 10,000 | 175 | 21.2 | 5.3 | 0.4 | 0% (+0) | 0/59 (+0) | 2.3% | 68.0% |
+| 60 | 0.002 | 20,000 | 175 | 21.2 | 5.3 | 0.4 | 0% (+0) | 0/59 (+0) | 2.3% | 68.0% |
+| 60 | 0.002 | 50,000 | 175 | 21.2 | 5.3 | 0.4 | 0% (+0) | 0/59 (+0) | 2.3% | 68.0% |
+| 72 | 0.0015 | 10,000 | 244 | 90.8 | 22.7 | 1.6 | 162 = 66% (+0) | 0/82 (+0) | 2.0% | 68.4% |
+| 72 | 0.0015 | 20,000 | 244 | 97.4 | 24.4 | 1.6 | 0% (+0) | 0/82 (+0) | 2.0% | 68.4% |
+| 72 | 0.0015 | 50,000 | 244 | 97.4 | 24.4 | 1.6 | 0% (+0) | 0/82 (+0) | 2.0% | 68.4% |
+| 72 | 0.002 | 10,000 | 244 | 52.5 | 13.1 | 0.9 | 0% (+0) | 0/82 (+0) | 2.0% | 68.4% |
+| 72 | 0.002 | 20,000 | 244 | 52.5 | 13.1 | 0.9 | 0% (+0) | 0/82 (+0) | 2.0% | 68.4% |
+| 72 | 0.002 | 50,000 | 244 | 52.5 | 13.1 | 0.9 | 0% (+0) | 0/82 (+0) | 2.0% | 68.4% |
+| 96 | 0.0015 | 10,000 | 373 | 417.9 | 104.5 | 29.4 | 227 = 61% (+5) | 0/125 (+5) | 2.1% | 68.9% |
+| 96 | 0.0015 | 20,000 | 373 | 561.8 | 140.4 | 58.8 | 0% (+5) | 0/125 (+5) | 2.1% | 68.9% |
+| 96 | 0.0015 | 50,000 | 373 | 935.2 | 233.8 | 146.9 | 0% (+5) | 0/125 (+5) | 2.1% | 68.9% |
+| 96 | 0.002 | 10,000 | 373 | 302.8 | 75.7 | 32.6 | 0% (+5) | 0/125 (+5) | 2.1% | 68.9% |
+| 96 | 0.002 | 20,000 | 373 | 441.5 | 110.4 | 65.2 | 0% (+5) | 0/125 (+5) | 2.1% | 68.9% |
+| 96 | 0.002 | 50,000 | 373 | 857.7 | 214.4 | 163.1 | 0% (+5) | 0/125 (+5) | 2.1% | 68.9% |
+| 96, 300 drawn | 0.0015 | 10,000 | 300 | 352.5 | 88.1 | 29.4 | 181 = 60% (+4) | 0/100 (+4) | 2.7% | 72.7% |
+| 96, 300 drawn | 0.0015 | 20,000 | 300 | 472.4 | 118.1 | 58.8 | 0% (+4) | 0/100 (+4) | 2.7% | 72.7% |
+| 96, 300 drawn | 0.0015 | 50,000 | 300 | 783.4 | 195.8 | 146.9 | 0% (+4) | 0/100 (+4) | 2.7% | 72.7% |
+| 96, 300 drawn | 0.002 | 10,000 | 300 | 254.2 | 63.6 | 32.6 | 0% (+4) | 0/100 (+4) | 2.7% | 72.7% |
+| 96, 300 drawn | 0.002 | 20,000 | 300 | 369.6 | 92.4 | 65.2 | 0% (+4) | 0/100 (+4) | 2.7% | 72.7% |
+| 96, 300 drawn | 0.002 | 50,000 | 300 | 715.7 | 178.9 | 163.1 | 0% (+4) | 0/100 (+4) | 2.7% | 72.7% |
+
+**Where the cost model interpolates.** The fit codes' `n·d_upper` values, which are the same set at both p:
+
+| Fit code | [[12]] | [[42]] | [[48]] | [[72]] | [[136]] | [[112]] | [[144]] |
+|---|---|---|---|---|---|---|---|
+| n·d_upper | 36 | 252 | 384 | 432 | 1,496 | 1,568 | 1,728 |
+
+**No code at any budget lies outside 36–1,728.** Codes per bracket (a single name means an exact match):
+
+| Budget | [[12]] | [[12]]–[[42]] | [[42]] | [[42]]–[[48]] | [[48]] | [[48]]–[[72]] | [[72]] | [[72]]–[[136]] |
+|---|---|---|---|---|---|---|---|---|
+| 48 | 3 | 104 | 1 | 6 | 2 | 0 | 0 | 0 |
+| 60 | 3 | 138 | 1 | 25 | 2 | 1 | 0 | 5 |
+| 72 | 3 | 147 | 1 | 54 | 4 | 3 | 16 | 16 |
+| 96 | 3 | 151 | 9 | 93 | 18 | 5 | 16 | 78 |
+| 96, 300 drawn | 2 | 117 | 8 | 72 | 14 | 4 | 16 | 67 |
+
+**Read these with the models' limits in view:**
+- **The power law misses the fit codes themselves by 0.17–7×.** Predicted / measured BP+OSD ms/shot:
+
+  | p | [[12]] | [[42]] | [[48]] | [[72]] | [[136]] | [[112]] | [[144]] |
+  |---|---|---|---|---|---|---|---|
+  | 0.0015 | 2.94 | 0.17 | 0.75 | 0.66 | 7.18 | 0.41 | 1.34 |
+  | 0.002 | 2.72 | 0.19 | 0.80 | 0.70 | 7.03 | 0.37 | 1.35 |
+
+  At every budget, most codes lie between [[12]] and [[42]], and [[42]]'s measured cost is 5.3–5.7× the fit there. `n·d_upper` does not separate [[136,2]] (weight-4 checks, 31,960 DEM mechanisms) from [[112,6]] (weight-8, 88,704).
+- **The censoring columns follow the donor codes.** Every d_upper 3–4 code borrows [[12]]'s 11,244 shots to 100 failures at p=0.0015. So the 10,000-shot rows at that p censor all of them, and at 20,000 shots none. The top third's censoring falls as the budget grows, because more of it moves past d_upper 4 to donors that fail more often.
+- The "+unknown" codes are d_upper-10 codes borrowing [[136]]'s zero failures.
+- The "above-threshold" column counts mixed_3_5 codes only. But [[42,6,≤6]] is a mixed_3_5 code whose every interval lies above p, and it is also the failure-fraction donor for many d_upper 5–7 codes of other templates.
+
 ---
 
 ### M0 verdict
