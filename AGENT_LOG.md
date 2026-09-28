@@ -6,6 +6,27 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-28 (vv) — Claude Opus 5.5 / Claude Code — the pilot travels as one tar: Kaggle keeps at most 500 output files (D-033 amendment 2)
+
+**Milestone:** M0. **Task:** a fix to M0-RUN-01/02 before the probe runs. As built, the pilot directory sat in `/kaggle/working`, and with up to ~10,000 shards the chain would break by session 2 (owner confirmed Kaggle's "Too many output files (max 500)"). This was (uu)'s "noticed" item 2.
+
+**Changed:**
+- `evaluate/pilot.py`: the pilot directory is scratch, and `PilotConfig.archive_dir` (default `/kaggle/working`) receives `m0-pilot.tar` plus `.sha256`, written `.tmp` → fsync → rename, every `SNAPSHOT_MINUTES` = 60 and at session end, plus the session summary without its inventory. `PREVIOUS` accepts exactly one tar: sha256 is checked, the tar is extracted, and the inventory check runs. A mismatch, a missing sidecar, zero tars or two tars are refused. `pilot_cost_report` and `assemble_measurements` take the tar or a directory. An `OUT_DIR` inside `archive_dir` is refused.
+- Pinned here (D-033 amendment 2 lists them): each snapshot writes `inventory.json`, because a mid-session snapshot no longer matches the previous summary's inventory. A pilot with a manifest but no summary is a probe that died, and it is re-run as the probe. A resumed snapshot keeps its session number.
+- `notebooks/pilot.ipynb`: the runbook and cells 3–4. `OUT_DIR = /kaggle/tmp/m0-pilot`, and the artifact goes to `/kaggle/working`. Cell 5 was not authorised, so the tar location is `PilotConfig`'s default, not a notebook argument.
+- `spec/architecture.md`: §2 runbook. In §6, the 20,000-shot rejection is restated as D-031's cost reason.
+- Tests: the chain runs through tars, and each "working" dir holds exactly 3 files. Other tests: a corrupted tar or missing sidecar is refused, as are two tars or none; the inventory is checked inside a tar; a mid-session snapshot resumes to the uninterrupted rows (slow); a died probe is re-run as the probe; `OUT_DIR` inside the archive dir is refused; the cost report on a tar equals the one on the directory.
+
+**Suite:** default only, **319 passed, 26 deselected**. The slow tests (the tar chain and the mid-session snapshot among them) were not run locally, per this session's rules; CI runs them. No mutation testing.
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. `spec/evals.md` N-17 still describes the chain through directories, and `spec/tasks.md` was not touched. Neither was in the authorised list.
+2. `/kaggle/tmp` is the owner's path. Kaggle's docs name `/kaggle/temp` as scratch. Either should work, since the runner creates the directory, but it has not been run.
+3. Kaggle's handling of a crashed version's output (whether the last snapshot is kept) is assumed from the owner's brief, not observed.
+
+---
+
 ## 2026-09-28 (uu) — Claude Opus 5.5 / Claude Code — D-032 resume rule; M0-RUN-01 row writer and pilot runner; M0-RUN-02 pilot notebook, probe and cost gate (D-033)
 
 **Milestone:** M0 — Falsification
