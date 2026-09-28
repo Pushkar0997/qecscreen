@@ -126,7 +126,7 @@ _SHA = "0123456789abcdef0123456789abcdef01234567"
 _FAKE_TOKEN = "fake-secret-value-for-tests"
 _PUBLIC_URL = f"git+https://github.com/Pushkar0997/qecscreen@{_SHA}"
 _TOKEN_URL = f"git+https://{_FAKE_TOKEN}@github.com/Pushkar0997/qecscreen@{_SHA}"
-_INSTALLING = ["template_run.ipynb", "calibrate.ipynb"]
+_INSTALLING = ["template_run.ipynb", "calibrate.ipynb", "pilot.ipynb"]
 
 
 class _SecretNotFound(Exception):
@@ -163,7 +163,7 @@ def _run_install_cell(notebook, monkeypatch, kaggle=None, colab=None):
 
     ``kaggle``/``colab`` are fake modules, or None for "not on this platform".
     """
-    source = _source(_cells(NOTEBOOKS / notebook)[0])
+    source = _source([c for c in _cells(NOTEBOOKS / notebook) if c["cell_type"] == "code"][0])
     assert 'QECSCREEN_SHA = ""' in source
     source = source.replace('QECSCREEN_SHA = ""', f'QECSCREEN_SHA = "{_SHA}"')
     monkeypatch.setitem(sys.modules, "kaggle_secrets", kaggle)

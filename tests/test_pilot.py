@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import functools
 import json
+import math
 import multiprocessing
 import time
 from pathlib import Path
@@ -56,8 +57,16 @@ def _parent(monkeypatch, commit="a" * 40, cpu="x86_64/sse2", stim="1.16.0"):
     monkeypatch.setattr(prov_mod, "stim_version", lambda: stim)
 
 
-def cfg(previous=None, *, wall=1.0, setup=None, processes=2, population=POP):
-    return PilotConfig(previous=None if previous is None else str(previous), session_wall_hours=wall,
+GATE = "evals §7 2026-09-28 — probe cost report (test)"
+
+
+def cfg(previous=None, *, wall=1.0, setup=None, processes=2, population=POP, gate="auto", probe_codes=12):
+    """``wall`` applies to the probe and to later sessions alike. ``gate`` defaults to
+    GATE for a session with ``previous`` (a later session) and to none otherwise."""
+    if gate == "auto":
+        gate = GATE if previous is not None else None
+    return PilotConfig(previous=None if previous is None else str(previous), cost_gate=gate,
+                       session_wall_hours=wall, probe_wall_hours=wall, probe_codes=probe_codes,
                        processes=processes, _population=population, _batch_size=BATCH, _max_shots=MAX,
                        _worker_setup=setup or functools.partial(fakes.fake_provenance, **SSE2))
 
@@ -159,7 +168,7 @@ def test_a_terminated_worker_resumes_correctly(tmp_path, monkeypatch):
     assert proc.exitcode != 0 and shard.exists()
     assert not (out / rec["code_id"] / RESULT_FILE).exists()  # killed mid-code
 
-    s = run_session(cfg(wall=1.0), out)
+    s = run_session(cfg(wall=1.0, gate=GATE), out)
     assert sorted(s["codes"]["done"]) == sorted(IDS) and s["died"] == []
     rows = pilot_rows(out)
     assert without_timing(rows[rec["code_id"]]) == without_timing(ref[rec["code_id"]])
@@ -281,7 +290,7 @@ def test_a_digest_mismatch_moves_the_partial_code_aside_and_restarts_it(tmp_path
     idx = table.schema.get_field_index("batch_samples_sha256")
     pq.write_table(table.set_column(idx, "batch_samples_sha256", [["f" * 64]]), shard)
 
-    s2 = run_session(cfg(wall=1.0), out)  # the same session continuing: PREVIOUS unset
+    s2 = run_session(cfg(wall=1.0, gate=GATE), out)  # the same session continuing: PREVIOUS unset
     assert [(s["code_id"], s["reason"]) for s in s2["stale_restarted"]] == [(IDS[0], "digest")]
     assert sorted(s2["codes"]["done"]) == sorted(IDS) and s2["died"] == []
     assert without_timing(pilot_rows(out)[IDS[0]]) == without_timing(ref[IDS[0]])
@@ -332,3 +341,171 @@ def test_the_m0_population_is_the_pinned_244_and_the_d031_draw():
     drawn = sample_bb_params(244, 72, seed=CALIBRATION_CODE_SEED)
     assert {pilot._record(p)["code_id"] for p in drawn} == {r["code_id"] for r in pop}
     assert min(r["d_upper"] for r in pop) == 3 and max(r["n"] for r in pop) == 72
+    probe = pilot.probe_codes(pop)
+    by_id = {r["code_id"]: r for r in pop}
+    assert len(set(probe)) == 12 and by_id[probe[0]]["n_d_upper"] == max(r["n_d_upper"] for r in pop)
+
+
+# --- the probe and the cost gate ----------------------------------------------------
+
+
+def test_probe_codes_are_evenly_spaced_ranks_including_the_largest():
+    pop = [{"code_id": f"c{i:03d}", "n_d_upper": 1000 - i} for i in range(244)]
+    probe = pilot.probe_codes(pop, 12)
+    ranks = [int(c[1:]) for c in probe]  # rank i is code c{i}: sorted by n_d_upper descending
+    assert ranks[0] == 0 and ranks[-1] == 243 and len(set(ranks)) == 12
+    assert all(21 <= b - a <= 23 for a, b in zip(ranks, ranks[1:]))
+    assert pilot.probe_codes(pop[:5], 12) == [f"c{i:03d}" for i in range(5)]  # all, when fewer
+    assert pilot.probe_codes(pop, 1) == ["c000"]
+
+
+def test_session_1_is_the_probe_and_every_later_session_needs_a_cost_gate(tmp_path, monkeypatch):
+    _parent(monkeypatch)
+    out = tmp_path / "pilot"
+    s1 = run_session(cfg(wall=0.0, probe_codes=2), out)
+    assert s1["kind"] == "probe" and s1["probe_codes"] == [IDS[0], IDS[2]]  # largest and smallest
+    assert json.loads((out / "manifest.json").read_text())["probe_codes"] == [IDS[0], IDS[2]]
+    for gate in (None, "", "   "):
+        with pytest.raises(PilotRefusal, match="COST_GATE"):
+            run_session(cfg(wall=0.0, gate=gate), out)
+    assert len(list(out.glob("session_*.json"))) == 1
+    s2 = run_session(cfg(wall=0.0, gate=GATE), out)
+    assert s2["kind"] == "session" and s2["cost_gate"] == GATE and s2["probe_codes"] is None
+    gates = json.loads((out / "manifest.json").read_text())["cost_gates"]
+    assert [(g["session"], g["cost_gate"]) for g in gates] == [(2, GATE)]
+    with pytest.raises(PilotRefusal, match="forget PREVIOUS"):
+        run_session(cfg(wall=0.0, gate=GATE), tmp_path / "fresh" / "pilot")
+
+
+@pytest.mark.slow
+def test_the_probe_runs_only_its_codes_and_its_work_counts(tmp_path, monkeypatch):
+    _parent(monkeypatch)
+    s1 = run_session(cfg(wall=1.0, probe_codes=2), tmp_path / "k1" / "pilot")
+    assert s1["started"] == [IDS[0], IDS[2]] and s1["codes"]["not_started"] == [IDS[1]]
+    s2 = run_session(cfg(tmp_path / "k1"), tmp_path / "k2" / "pilot")
+    assert s2["started"] == [IDS[1]] and sorted(s2["codes"]["done"]) == sorted(IDS)
+
+
+# --- the notebook --------------------------------------------------------------------
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_pilot_notebook_follows_the_template_and_carries_the_runbook():
+    def cells(name):
+        return json.loads((ROOT / "notebooks" / name).read_text(encoding="utf-8"))["cells"]
+
+    nb, template = cells("pilot.ipynb"), cells("template_run.ipynb")
+    assert [c["cell_type"] for c in nb] == ["markdown"] + ["code"] * 6
+    code = ["".join(c["source"]) for c in nb[1:]]
+    assert code[:2] == ["".join(c["source"]) for c in template[:2]]  # install by SHA, provenance read back
+    assert all(c["outputs"] == [] and c["execution_count"] is None for c in nb[1:])
+    assert "PREVIOUS = None" in code[2] and 'COST_GATE = ""' in code[2]
+    assert "run_session(PilotConfig(previous=PREVIOUS, cost_gate=COST_GATE or None), OUT_DIR)" in code[4]
+    runbook = "".join(nb[0]["source"])
+    mirror = (ROOT / "spec" / "architecture.md").read_text(encoding="utf-8").split("### M0 pilot runbook", 1)[1]
+    for text in ("Save & Run All", "PREVIOUS", "/kaggle/input", "COST_GATE", "pilot_cost_report",
+                 "assemble_measurements", "QECSCREEN_SHA", "Add Input"):
+        assert text in runbook and text in mirror, text
+
+
+# --- the cost report, on synthetic shards --------------------------------------------
+
+CALIBRATION = Path(__file__).resolve().parents[1] / "evidence" / "calibration" / "2026-09-27-7e91f82"
+# (n, k, d_upper); ranks by n * d_upper: 648, 432, 384, 252, 96, 54, 36. The probe of 3 is ranks 0, 3, 6.
+SYNTH = [(72, 8, 9), (72, 12, 6), (48, 4, 8), (42, 6, 6), (24, 4, 4), (18, 4, 3), (12, 2, 3)]
+
+
+def _synthetic_pilot(tmp_path):
+    from qecscreen.evaluate.checkpoint import BatchRecord, CodeCheckpoint
+
+    out = tmp_path / "pilot"
+    out.mkdir()
+    pop = [{"code_id": f"bb_v1_synth-{i:012d}", "construction_program_id": "bb_v1_synth", "params_json": "{}",
+            "n": n, "k": k, "d_upper": d, "n_d_upper": n * d} for i, (n, k, d) in enumerate(SYNTH)]
+    pq.write_table(pilot.pa.Table.from_pylist(pop, schema=pilot._POPULATION_SCHEMA), out / "population.parquet")
+    probe = pilot.probe_codes(pop, 3)
+    (out / "manifest.json").write_text(json.dumps({"format": pilot.FORMAT, "protocol_hash": "a" * 64,
+                                                   "commit_sha": "a" * 40, "probe_codes": probe}))
+    (out / "session_001.json").write_text(json.dumps({"kind": "probe", "died": []}))
+    plan = json.loads((CALIBRATION / "plan.json").read_text(encoding="utf-8"))
+    cells = [c for c in pilot_calibrate()._load_cells(CALIBRATION, plan) if c["status"] == "completed" and c["p"] == P_PILOT]
+    model = {m["code_id"]: m for m in pilot_calibrate()._project_pilot(cells, pop, "bposd", per_code=True)["per_code"]}
+
+    def shards(cid, failures, factor, finish):
+        ck = CodeCheckpoint(out / cid, seed=1, batch_size=256, max_shots=pilot.MAX_SHOTS,
+                            provenance={"commit_sha": "a" * 40, "stim_version": "1.16.0", "cpu_class": "x86_64/sse2"})
+        shots = fails = 0
+        for i, f in enumerate(failures):
+            shots, fails = shots + 256, fails + f
+            ck.write_batch(BatchRecord(i, 256, f, 0, 256 * factor * model[cid]["seconds_per_shot"],
+                                       f"{i:064x}", shots, fails, f"{i:064x}"))
+        if finish:
+            ck.write_result({"seed": 1, "batch_size": 256, "shots": shots, "failures": fails,
+                             "stopped_by": "min_failures", "osd_invocations": 0, "samples_sha256": "0" * 64,
+                             "decode_seconds": 0.0})
+
+    shards(probe[0], [60, 45], 2.0, finish=True)  # finished at 105 failures, 2x the projected cost
+    shards(probe[1], [1], 3.0, finish=False)  # partial, 1 failure in 256, 3x the projected cost
+    return out, pop, probe, model  # probe[2] has not started
+
+
+def pilot_calibrate():
+    from qecscreen.evaluate import calibrate
+
+    return calibrate
+
+
+def test_the_cost_report_on_synthetic_shards(tmp_path, monkeypatch):
+    out, pop, probe, model = _synthetic_pilot(tmp_path)
+    monkeypatch.setattr(pilot, "admissible_codes", lambda *a: pytest.fail("the report enumerated"))
+    monkeypatch.setattr(pilot, "sample_and_decode", lambda *a, **k: pytest.fail("the report decoded"))
+    report = pilot.pilot_cost_report(out, CALIBRATION)
+
+    fin, part, unstarted = report["probe"]
+    assert [e["code_id"] for e in report["probe"]] == probe
+    assert fin["ratio"] == pytest.approx(2.0) and part["ratio"] == pytest.approx(3.0) and unstarted["ratio"] is None
+    assert fin["measured_failure_fraction"] == 105 / 512 and part["measured_failure_fraction"] == 1 / 256
+    assert fin["donor_failure_fraction"] == model[probe[0]]["donor_failure_fraction"]
+    assert report["ratio"] == {"codes": 2, "median": pytest.approx(2.5), "max": pytest.approx(3.0),
+                               "min": pytest.approx(2.0)}
+
+    others = sum(model[r["code_id"]]["core_hours"] for r in pop if r["code_id"] not in probe[:2])
+    measured_fin = 512 * 2.0 * model[probe[0]]["seconds_per_shot"] / 3600
+    measured_part = 3.0 * model[probe[1]]["seconds_per_shot"] * max(model[probe[1]]["run_shots"], 256) / 3600
+    ch = report["core_hours"]
+    assert ch["projected"] == pytest.approx(sum(m["core_hours"] for m in model.values()))
+    assert ch["reprojected_at_median_ratio"] == pytest.approx(measured_fin + measured_part + 2.5 * others)
+    assert ch["reprojected_at_max_ratio"] == pytest.approx(measured_fin + measured_part + 3.0 * others)
+    assert (ch["architecture_projection"], ch["architecture_ceiling"]) == (52.5, 158.0)
+
+    # 1 failure in 256 shots needs ~25,600 shots to reach 100: censored at MAX_SHOTS. 105 failures: not.
+    assert (fin["censored_at_max_shots"], part["censored_at_max_shots"]) == (False, True)
+    c = report["censoring"]
+    assert [e["code_id"] for e in c["probe_by_measured_failure_fraction"]] == [probe[1], probe[0]]
+    assert c["lowest_third_of_probe"] == {"codes": 1, "projected_censored": 1, "unknown": 0}
+    model_status = [model[r["code_id"]]["shots_to_min_failures"]["exceeds_max_shots"] for r in pop
+                    if r["code_id"] not in probe[:2]]
+    assert c["overall"]["projected_censored"] == 1 + sum(s is True for s in model_status)
+    assert c["top_third_by_d_upper"]["codes"] == 3 and c["top_third_by_d_upper"]["d_upper_min"] == 6  # d 9, 8, 6
+    assert "x2" in pilot.format_cost_report(report)
+
+
+def test_the_cost_report_needs_a_probe(tmp_path):
+    out, *_ = _synthetic_pilot(tmp_path)
+    (out / "session_001.json").write_text(json.dumps({"kind": "session", "died": []}))
+    with pytest.raises(PilotRefusal, match="no probe session"):
+        pilot.pilot_cost_report(out, CALIBRATION)
+
+
+def test_project_pilot_per_code_is_the_power_law_and_sums_to_the_total():
+    calibrate = pilot_calibrate()
+    plan = json.loads((CALIBRATION / "plan.json").read_text(encoding="utf-8"))
+    cells = [c for c in calibrate._load_cells(CALIBRATION, plan) if c["status"] == "completed" and c["p"] == P_PILOT]
+    pop = [{"code_id": f"x{i}", "n": n, "d_upper": d} for i, (n, _, d) in enumerate(SYNTH)]
+    proj = calibrate._project_pilot(cells, pop, "bposd", per_code=True)
+    a, b = proj["seconds_per_shot_model"]["a"], proj["seconds_per_shot_model"]["b"]
+    for code, m in zip(pop, proj["per_code"]):
+        assert m["seconds_per_shot"] == pytest.approx(math.exp(a + b * math.log(code["n"] * code["d_upper"])))
+    assert sum(m["core_hours"] for m in proj["per_code"]) == pytest.approx(proj["core_hours"])
+    assert "per_code" not in calibrate._project_pilot(cells, pop, "bposd")  # summarize's output is unchanged

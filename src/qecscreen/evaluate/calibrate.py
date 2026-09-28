@@ -724,6 +724,7 @@ def _project_pilot(
     *,
     max_shots: int = MAX_SHOTS,
     shot_batch: int = SHOT_BATCH,
+    per_code: bool = False,
 ) -> dict[str, Any] | None:
     """Core-hours and censoring for ``population`` from one ``(p, decoder)``'s cells.
 
@@ -732,6 +733,11 @@ def _project_pilot(
     in ``d_upper``, then ``n``. Both are extrapolations from a handful of
     codes, reported as such: each code's ``n * d_upper`` is placed between the
     fit codes that bracket it, and codes outside their range are listed.
+
+    ``per_code=True`` adds ``per_code``: each population code's projected
+    seconds/shot, its failure-fraction donor, the donor's failure fraction,
+    shots to ``MIN_FAILURES``, run shots and core-hours (the M0 pilot's cost
+    report compares these with measurements).
     """
     obs = [c for c in cells if c["shots"] > 0]
     if not obs or not population:
@@ -745,7 +751,7 @@ def _project_pilot(
 
     fit = sorted((float(c["code"]["n"] * c["rounds"]), c["code"].get("name", c["code"]["code_id"]))
                  for c in obs)
-    per_code = []
+    rows, details = [], []
     for code in population:
         near = min(obs, key=lambda c: (abs(c["code"]["d_upper"] - code["d_upper"]),
                                        abs(c["code"]["n"] - code["n"]), c["code"]["code_id"]))
@@ -753,28 +759,34 @@ def _project_pilot(
         batched, unbatched = _run_shots(need["estimate"], need["exceeds_max_shots"],
                                         max_shots, shot_batch)
         s = float(np.exp(icept + slope * np.log(code["n"] * code["d_upper"])))
-        per_code.append((code, need["exceeds_max_shots"], batched * s, unbatched * s))
+        rows.append((code, need["exceeds_max_shots"], batched * s, unbatched * s))
+        details.append({
+            "code_id": code["code_id"], "seconds_per_shot": s,
+            "donor": near["code"].get("name", near["code"]["code_id"]),
+            "donor_failure_fraction": near["decoders"][decoder]["failures"] / near["shots"],
+            "shots_to_min_failures": need, "run_shots": batched, "core_hours": batched * s / 3600.0,
+        })
 
     brackets: dict[str, int] = {}
-    for code, *_ in per_code:
+    for code, *_ in rows:
         key = _bracket(code["n"] * code["d_upper"], fit)
         brackets[key] = brackets.get(key, 0) + 1
 
-    top = sorted(per_code, key=lambda r: (-r[0]["d_upper"], -r[0]["n"], r[0]["code_id"]))
+    top = sorted(rows, key=lambda r: (-r[0]["d_upper"], -r[0]["n"], r[0]["code_id"]))
     top = top[: math.ceil(len(top) / 3)]
     n_cens = sum(r[1] is True for r in top)
     n_unknown = sum(r[1] is None for r in top)
-    core_h = sum(r[2] for r in per_code) / 3600.0
+    core_h = sum(r[2] for r in rows) / 3600.0
     return {
-        "population_codes": len(per_code),
+        "population_codes": len(rows),
         "core_hours": core_h,
-        "core_hours_unbatched": sum(r[3] for r in per_code) / 3600.0,
-        "max_code_core_hours": max(r[2] for r in per_code) / 3600.0,
-        "unknown_costed_at_max_shots": sum(r[1] is None for r in per_code),
+        "core_hours_unbatched": sum(r[3] for r in rows) / 3600.0,
+        "max_code_core_hours": max(r[2] for r in rows) / 3600.0,
+        "unknown_costed_at_max_shots": sum(r[1] is None for r in rows),
         "censored_overall": {
-            "projected_censored": sum(r[1] is True for r in per_code),
-            "unknown": sum(r[1] is None for r in per_code),
-            "censored_fraction": sum(r[1] is True for r in per_code) / len(per_code),
+            "projected_censored": sum(r[1] is True for r in rows),
+            "unknown": sum(r[1] is None for r in rows),
+            "censored_fraction": sum(r[1] is True for r in rows) / len(rows),
         },
         "top_third_by_d_upper": {
             "codes": len(top),
@@ -791,9 +803,9 @@ def _project_pilot(
         "interpolation_brackets": dict(sorted(brackets.items())),
         "outside_fit_range": [
             {"code_id": r[0]["code_id"], "n_d_upper": r[0]["n"] * r[0]["d_upper"]}
-            for r in per_code if not fit[0][0] <= r[0]["n"] * r[0]["d_upper"] <= fit[-1][0]
+            for r in rows if not fit[0][0] <= r[0]["n"] * r[0]["d_upper"] <= fit[-1][0]
         ],
-    }
+    } | ({"per_code": details} if per_code else {})
 
 
 def summarize(

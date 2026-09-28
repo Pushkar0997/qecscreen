@@ -35,6 +35,14 @@ that dies is recorded with its exit code and retried in the next session;
 a code that dies in two sessions is failed and not run again (AGENTS §4: two
 failures, stop). A finished code is never re-run.
 
+**Session 1 is the probe.** The runner knows it is session 1 because the
+manifest is absent. It runs ``PROBE_CODES`` codes at evenly spaced ranks of
+``n * d_upper``, the largest included, for ``PROBE_WALL_HOURS``, and stops;
+its work counts toward the pilot. Every later session refuses to start
+unless ``cost_gate`` names the ``spec/evals.md §7`` entry that approved the
+probe's cost report (``pilot_cost_report``, run locally on the downloaded
+probe), and records it in the manifest.
+
 **Final assembly** (``assemble_measurements``) builds every row, checks one
 protocol and all 244 rows, and writes ``data/m0_measurements.parquet``. It
 refuses while any code is unfinished.
@@ -77,6 +85,7 @@ from qecscreen.evaluate.rows import build_row, reject_calibration, rows_table
 from qecscreen.evaluate.run import sample_and_decode
 from qecscreen.protocol import (
     MAX_SHOTS,
+    MIN_FAILURES,
     P_PILOT,
     SHOT_BATCH,
     Protocol,
@@ -93,13 +102,19 @@ __all__ = [
     "POPULATION_SHA256",
     "POPULATION_SIZE",
     "PROCESSES",
+    "PROBE_CODES",
+    "PROBE_WALL_HOURS",
     "SESSION_WALL_HOURS",
     "PilotConfig",
     "PilotRefusal",
     "assemble_measurements",
+    "format_cost_report",
+    "format_session",
     "locate_pilot",
     "m0_population",
+    "pilot_cost_report",
     "population_digest",
+    "probe_codes",
     "run_session",
 ]
 
@@ -112,6 +127,12 @@ POPULATION_SHA256 = "5008e14eb8292df8549aa5fddada442938ce52f91950e4612dfbb85dc6e
 
 PROCESSES = 4  # Kaggle's 4 cores, one code per process (D-026)
 SESSION_WALL_HOURS = 10.5  # owner, 2026-09-28 (D-033): under Kaggle's 12 h, with margin
+PROBE_CODES = 12  # owner, 2026-09-28 (D-033): session 1 runs this many codes
+PROBE_WALL_HOURS = 3.0  # owner, 2026-09-28 (D-033); proposed 2.0
+
+# spec/architecture.md §6: the budget-72 re-projection at P_PILOT, and its 3x ceiling.
+PROJECTED_CORE_HOURS = 52.5
+CEILING_CORE_HOURS = 158.0
 
 MEASUREMENTS_FILE = "m0_measurements.parquet"  # owner, 2026-09-28, under data/ (architecture §2)
 MANIFEST_FILE = "manifest.json"
@@ -142,15 +163,20 @@ class PilotRefusal(RuntimeError):
 
 @dataclasses.dataclass(frozen=True)
 class PilotConfig:
-    """One session's settings. The notebook sets ``previous`` and nothing else.
+    """One session's settings. The notebook sets ``previous`` and ``cost_gate`` only.
 
     ``previous`` is ``None`` or a path (under ``/kaggle/input``) holding
-    exactly one pilot directory. The underscored fields are for tests only:
-    a small population, small batches, and a hook run first in each worker.
+    exactly one pilot directory. ``cost_gate`` is required from session 2 on:
+    the ``spec/evals.md §7`` entry that approved the probe's cost report.
+    The underscored fields are for tests only: a small population, small
+    batches, and a hook run first in each worker.
     """
 
     previous: str | None = None
+    cost_gate: str | None = None
     session_wall_hours: float = SESSION_WALL_HOURS
+    probe_wall_hours: float = PROBE_WALL_HOURS
+    probe_codes: int = PROBE_CODES
     processes: int = PROCESSES
     _population: tuple[Mapping[str, Any], ...] | None = None
     _batch_size: int = SHOT_BATCH
@@ -158,8 +184,8 @@ class PilotConfig:
     _worker_setup: Callable[[Mapping[str, Any]], None] | None = None
 
     def __post_init__(self) -> None:
-        if self.session_wall_hours < 0 or self.processes < 1:
-            raise ValueError("session_wall_hours must be >= 0 and processes >= 1")
+        if min(self.session_wall_hours, self.probe_wall_hours) < 0 or min(self.processes, self.probe_codes) < 1:
+            raise ValueError("wall hours must be >= 0, and processes and probe_codes >= 1")
         if not 0 < self._max_shots <= MAX_SHOTS or self._max_shots % self._batch_size:
             raise ValueError("max_shots must be a whole number of batches, at most MAX_SHOTS")
 
@@ -208,6 +234,27 @@ def _code(rec: Mapping[str, Any]) -> dict[str, Any]:
 
 def _read_population(pilot: Path) -> list[dict[str, Any]]:
     return pq.read_table(pilot / POPULATION_FILE).to_pylist()
+
+
+def _longest_first(population: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    return sorted(population, key=lambda r: (-r["n_d_upper"], r["code_id"]))
+
+
+def probe_codes(population: Sequence[Mapping[str, Any]], count: int = PROBE_CODES) -> list[str]:
+    """``count`` code_ids at evenly spaced ranks of ``n * d_upper``, largest first.
+
+    Ranks ``round(i * (N - 1) / (count - 1))`` (half up) for ``i = 0 .. count - 1``
+    of the population sorted by ``n * d_upper`` descending, ties by ``code_id``,
+    so the largest and the smallest code are both in. Every code if ``count >= N``.
+    """
+    order = _longest_first(population)
+    n = len(order)
+    if count >= n:
+        return [r["code_id"] for r in order]
+    if count == 1:
+        return [order[0]["code_id"]]
+    ranks = [(2 * i * (n - 1) + (count - 1)) // (2 * (count - 1)) for i in range(count)]
+    return [order[r]["code_id"] for r in ranks]
 
 
 # --- files --------------------------------------------------------------------
@@ -387,9 +434,15 @@ def _move_stale(out: Path, code_id: str, cpu_class: str | None, reason: str) -> 
 def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[str, Any]:
     """Run one session of the pilot into ``out_dir``; write and return its summary."""
     started_at, t0 = _utc(), time.time()
-    deadline = t0 + config.session_wall_hours * 3600.0
     out = Path(out_dir)
     copied_from = _copy_previous(config.previous, out) if config.previous is not None else None
+    probe = not (out / MANIFEST_FILE).exists()  # session 1 is the probe
+    gate = (config.cost_gate or "").strip()
+    if probe and gate:
+        raise PilotRefusal(
+            f"{out} holds no pilot, so this would be session 1, the probe; but COST_GATE is set, "
+            "which only a later session needs. Did you forget PREVIOUS?"
+        )
 
     population = ([_record(p) for p in config._population] if config._population is not None
                   else m0_population())
@@ -397,6 +450,18 @@ def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[st
     manifest = _check_manifest(out, current, population)
     previous_summaries = _summaries(out)
     session = len(previous_summaries) + 1
+    if probe:
+        manifest = {**manifest, "probe_codes": probe_codes(population, config.probe_codes)}
+    elif not gate:
+        raise PilotRefusal(
+            "refusing to start: session 1 was the probe, and every later session needs COST_GATE, "
+            "the spec/evals.md §7 entry that approved the probe's cost report (pilot_cost_report)"
+        )
+    else:
+        manifest = {**manifest, "cost_gates": manifest.get("cost_gates", [])
+                    + [{"session": session, "cost_gate": gate, "at": _utc()}]}
+    _write_json(out / MANIFEST_FILE, manifest)
+    deadline = t0 + (config.probe_wall_hours if probe else config.session_wall_hours) * 3600.0
     here_cpu = provenance.cpu_class()
     seconds_before = _decode_seconds(out)
 
@@ -404,10 +469,10 @@ def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[st
     failed = sorted(cid for cid, n in deaths.items() if n >= 2)
     stale: list[dict[str, Any]] = []
     todo = []
-    for rec in sorted(population, key=lambda r: (-r["n_d_upper"], r["code_id"])):
+    for rec in _longest_first(population):
         cid = rec["code_id"]
         d = out / cid
-        if (d / RESULT_FILE).exists() or cid in failed:
+        if (d / RESULT_FILE).exists() or cid in failed or (probe and cid not in manifest["probe_codes"]):
             continue
         shards = _shard_tables(d) if d.exists() else []
         if shards and shards[-1]["cpu_class"] != here_cpu:
@@ -452,11 +517,12 @@ def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[st
                 print(f"DIED (exit code {proc.exitcode}): {cid}", flush=True)
 
     return _finish_session(out, config, manifest, population, session, started_at, deadline,
-                           copied_from, started, died, stale, seconds_before)
+                           copied_from, started, died, stale, seconds_before,
+                           kind="probe" if probe else "session", cost_gate=gate or None)
 
 
 def _finish_session(out, config, manifest, population, session, started_at, deadline,
-                    copied_from, started, died, stale, seconds_before) -> dict:
+                    copied_from, started, died, stale, seconds_before, *, kind, cost_gate) -> dict:
     """Classify every code, build the rows that can be built, write the summary."""
     deaths = Counter(d["code_id"] for s in _summaries(out) for d in s["died"])
     deaths.update(d["code_id"] for d in died)
@@ -487,6 +553,9 @@ def _finish_session(out, config, manifest, population, session, started_at, dead
     summary = {
         "format": FORMAT,
         "session": session,
+        "kind": kind,
+        "probe_codes": manifest["probe_codes"] if kind == "probe" else None,
+        "cost_gate": cost_gate,
         "started_at": started_at,
         "ended_at": _utc(),
         "session_wall_hours": config.session_wall_hours,
@@ -512,7 +581,7 @@ def _finish_session(out, config, manifest, population, session, started_at, dead
 def format_session(summary: Mapping[str, Any]) -> str:
     """A session summary as text."""
     c, h = summary["counts"], summary["decode_core_hours"]
-    lines = [f"session {summary['session']}: {c['done']} done, {c['partial']} partial, "
+    lines = [f"session {summary['session']} ({summary['kind']}): {c['done']} done, {c['partial']} partial, "
              f"{c['not_started']} not started, {c['failed']} failed, {c['row_errors']} row errors, "
              f"of {c['population']}",
              f"stale-restarted {len(summary['stale_restarted'])}, died {len(summary['died'])}",
@@ -567,3 +636,168 @@ def assemble_measurements(pilot_dir: str | os.PathLike[str], data_dir: str | os.
     pq.write_table(table, tmp)
     os.replace(tmp, target)
     return target
+
+
+# --- the probe's cost report --------------------------------------------------
+
+
+def pilot_cost_report(pilot_dir: str | os.PathLike[str], calibration_dir: str | os.PathLike[str]) -> dict[str, Any]:
+    """The probe's measured cost and failure fractions, against the D-029 projection.
+
+    Run locally, on the probe session's downloaded pilot directory, before any
+    later session is approved (``cost_gate``). Decodes nothing and enumerates
+    nothing: the population comes from ``population.parquet``. The projection
+    is ``calibrate._project_pilot`` over the calibration's completed BP+OSD
+    cells at ``P_PILOT``, with ``MAX_SHOTS`` and ``SHOT_BATCH``: seconds/shot a
+    power law in ``n * d_upper``, and the failure fraction borrowed from the
+    calibration code nearest in ``d_upper`` (the donor).
+
+    It reports, and recommends nothing:
+
+    - per probe code, measured vs projected BP+OSD seconds/shot (their ratio),
+      and measured vs donor failure fraction;
+    - total core-hours re-projected: a finished probe code at its measured
+      decode seconds; a partial one at its measured seconds/shot times the
+      model's run shots (at least the shots it has done); every other code at
+      its projected core-hours times the median ratio, and again times the
+      maximum ratio. Both against architecture §6's 52.5 core-hours and its
+      158 core-hour ceiling;
+    - censoring projected at ``MAX_SHOTS``, overall and in the top third by
+      ``d_upper`` (probe codes by their own measurements, others by their
+      donors), and among the probe codes with the lowest measured failure
+      fractions, all of them listed in order.
+    """
+    import math
+    import statistics
+
+    from qecscreen.evaluate import calibrate  # scipy.stats and ldpc's LSD: not for workers
+
+    pilot, cal = Path(pilot_dir), Path(calibration_dir)
+    manifest = json.loads((pilot / MANIFEST_FILE).read_text(encoding="utf-8"))
+    if "probe_codes" not in manifest or not any(s.get("kind") == "probe" for s in _summaries(pilot)):
+        raise PilotRefusal(f"{pilot} holds no probe session")
+    population = _read_population(pilot)
+    plan = json.loads((cal / "plan.json").read_text(encoding="utf-8"))
+    cells = [c for c in calibrate._load_cells(cal, plan) if c["status"] == "completed" and c["p"] == P_PILOT]
+    proj = calibrate._project_pilot(cells, population, "bposd", max_shots=MAX_SHOTS,
+                                    shot_batch=SHOT_BATCH, per_code=True)
+    if proj is None:
+        raise PilotRefusal(f"{cal} has no completed cells at P_PILOT={P_PILOT}")
+    model = {m["code_id"]: m for m in proj["per_code"]}
+    by_id = {r["code_id"]: r for r in population}
+
+    probe = []
+    for cid in manifest["probe_codes"]:
+        rec, m, d = by_id[cid], model[cid], pilot / cid
+        shards = _shard_tables(d) if d.is_dir() else []
+        finished = (d / RESULT_FILE).exists()
+        shots = shards[-1]["shots"] if shards else 0
+        fails = shards[-1]["failures"] if shards else 0
+        seconds = sum(s["batch_decode_seconds"] for s in shards)
+        measured = seconds / shots if shots else None
+        if finished:
+            censored = fails < MIN_FAILURES
+        elif shots:
+            censored = calibrate._shots_needed(shots, fails, MAX_SHOTS)["exceeds_max_shots"]
+        else:
+            censored = None
+        probe.append({
+            "code_id": cid, "n": rec["n"], "k": rec["k"], "d_upper": rec["d_upper"],
+            "n_d_upper": rec["n_d_upper"], "shots": shots, "failures": fails, "finished": finished,
+            "measured_decode_seconds": seconds, "measured_seconds_per_shot": measured,
+            "projected_seconds_per_shot": m["seconds_per_shot"],
+            "ratio": None if measured is None else measured / m["seconds_per_shot"],
+            "measured_failure_fraction": fails / shots if shots else None,
+            "donor": m["donor"], "donor_failure_fraction": m["donor_failure_fraction"],
+            "censored_at_max_shots": censored,
+        })
+    measured_probe = {e["code_id"]: e for e in probe if e["shots"]}
+    ratios = [e["ratio"] for e in measured_probe.values()]
+
+    def reproject(factor: float | None) -> float | None:
+        if factor is None:
+            return None
+        seconds = 0.0
+        for rec in population:
+            e = measured_probe.get(rec["code_id"])
+            if e is None:
+                seconds += model[rec["code_id"]]["core_hours"] * 3600.0 * factor
+            elif e["finished"]:
+                seconds += e["measured_decode_seconds"]
+            else:
+                seconds += e["measured_seconds_per_shot"] * max(model[rec["code_id"]]["run_shots"], e["shots"])
+        return seconds / 3600.0
+
+    median = statistics.median(ratios) if ratios else None
+    worst = max(ratios) if ratios else None
+    at_median, at_max = reproject(median), reproject(worst)
+
+    def censoring(codes: Sequence[str]) -> dict[str, int]:
+        status = [measured_probe[c]["censored_at_max_shots"] if c in measured_probe
+                  else model[c]["shots_to_min_failures"]["exceeds_max_shots"] for c in codes]
+        return {"codes": len(codes), "projected_censored": sum(s is True for s in status),
+                "unknown": sum(s is None for s in status)}
+
+    top = sorted(population, key=lambda r: (-r["d_upper"], -r["n"], r["code_id"]))
+    top = [r["code_id"] for r in top[: math.ceil(len(top) / 3)]]
+    lowest = sorted(measured_probe.values(), key=lambda e: (e["measured_failure_fraction"], e["code_id"]))
+    lowest_third = [e["code_id"] for e in lowest[: math.ceil(len(lowest) / 3)]]
+    return {
+        "format": "qecscreen_m0_pilot_cost_report_v1",
+        "pilot": {k: manifest[k] for k in ("protocol_hash", "commit_sha", "probe_codes")},
+        "calibration_dir": str(cal),
+        "constants": {"P_PILOT": P_PILOT, "MAX_SHOTS": MAX_SHOTS, "SHOT_BATCH": SHOT_BATCH,
+                      "MIN_FAILURES": MIN_FAILURES},
+        "model": {"seconds_per_shot": proj["seconds_per_shot_model"],
+                  "failure_fraction": proj["failure_fraction_model"]},
+        "probe": probe,
+        "ratio": {"codes": len(ratios), "median": median, "max": worst,
+                  "min": min(ratios) if ratios else None},
+        "core_hours": {
+            "projected": proj["core_hours"],
+            "reprojected_at_median_ratio": at_median,
+            "reprojected_at_max_ratio": at_max,
+            "architecture_projection": PROJECTED_CORE_HOURS,
+            "architecture_ceiling": CEILING_CORE_HOURS,
+            "median_case_over_projection": None if at_median is None else at_median / PROJECTED_CORE_HOURS,
+            "max_case_over_ceiling": None if at_max is None else at_max / CEILING_CORE_HOURS,
+        },
+        "censoring": {
+            "overall": censoring([r["code_id"] for r in population]),
+            "top_third_by_d_upper": censoring(top) | {"d_upper_min": min(by_id[c]["d_upper"] for c in top)},
+            "model_only": {"overall": proj["censored_overall"], "top_third_by_d_upper": proj["top_third_by_d_upper"]},
+            "probe_by_measured_failure_fraction": [
+                {k: e[k] for k in ("code_id", "d_upper", "shots", "failures", "measured_failure_fraction",
+                                   "finished", "censored_at_max_shots")} for e in lowest],
+            "lowest_third_of_probe": censoring(lowest_third),
+        },
+    }
+
+
+def format_cost_report(report: Mapping[str, Any]) -> str:
+    """A cost report as text. Measurements and projections only."""
+    def f(x: float | None, spec: str = ".3g") -> str:
+        return "-" if x is None else format(x, spec)
+
+    ch, r, c = report["core_hours"], report["ratio"], report["censoring"]
+    lines = ["probe codes (measured vs projected BP+OSD s/shot; measured vs donor failure fraction):"]
+    for e in report["probe"]:
+        lines.append(
+            f"  {e['code_id']} [[{e['n']},{e['k']},<={e['d_upper']}]] {e['shots']} shots"
+            f"{'' if e['finished'] else ' (partial)'}: s/shot {f(e['measured_seconds_per_shot'])} vs "
+            f"{f(e['projected_seconds_per_shot'])} (x{f(e['ratio'])}); failure fraction "
+            f"{f(e['measured_failure_fraction'])} vs {f(e['donor_failure_fraction'])} ({e['donor']})")
+    lines += [
+        f"ratio measured/projected over {r['codes']} codes: median {f(r['median'])}, max {f(r['max'])}, "
+        f"min {f(r['min'])}",
+        f"core-hours: projected {f(ch['projected'], '.1f')}; re-projected at the median ratio "
+        f"{f(ch['reprojected_at_median_ratio'], '.1f')} (architecture §6: {ch['architecture_projection']}), "
+        f"at the max ratio {f(ch['reprojected_at_max_ratio'], '.1f')} (ceiling {ch['architecture_ceiling']})",
+        f"censored at MAX_SHOTS: overall {c['overall']['projected_censored']}/{c['overall']['codes']} "
+        f"(+{c['overall']['unknown']} unknown); top third by d_upper "
+        f"{c['top_third_by_d_upper']['projected_censored']}/{c['top_third_by_d_upper']['codes']} "
+        f"(+{c['top_third_by_d_upper']['unknown']}); lowest-failure-fraction third of the probe "
+        f"{c['lowest_third_of_probe']['projected_censored']}/{c['lowest_third_of_probe']['codes']} "
+        f"(+{c['lowest_third_of_probe']['unknown']})",
+    ]
+    return "\n".join(lines)

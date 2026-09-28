@@ -75,6 +75,7 @@ qecscreen/
 └── notebooks/             ← Kaggle/Colab runners. Thin: import and call, no logic.
                              template_run.ipynb is the six-cell shape (rules below).
                              calibrate.ipynb runs the decoder calibration (D-029).
+                             pilot.ipynb runs the M0 pilot, one session per run (D-033).
 ```
 
 The rule that matters: **logic never lives in a notebook or a script.** Notebooks die, are not tested, and cannot be reviewed in a diff. They import from `src/` and call one function.
@@ -90,6 +91,20 @@ All sampling and decoding runs on Kaggle or Colab, in notebooks the owner runs. 
 5. **Credentials only from the platform's secret store.** The repo is public (D-030), so cell 1 needs no credential: it reads `GITHUB_TOKEN` from Kaggle Secrets or Colab `userdata` only if the secret exists, masks it in pip's output, and otherwise installs from the plain URL. A missing secret is not an error. A token never appears in a cell's source or output; the contract test scans every notebook for token-shaped strings.
 6. **Constants are not retyped.** Protocol values come from `qecscreen.protocol`; cell 3 holds only run-level settings such as a run name.
 7. **`notebooks/runs/` is evidence.** Executed copies are kept there, dated, and never edited, so rule 1 does not apply to them (rule 5's scan does).
+
+### M0 pilot runbook (D-033)
+
+`notebooks/pilot.ipynb` runs one session of the M0 pilot: a markdown cell with this runbook, then the six template cells, cells 1–2 identical to `template_run.ipynb`. All logic is in `qecscreen.evaluate.pilot`. The work is cumulative in one pilot directory, `/kaggle/working/m0-pilot`, carried from session to session as the previous version's output.
+
+**Every session.** Notebook settings: Internet on (cell 1 installs from GitHub), no accelerator. `QECSCREEN_SHA` is the same full 40-hex commit every session: a later session refuses to start if the commit, ldpc or stim differ from session 1's, with no override. Run with **Save Version → Save & Run All (Commit)**, not interactively, so the session runs to its end and `/kaggle/working` is kept as that version's output.
+
+**Session 1, the probe.** `PREVIOUS = None`, `COST_GATE = ""`. It runs 12 codes at evenly spaced ranks of `n * d_upper`, the largest included, for 3 h, and stops; its work counts toward the pilot. Download the output's `m0-pilot/`, then locally, from the repository root: `print(format_cost_report(pilot_cost_report("<download>/m0-pilot", "evidence/calibration/2026-09-27-7e91f82")))`. Record the report in `spec/evals.md §7`; continue only if the owner approves it.
+
+**Session 2 onward.** In the editor, **Add Input → Your Work → Notebooks**, and add this notebook's latest version, and only that one (two attached pilot outputs are refused). Set `PREVIOUS` to where the input is mounted under `/kaggle/input`, as the Input panel shows it; the runner finds the one `m0-pilot` below it, copies it to `/kaggle/working/m0-pilot`, and checks every file against the inventory the previous session recorded. Set `COST_GATE` to the title of the `spec/evals.md §7` entry that approved the probe's cost report; it is recorded in the manifest. Save & Run All. No code starts after 10.5 h, and running codes stop after their current batch. The printed summary lists codes done, partial, not started, stale-restarted, died and failed, and decode core-hours for the session and in all. A code that died is retried once, in the next session; one that died twice is failed and needs the owner.
+
+**When 244 are done.** Download the last output; locally, from the repository root, `assemble_measurements("<download>/m0-pilot", "data")` writes `data/m0_measurements.parquet`, and refuses while any code is unfinished.
+
+Never change `QECSCREEN_SHA` mid-pilot, and never edit anything inside `m0-pilot/`.
 
 ## 3. Data model
 

@@ -651,6 +651,18 @@ The models above are unchanged, and no protocol constant moves. The first use is
 
 **Revisit if:** Kaggle's output handling drops files at the pilot's file count (up to 244 × 41 checkpoint files; the inventory check would refuse such an output, and the chain would need an archive); or the probe session shows a code's single batch longer than the margin between 10.5 h and 12 h.
 
+### D-033 amendment (owner, 2026-09-28) — session 1 is a probe, and later sessions pass a cost gate
+
+- **The probe.** The runner knows it is session 1 because `OUT_DIR` has no manifest. It runs **12 codes** (*owner*) at evenly spaced ranks of `n * d_upper`, the largest included, with a **3 h** wall budget (*owner*; proposed 2 h), and stops. Its work counts toward the pilot; nothing is discarded. The manifest records the probe's codes.
+- **The cost gate.** Every later session refuses to start unless `COST_GATE` is a non-empty string naming the `spec/evals.md §7` entry that approved the probe's cost report. It is recorded in the manifest, with the session number.
+- **The cost report.** `pilot_cost_report(pilot_dir, calibration_dir)`, run locally after the probe is downloaded. It decodes and enumerates nothing: the population comes from `population.parquet`. Per probe code, measured vs projected BP+OSD seconds/shot (the D-029 model through `calibrate._project_pilot` at `P_PILOT`, `MAX_SHOTS`, `SHOT_BATCH`), and measured vs donor failure fraction. Total core-hours re-projected at the median and at the maximum measured/projected ratio, against architecture §6's 52.5 and 158. Censoring projected at `MAX_SHOTS`, overall, in the top third by `d_upper`, and among the probe codes with the lowest measured failure fractions. It recommends nothing.
+
+*Pinned here:*
+- Probe ranks are `round(i * (N − 1) / 11)`, half up, for `i = 0 .. 11`, over the population sorted by `n * d_upper` descending, ties by `code_id`; so the smallest code is in as well as the largest.
+- A session with no manifest and no `PREVIOUS` but a non-empty `COST_GATE` is refused: it would be a new probe, and the likely cause is a forgotten `PREVIOUS`.
+- In the re-projection, a finished probe code costs its measured decode seconds; a partial one, its measured seconds/shot times the model's run shots (at least the shots done); every other code, its projected core-hours times the ratio. For censoring, a probe code with shots uses its own counts (`_shots_needed` on them, or its final count if finished); every other code uses its donor. "Lowest failure fractions" is reported as every measured probe code in order, and a count over the lowest third, as the top third is counted.
+- `_project_pilot(..., per_code=True)` adds the per-code projections the report needs; without it the output, and so `summarize`, is unchanged.
+
 ---
 
 ## Template
