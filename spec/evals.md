@@ -93,7 +93,7 @@ They also have a failure mode of their own: a grep that matches nothing passes w
 |---|---|
 | N-01 | A code with `H_X @ H_Z.T % 2 != 0` is **rejected** by `validate()` with `ValueError`, not warned about |
 | N-02 | Ranking a frame with two `protocol_hash` values **raises**, does not silently concatenate |
-| N-03 | A row with 3 failures in 200,000 shots produces `censored=True` and `true_ler is None`, not `1.5e-5` |
+| N-03 | A row with 3 failures in `MAX_SHOTS` shots produces `censored=True` and `true_ler is None`, not 3/`MAX_SHOTS` or its per-round form (`test_n03_three_failures_at_max_shots_is_censored_not_a_rate`; 200,000 shots before D-031 cut `MAX_SHOTS` to 10,240) |
 | N-04 | Calling `grouped_kfold` on a frame missing `construction_program_id` **raises**, does not fall back to a random split |
 | N-05 | `logical_error_rate(P_L=1.0, r, k)` raises rather than returning 1.0 — a code that fails every shot has an undefined per-round rate and silently returning 1.0 hides a broken circuit |
 | N-06 | `gf2_rank` on a matrix with real-rank 3 and GF(2)-rank 2 returns 2 |
@@ -386,3 +386,8 @@ The M0 verdict must answer one question explicitly, in a sentence, at the top:
 > Does a LightGBM model on cheap structural features beat Φ at Recall@30-of-top-10 on a construction-program-grouped split, by a margin that survives bootstrap resampling?
 
 A **no** here is a valid, publishable, project-closing answer, and recording it honestly is worth more than five months of building on a false premise. See `spec/product.md §7`.
+
+**Required diagnostic (D-031): size scaling in the pilot's own labels.** For each template, report whether its codes with larger `d_upper` have lower LER at `P_PILOT` in the pilot's labels. That means the M0 rows, not the calibration. Give the evidence: the template's non-censored rows ordered by `d_upper`, with their `true_ler` and 95% intervals, and the reading. Censored rows count as upper bounds (INV-3), never as point estimates.
+- **Templates that fail it are reported, not dropped.** They stay in the population and in every metric, and the verdict names them. mixed_3_5 is expected to fail: the calibration put it above threshold at 0.002.
+- A template with fewer than two distinct `d_upper` values among its non-censored rows has no reading. Report that too, rather than a pass or a fail.
+- This diagnostic is not an exit criterion, and it does not decide proceed or kill. It says how much of the ranking target is "which code is more sub-threshold", and the verdict must be read with it in view.

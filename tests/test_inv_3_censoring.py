@@ -49,11 +49,11 @@ def test_censoring_rule():
         assert 0.0 <= lab.true_ler_ci_low <= lab.true_ler_ci_high < 1.0
 
 
-def test_n03_three_failures_in_200k_is_censored_not_a_rate():
-    lab = _label(3, 200_000)
+def test_n03_three_failures_at_max_shots_is_censored_not_a_rate():
+    lab = _label(3, MAX_SHOTS)
     assert lab.censored is True
-    assert lab.true_ler is None  # not 3/200000 = 1.5e-5, nor its per-round form
-    lo, hi = wilson_interval(3, 200_000)
+    assert lab.true_ler is None  # not 3/MAX_SHOTS, nor its per-round form
+    lo, hi = wilson_interval(3, MAX_SHOTS)
     assert lab.true_ler_ub == logical_error_rate(hi, 6, 12)
     assert lab.true_ler_ci_low == logical_error_rate(lo, 6, 12)
 

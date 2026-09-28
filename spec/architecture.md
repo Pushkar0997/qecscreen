@@ -163,23 +163,36 @@ Feature columns live in a **separate** Parquet keyed on `code_id`, so features c
 
 CPU hours are the binding constraint. Written out so a change to any constant fails loudly.
 
-Decoding dominates; sampling is negligible. Assume BP+OSD with `osd_order=10` on `n ≈ 100` costs **1–10 ms per shot**, call it 5 ms as the planning figure. This is an estimate, not a measurement.
+Decoding dominates; sampling is negligible. **The per-shot cost is measured, not estimated (M0-EVAL-05, D-031).** It comes from the Kaggle decoder calibration at `7e91f82` (`spec/evals.md §7`): pinned BP+OSD, `decode()` wall time per shot, one core of a 4-core Kaggle CPU with 4 workers running. The earlier planning figure, "1–10 ms per shot, call it 5 ms", was low by 200–460× on [[42]]–[[72]] and by about 10,000× on gross.
 
-**Replace it with a real number at M0-EVAL-05 — after the evaluation loop works and before the full 300-code run starts — and update this section in the same commit.** Every number below scales linearly with it, so the whole budget is provisional until that task closes.
+| Code | BP+OSD per shot, p = 0.001–0.003 | At `P_PILOT` = 0.002 |
+|---|---|---|
+| [[12,2,≤3]] pair_2_2 | 0.2–0.8 ms | 0.5 ms |
+| [[48,4,≤8]] quad_4_2 | 0.94–1.38 s | 1.30 s |
+| [[42,6,≤6]] mixed_3_5 | 1.10–1.89 s | 1.69 s |
+| [[72,12,≤6]] sym_3_3 | 1.59–2.30 s | 2.07 s |
+| [[136,2,≤11]] pair_2_2 | 4.9–7.2 s | 7.1 s |
+| [[144,12,≤12]] gross | 48–78 s | 56 s |
+| [[112,6,≤14]] mixed_3_5 | 125–154 s (225 s at 0.003, 3 shots) | 154 s |
+| [[140,6,≤16]] mixed_3_5 | 344 s (0.0015, 3 shots); died in every cell | — |
 
-Stopping rule: stop at 100 failures or 200,000 shots, whichever comes first.
+The M0 population stops at n = 72 (D-031). That does not make [[72,12,≤6]]'s ~2.3 s/shot an upper bound: its codes have `d_upper` 3–9, and a code with larger `d_upper` runs more rounds (r = d_upper), so it has a larger DEM.
 
-| Regime | Per-shot failure prob | Shots to 100 failures | Time per code (1 core) |
-|---|---|---|---|
-| Near threshold, weak code | ~5% | ~2,000 | ~10 s |
-| Typical pilot code at p=0.005 | ~0.5% | ~20,000 | ~100 s |
-| Strong code | ~0.05% | 200,000 (capped) | ~17 min → **censored** |
+Stopping rule: stop at `MIN_FAILURES` = 100 failures or `MAX_SHOTS` = 10,240 shots (40 batches of `SHOT_BATCH` = 256), whichever comes first, checked between batches. **A code that hits the cap at ~2.3 s/shot takes ~6.5 core-hours.** At 20,000 shots it would take ~13 h, longer than a 12-hour Kaggle session, which is why the cap is not 20,000 (D-031). Resume within a code (M0-EVAL-04) means a session boundary costs at most one batch, not the code.
 
-**M0 budget:** 300 codes. Assume a mean of ~3 min/code including a tail of capped runs → ~15 core-hours → **~4 hours on Kaggle's 4 cores**. Fits comfortably in one 12-hour session with room to re-run.
+**M0 budget: the re-projection's budget-72 numbers** (`spec/evals.md §7`, `evidence/reprojection/2026-09-28/`). These are for the pinned BP+OSD at `P_PILOT` = 0.002, over the 244 enumerated codes:
 
-**M1 budget:** ~2,000 rows across 3 families × 3 values of p. At the same mean → ~100 core-hours → **~25 Kaggle hours**, or roughly one week of the 30 h/week allowance. Acceptable. If the measured per-shot cost comes in at the 10 ms end, M1 doubles to two weeks and that is still acceptable — but if it comes in worse than 10 ms, **stop and reduce `osd_order` or switch to BP+LSD**, recording the protocol change as a new `protocol_hash`.
+| Codes | Core-hours | Wall-hours, 4 cores | Costliest single code | Projected censored |
+|---|---|---|---|---|
+| 244 | 52.5 | 13.1 | 0.9 core-hours | 0 (0%) |
 
-**Distance estimation (M0-CODES-04), measured, not estimated:** `estimate_d_upper` at its default `attempts=64` (D-021) takes ~0.10 s per call for the [[144,12,12]] gross code and ~0.05 s for the [[72,12,6]] reference code (20-seed average, dev box). This is a one-time cost per candidate code, not per shot, and is negligible next to the ~100 s/code decoding budget above — it does not move any number in this section. Recorded so it is a measurement rather than an unstated assumption.
+The numbers are identical at 10,000, 20,000 and 50,000 shots, so no projected code gets near the cap, and 10,240 changes nothing.
+
+**Budget with 2–3× on top: 105–158 core-hours, 26–39 wall-hours on 4 cores.** That is 3–4 twelve-hour Kaggle sessions, or 0.9–1.3 weeks of the ~30 h/week allowance. The margin is there because **the cost model misses its own fit codes by 0.17–7×.** It is a power law in `n·d_upper`, fitted over 7 calibration codes, and predicted/measured on those same codes runs 0.17–7.2×. Most budget-72 codes lie between [[12]] and [[42]] in `n·d_upper`, where the model under-predicts [[42]] by 5.3–5.7×. The failure fractions are borrowed from the calibration code nearest in `d_upper`, so the censoring projection is a step function of which code donates. The first Kaggle session of the pilot is also a measurement: compare its per-code cost with this projection before committing the rest.
+
+**M1 budget: not yet recomputed.** The earlier figure (~100 core-hours for ~2,000 rows) rested on the 5 ms estimate and no longer holds. M1's populations (larger n, other families, three values of p) are M1's question, and its budget must be computed from measurements on them before M1 generation starts. The gross code alone costs 48–78 s per shot. Switching to BP+LSD for speed was rejected for M0 because it would re-rank codes (D-031); a speed change for M1 is a new decision and a new `protocol_hash`.
+
+**Distance estimation (M0-CODES-04), measured, not estimated:** `estimate_d_upper` at its default `attempts=64` (D-021) takes ~0.10 s per call for the [[144,12,12]] gross code and ~0.05 s for the [[72,12,6]] reference code (20-seed average, dev box). This is a one-time cost per candidate code, not per shot, and is negligible next to the decoding cost above (52.5 core-hours over 244 codes is ~13 min per code on average), so it does not move any number in this section. Recorded so it is a measurement rather than an unstated assumption.
 
 Hard rule: if a projected run exceeds its milestone's stated budget, stop and report rather than starting it.
 

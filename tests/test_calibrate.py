@@ -13,6 +13,7 @@ import dataclasses
 import functools
 import hashlib
 import json
+import math
 
 import numpy as np
 import pandas as pd
@@ -35,6 +36,7 @@ from qecscreen.evaluate.rows import CalibrationOutputError, reject_calibration
 from qecscreen.protocol import (
     DECODER_PARAMS,
     MAX_SHOTS,
+    SHOT_BATCH,
     Protocol,
     installed_decoder_version,
     protocol_hash,
@@ -234,12 +236,16 @@ def test_select_spanning_covers_the_range():
 def test_shots_needed_and_censoring_projection():
     assert cal._shots_needed(1000, 50)["estimate"] == 2000
     assert cal._shots_needed(1000, 50)["exceeds_max_shots"] is False
-    assert cal._shots_needed(1000, 1)["exceeds_max_shots"] is False
+    # 100,000 shots needed: within a 200,000 cap, past the pinned one.
+    assert cal._shots_needed(1000, 1, max_shots=200_000)["exceeds_max_shots"] is False
+    assert cal._shots_needed(1000, 1)["exceeds_max_shots"] is (100_000 > MAX_SHOTS)
     assert cal._shots_needed(MAX_SHOTS, 10)["exceeds_max_shots"] is True
     # No failures: provably censored only if even the Wilson upper bound needs > MAX_SHOTS.
     assert cal._shots_needed(MAX_SHOTS, 0)["exceeds_max_shots"] is True
     assert cal._shots_needed(100, 0)["exceeds_max_shots"] is None
-    assert cal._run_shots(2000, False) == (10_000, 2000)  # SHOT_BATCH granularity
+    # shot_batch granularity, at the pinned SHOT_BATCH and at another value.
+    assert cal._run_shots(2000, False) == (math.ceil(2000 / SHOT_BATCH) * SHOT_BATCH, 2000)
+    assert cal._run_shots(2000, False, 200_000, 10_000) == (10_000, 2000)
     assert cal._run_shots(None, None) == (MAX_SHOTS, MAX_SHOTS)
 
 
@@ -254,8 +260,10 @@ def test_pilot_projection_on_synthetic_cells():
     proj = cal._project_pilot(cells, population, "x")
     top = proj["top_third_by_d_upper"]
     assert top["codes"] == 1 and top["projected_censored"] == 1 and top["censored_fraction"] == 1.0
-    # Two codes at 10,000 shots x 1 ms, one censored at MAX_SHOTS x 0.1 s.
-    assert proj["core_hours"] == pytest.approx((2 * 10_000 * 0.001 + MAX_SHOTS * 0.1) / 3600)
+    # Two codes needing 200 shots, run in whole SHOT_BATCH batches, x 1 ms; one
+    # censored at MAX_SHOTS x 0.1 s.
+    batched = math.ceil(200 / SHOT_BATCH) * SHOT_BATCH
+    assert proj["core_hours"] == pytest.approx((2 * batched * 0.001 + MAX_SHOTS * 0.1) / 3600)
 
 
 def test_projection_under_other_constants_and_population(smoke):
@@ -281,7 +289,8 @@ def test_projection_under_other_constants_and_population(smoke):
     assert [f["name"] for f in proj["fit_codes"]] == ["a", "b"]
     # The defaults are still the pinned constants.
     assert cal._project_pilot(cells, population[:3], "x")["core_hours"] == pytest.approx(
-        (10_000 * (sec(36) + sec(96)) + MAX_SHOTS * sec(1728)) / 3600)
+        (math.ceil(200 / SHOT_BATCH) * SHOT_BATCH * (sec(36) + sec(96))
+         + MAX_SHOTS * sec(1728)) / 3600)
 
     # Through summarize: the stored run's population is replaced, nothing is re-decoded.
     out, summary, cell_record = smoke

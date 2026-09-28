@@ -14,11 +14,13 @@ The load-bearing assumption of this entire project is that cheap structural feat
 
 **Scope discipline:** one code family (BB), one physical qubit budget, one physical error rate. Everything else is deferred. Resisting the urge to "just also do GB while I'm here" is the single most valuable behaviour in this milestone.
 
+**M0's scope, exactly (D-031):** BB codes; the 11 polynomial templates of D-024; `d_upper >= 3`; `n <= 72`. That is 244 codes, and every one of them is labelled: the population is enumerated, not sampled. The protocol is the pinned BP+OSD at `P_PILOT = 0.002`, with `SHOT_BATCH = 256` and `MAX_SHOTS = 10,240`. The M0 verdict is a claim about this population only. **Larger n is M1's question.**
+
 **Deliverables**
 - Working BB code generator, validated against the published `[[72,12,6]]` reference
 - Stim circuit builder with X-then-Z monomial-matching syndrome extraction, Z-basis memory (D-025)
 - BP+OSD evaluation loop with the censoring rule and resume-from-disk
-- ~250–300 labelled BB codes at one budget and one `p`
+- The 244 admissible BB codes at `n <= 72`, each labelled at `P_PILOT = 0.002` (D-031)
 - ~20 cheap structural features per code
 - LightGBM ranking baseline, grouped splits
 - Recall@30-of-top-10 and Spearman, for Φ and for the model, with bootstrap confidence intervals
@@ -27,14 +29,14 @@ The load-bearing assumption of this entire project is that cheap structural feat
 **Exit criteria**
 - [ ] `pytest` passes, including every invariant test in `spec/evals.md §3`
 - [ ] BB generator reproduces `n=72, k=12, d_upper=6` for the reference parameters
-- [ ] Measured per-shot decode cost recorded, and `spec/architecture.md §6` updated with the real number
-- [ ] ≥250 rows generated, each with shots, failures, Wilson interval and `protocol_hash`
+- [x] Measured per-shot decode cost recorded, and `spec/architecture.md §6` updated with the real number — the Kaggle calibration's BP+OSD costs, with the budget-72 re-projection (M0-EVAL-05, D-031)
+- [ ] One row for each of the 244 codes in the M0 population (D-031), each with shots, failures, Wilson interval and `protocol_hash`. This replaces "≥250 rows": the enumerated population has 244 codes
 - [ ] Censoring rate reported; if >40% of rows are censored, the chosen `p` was wrong and the pilot is re-run at a higher `p` before proceeding
 - [ ] A results table exists showing Recall@30 and Spearman for Φ vs LightGBM, on a construction-program-grouped split, with bootstrap CIs
 - [ ] A verdict — proceed or kill — is recorded in `spec/evals.md §7` with evidence per criterion
 - [ ] The write-up is published within 7 days of the verdict (INV-10)
 
-**Risk:** the measured decode cost comes in far worse than 5 ms/shot and 300 codes does not fit in a Kaggle session. Mitigation: reduce `osd_order` to 5 and record the protocol change, or shrink to 150 codes. Do not solve it by reducing shots below the censoring rule — that trades a compute problem for a correctness problem.
+**Risk:** the decode cost was measured at 1.1–2.3 s/shot on [[42]]–[[72]], not the 5 ms planned (`spec/architecture.md §6`). The budget-72 pilot projects 52.5 core-hours, but the cost model misses its own fit codes by 0.17–7×, so plan for 2–3× that: 105–158 core-hours, or 3–4 Kaggle sessions. Mitigation, if the first session's per-code costs run far past the projection: stop and report (AGENTS §7), then shrink the population to a smaller n or reduce `osd_order`, recording the protocol change as a new `protocol_hash`. BP+LSD is not a mitigation, because it re-ranks codes (D-031). Do not solve it by reducing shots below the censoring rule — that trades a compute problem for a correctness problem.
 
 **Kill condition:** Φ's Spearman is already high and LightGBM's advantage does not survive bootstrap resampling. Publish the negative result, stop. This is a success.
 

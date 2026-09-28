@@ -204,7 +204,7 @@ NOISE_MODEL             = "uniform_depolarizing_v1"
   Data qubits idle in the open and swap ticks. All noise that can affect
   an outcome lives inside the r rounds.
 
-DECODER                 = "BpOsdDecoder"
+DECODER                 = "BpOsdDecoder"   # D-005; kept for M0 by D-031 (BP+LSD rejected)
   library               = ldpc (Roffe)
   bp_method             = "minimum_sum"
   max_iter              = 30
@@ -267,20 +267,25 @@ ROUNDS_RULE             = "r = d_upper"   # D-006. The rule is hashed, never the
                                           # concrete r (INV-6, D-014).
 
 MIN_FAILURES            = 100          # below this the row is censored (INV-3)
-MAX_SHOTS               = 200_000      # hard cap per (code, p)
-SHOT_BATCH              = 10_000       # fixed batch size; sample and decode in batches,
-                                       # check stopping rule between
+MAX_SHOTS               = 10_240       # hard cap per (code, p): 40 x SHOT_BATCH.
+                                       # D-031. The owner's 10,000, raised to a
+                                       # whole number of batches so both this cap
+                                       # and "batches of exactly SHOT_BATCH" hold.
+SHOT_BATCH              = 256          # fixed batch size; sample and decode in batches,
+                                       # check stopping rule between. D-031
 CONFIDENCE              = 0.95         # Wilson score interval, two-sided, clamped
                                        # to [0, 1] (D-026: float cancellation
                                        # leaves ~-1e-18 at 0 failures)
 Z_95                    = 1.959963984540054
 SCHEMA_VERSION          = 1
 
-P_PILOT                 = 0.005        # M0 only. Below the BB [[72,12,6]]
-                                       # circuit-level threshold (~0.7%),
-                                       # consistent with the planning figure
-                                       # already assumed in architecture.md §6.
-                                       # D-016. Exported by protocol.py.
+P_PILOT                 = 0.002        # M0 only. D-031, superseding D-016's
+                                       # 0.005: in the Kaggle calibration
+                                       # (evals §7) pair_2_2 and sym_3_3 are
+                                       # sub-threshold at 0.002 and mixed_3_5 is
+                                       # above it. mixed_3_5 codes stay in the
+                                       # population; that is a known property of
+                                       # the label set. Exported by protocol.py.
                                        # Not in the protocol tuple itself:
                                        # p is hashed per row.
 ```

@@ -10,8 +10,10 @@ import pytest
 
 from qecscreen.protocol import (
     DECODER_PARAMS,
+    MAX_SHOTS,
     MEMORY_BASIS,
     P_PILOT,
+    SHOT_BATCH,
     ROUNDS_RULE,
     SCHEDULING,
     Protocol,
@@ -111,8 +113,15 @@ def test_d026_wilson_clamped_at_all_failures(shots):
 def test_d026_p_pilot_exported():
     import qecscreen.protocol as module
 
-    assert P_PILOT == 0.005  # CONTRACT.md exact values; D-016
+    assert P_PILOT == 0.002  # CONTRACT.md exact values; D-031 (supersedes D-016)
     assert "P_PILOT" in module.__all__
+
+
+def test_d031_shot_cap_is_a_whole_number_of_batches():
+    """CONTRACT: batches of exactly SHOT_BATCH, and MAX_SHOTS a hard cap. Both
+    hold only if the cap is a whole number of batches; 10,000 over 256 was not."""
+    assert (MAX_SHOTS, SHOT_BATCH) == (10_240, 256)  # CONTRACT.md exact values; D-031
+    assert MAX_SHOTS % SHOT_BATCH == 0
 
 
 def test_d026_label_changing_decoder_settings_are_pinned():

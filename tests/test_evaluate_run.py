@@ -183,10 +183,10 @@ def test_a_different_seed_gives_different_shots():
 def test_stops_at_min_failures_at_the_first_batch_boundary():
     """p=0.012 on [[12,2,3]] fails ~1 shot in 3, so 100 failures come within a few batches."""
     circuit = build_memory_circuit(SMALL, 0.012, SMALL_ROUNDS)
-    res = sample_and_decode(circuit, seed=11, batch_size=100, max_shots=20_000)
+    res = sample_and_decode(circuit, seed=11, batch_size=100, max_shots=10_000)
     assert res.stopped_by == "min_failures"
     assert res.failures >= MIN_FAILURES
-    assert res.shots % 100 == 0 and res.shots < 20_000
+    assert res.shots % 100 == 0 and res.shots < 10_000
     # One batch fewer, same seed, sees the same shots minus the last batch and
     # has not yet reached MIN_FAILURES, so the loop stopped as soon as it could.
     earlier = sample_and_decode(circuit, seed=11, batch_size=100, max_shots=res.shots - 100)
@@ -231,7 +231,7 @@ def test_seed_is_required():
 
 
 def test_p0_gives_zero_failures_at_contract_defaults():
-    """At CONTRACT's SHOT_BATCH and MAX_SHOTS: 200,000 silent shots, censored."""
+    """At CONTRACT's SHOT_BATCH and MAX_SHOTS: MAX_SHOTS silent shots, censored."""
     circuit = build_memory_circuit(SMALL, 0.0, SMALL_ROUNDS)
     res = sample_and_decode(circuit, seed=0)
     assert (res.batch_size, res.shots, res.failures) == (SHOT_BATCH, MAX_SHOTS, 0)

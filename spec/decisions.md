@@ -231,7 +231,7 @@ Colab (Python 3.13) is the newer of the two target environments, so capping at C
 
 ## D-016 — M0 physical error rate pinned at `p = 0.005`
 
-**Status:** decided
+**Status:** superseded by D-031 (2026-09-28): `P_PILOT = 0.002`, chosen from the Kaggle calibration.
 **Decision:** The M0 pilot runs at a single physical error rate `p = 0.005`, recorded as `P_PILOT` in `CONTRACT.md`'s exact-values block.
 **Rationale:** The BB `[[72,12,6]]` code's circuit-level threshold under uniform depolarising noise with BP+OSD is approximately 0.7%. `p = 0.005` sits below that threshold, so the reference code is expected to produce a measurable but non-trivial LER — strong enough that the censoring rule (INV-3, `MIN_FAILURES = 100`) is reachable within `MAX_SHOTS = 200,000` for most of the candidate set, while weak enough that good codes are clearly separated from bad ones in the ranking. This value was already the implicit planning figure in `spec/architecture.md §6` (the table's "typical pilot code at p=0.005" row), and in `protocol.py`'s `_protocol()` test helper, but was never formally pinned — and `AGENTS.md §4` forbids inventing values.
 
@@ -566,6 +566,40 @@ The models above are unchanged, and no protocol constant moves. The first use is
 - *Keeping the token required.* A public repo would fail to install without a credential it does not need.
 
 **Revisit if:** the repository is made private again (then the token becomes required, and the cell should fail loudly without it), or Kaggle/Colab change their secrets APIs.
+
+---
+
+## D-031 — M0 pilot protocol: BP+OSD kept, `P_PILOT = 0.002`, 244 enumerated codes at n ≤ 72, `SHOT_BATCH = 256`, `MAX_SHOTS = 10,240`
+
+**Status:** decided (owner, 2026-09-28), on the Kaggle calibration at `7e91f82` and its re-projection (`spec/evals.md §7`). Supersedes D-016's `p = 0.005`. Changes `CONTRACT.md`'s exact values, `protocol.py`, `spec/architecture.md §6` and `spec/plan.md`.
+**Decision:**
+- **Decoder:** the pinned BP+OSD (D-005, `DECODER_PARAMS`) is unchanged.
+- **`P_PILOT = 0.002`.** The evidence is in the calibration's size-scaling table:
+  - pair_2_2 is sub-threshold at 0.002: [[12]] at 3.2e-3 [2.6e-3, 3.9e-3] and [[136]] at ≤ 1.05e-3, with separate intervals.
+  - sym_3_3 is sub-threshold at 0.002: [[72]] at 2.7e-3 [2.2e-3, 3.4e-3] and gross at 3.6e-4 [6.2e-5, 1.9e-3], with separate intervals, though on 20 gross shots.
+  - mixed_3_5 is above threshold at 0.002. Its [[42]] and [[112]] estimates agree, and every completed interval lies wholly above p.
+
+  **mixed_3_5 codes stay in the population.** This is a known property of the label set, not something to filter: at 0.002 some admitted codes encode a qubit worse per round than an unprotected one. At budget 72 that is 5 of 244 codes (2.0%).
+- **M0 population:** every admissible code at max n = 72, **244 codes, enumerated, not sampled.** It is exactly the re-projection's population: every `(template, l, m)` on the balanced sampler's `(l, m)` grid at budget 72 that passes `validate` and has `estimate_d_upper(seed=0) >= 3` (D-024). That set was checked equal to `sample_bb_params(244, 72, CALIBRATION_CODE_SEED)`, so it does not depend on a draw seed.
+- **M0's scope, stated explicitly:** BB codes; the 11 templates of D-024; `d_upper >= 3`; `n <= 72`. **Larger n is M1's question.** M0's verdict is a claim about this population only.
+- **`SHOT_BATCH = 256`, `MAX_SHOTS = 10,240`.**
+  - The owner decided 10,000. But 10,000 is not a whole number of 256-shot batches, and CONTRACT requires both "batches of exactly `SHOT_BATCH`" and `MAX_SHOTS` as a hard cap. The agent flagged the conflict, and the owner chose 10,240 = 40 × 256, the nearest whole-batch value at or above 10,000. `test_d031_shot_cap_is_a_whole_number_of_batches` pins the relation.
+  - **Why ~10,000 and not 20,000:** at ~2.3 s/shot (the calibration's [[72,12,≤6]] BP+OSD cost, measured up to 2,303 ms), a code that hits the cap takes ~13 h at 20,000 shots. That is longer than a 12-hour Kaggle session. At 10,240 it takes ~6.5 h.
+  - At p = 0.002 the budget-72 re-projection is the same at 10,000, 20,000 and 50,000 shots: 52.5 core-hours, 0% projected censored. So no projected code gets near the cap, and 10,240 changes none of those numbers.
+- **Per-shot cost:** `spec/architecture.md §6` now carries the measured BP+OSD costs and the budget-72 projection, not the 5 ms/shot estimate. This closes M0-EVAL-05.
+
+**Rationale:** p and the population are chosen together. At 0.002, two of the three templates with a size-scaling reading are sub-threshold, and no projected code is censored. The population is small enough to enumerate, so enumerating it removes a sampling choice from the pilot. Capping n at 72 keeps every code's cost measurable: the calibration measured BP+OSD at 1.1–2.3 s/shot up to [[72]], but 48–78 s on gross and 125–154 s on [[112]], and [[140]] died in every cell.
+
+**Rejected:**
+- **BP+LSD** (`lsd_cs`, order 0 or 4). On the paired calibration shots (`spec/evals.md §7`) it fails more often than BP+OSD in 15 of 27 cells, at McNemar p ≤ 2e-3, and significantly less often in none. The ratio of LSD to OSD failures is not constant: LSD-0/OSD runs 1.29–2.53 and LSD-4/OSD 1.20–2.25, and it varies by code and falls with p within every code. A decoder whose penalty varies by code would **re-rank codes**, which is the quantity this project measures. LSD is up to 62× faster (1–2× on [[12]]); that does not buy back a ranking distortion.
+- **`P_PILOT = 0.005` (D-016).** It was chosen before any measurement, from the literature's ~0.7% [[72,12,6]] threshold. In the calibration, mixed_3_5 is already above threshold at 0.001, and at 0.003 sym_3_3's gross code has the higher point estimate.
+- **`P_PILOT = 0.0015`.** At budget 72 and 10,000 shots, the re-projection censors 162 of 244 codes (66%), past `plan.md`'s 40% line. 20,000 shots would clear that, at the session-length cost above. sym_3_3's two point estimates are also equal there.
+- **`P_PILOT = 0.003`.** sym_3_3's gross point estimate is above [[72]]'s there, so it is not sub-threshold.
+- **Budgets 48 and 60** (116 and 175 codes). They are cheaper but fewer codes. **Budget 96** (373 codes) projects 303–935 core-hours, and its costliest single codes project at 29–163 core-hours, longer than a Kaggle session. The re-projection's 300-code draw at 96 has the same problem.
+- **`MAX_SHOTS` 20,000 or 50,000.** Above.
+- **9,984 = 39 × 256, or a truncated last batch.** 9,984 stays under the owner's 10,000, but the owner preferred the value at or above it. A truncated last batch breaks "batches of exactly `SHOT_BATCH`".
+
+**Revisit if:** the pilot's own labels fail the size-scaling diagnostic in `spec/evals.md §7`'s M0 verdict section for most templates; the measured censoring rate exceeds 40% (`plan.md`); or M1 extends n past 72, which needs its own cost measurement, since the cost model misses its own fit codes by 0.17–7×.
 
 ---
 

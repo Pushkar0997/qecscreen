@@ -45,17 +45,17 @@ __all__ = [
 SCHEMA_VERSION = 1
 
 MIN_FAILURES = 100  # below this a row is censored (INV-3)
-MAX_SHOTS = 200_000  # hard cap per (code, p)
-SHOT_BATCH = 10_000  # fixed batch size; sample/decode in batches, check the stopping rule between
+MAX_SHOTS = 10_240  # hard cap per (code, p): 40 x SHOT_BATCH (D-031)
+SHOT_BATCH = 256  # fixed batch size; sample/decode in batches, check the stopping rule between (D-031)
 
 CONFIDENCE = 0.95
 Z_95 = 1.959963984540054
 
 NOISE_MODEL = "uniform_depolarizing_v1"
 
-# M0 only (D-016). A value of p, not part of the protocol tuple: p is hashed per
-# row through Protocol.p.
-P_PILOT = 0.005
+# M0 only (D-031, superseding D-016's 0.005). A value of p, not part of the
+# protocol tuple: p is hashed per row through Protocol.p.
+P_PILOT = 0.002
 
 # D-026: every setting that changes a label is pinned here, so it enters
 # protocol_hash. "schedule" is ldpc's own default, set explicitly so a change of
