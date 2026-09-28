@@ -6,6 +6,84 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-28 (tt) — Claude Opus 5.5 / Claude Code — D-031 M0 pilot protocol (M0-EVAL-05 closed); M0-EVAL-04 resume within a code
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:**
+- Part 1: the owner's decisions, recorded as D-031. Ticks M0-EVAL-05.
+- Part 2: M0-EVAL-04, redefined by the owner as resume within a code at batch granularity.
+- Check whether M0-EVAL-03 is already satisfied.
+
+No FEATURES, SPLIT or RUN task was started, and nothing was decoded on Kaggle.
+
+**CI for (ss)'s commit `f35828d`:** success (run 36380257010), read through the public API.
+
+**Stopped once, and asked.** `MAX_SHOTS = 10,000` with `SHOT_BATCH = 256` is 39.06 batches. CONTRACT requires both "batches of exactly `SHOT_BATCH`" and `MAX_SHOTS` as a hard cap, and `sample_and_decode` already refused a `max_shots` that is not a whole number of batches. The owner chose **10,240 = 40 × 256** over 9,984, a truncated last batch, or "stop once shots ≥ `MAX_SHOTS`". D-031 records this.
+
+**Landed:**
+- `c120737` **D-031 + M0-EVAL-05**, code and spec in one commit (AGENTS §4, §7). CONTRACT exact values:
+  - `MAX_SHOTS` 10,240;
+  - `SHOT_BATCH` 256;
+  - `P_PILOT` 0.002;
+  - a D-031 note on `DECODER`.
+
+  Also in the commit:
+  - `protocol.py`: the same three constants.
+  - D-031 records BP+LSD as rejected, with the evidence for `P_PILOT`, and says the mixed_3_5 codes stay in. It states M0's scope as BB codes, the 11 templates, `d_upper ≥ 3` and n ≤ 72, and leaves larger n to M1. It gives the reason for 10,240 rather than 20,000: ~13 h vs a 12 h session. D-016 is marked superseded.
+  - `architecture.md §6`: measured per-shot costs replace the 5 ms figure. The M0 budget is budget-72 at p = 0.002: 244 codes, 52.5 core-h, 13.1 wall-h, 0% censored. That is identical at 10k/20k/50k shots, so 10,240 changes nothing. It adds "assume 2–3×", because the cost model misses its own fit codes by 0.17–7×. The M1 budget is marked not recomputed.
+  - `plan.md`: M0's scope, the deliverable, the risk paragraph, and the per-shot exit criterion ticked. **The "≥250 rows" exit criterion is now "one row for each of the 244 codes"**, because an enumerated population of 244 cannot reach 250.
+  - `evals.md`: the M0 verdict section's required size-scaling diagnostic, and N-03 restated at `MAX_SHOTS`.
+  - Tests:
+    - New: `test_d031_shot_cap_is_a_whole_number_of_batches`.
+    - `test_d026_p_pilot_exported` now expects 0.002.
+    - Four existing tests had the old constants baked in. They now either use the symbols or pass the old values explicitly:
+      - `test_shots_needed_and_censoring_projection`;
+      - `test_pilot_projection_on_synthetic_cells`;
+      - `test_projection_under_other_constants_and_population`;
+      - `test_stops_at_min_failures_at_the_first_batch_boundary`, which asked for `max_shots=20_000` and now asks for 10,000.
+
+      N-03 was renamed `test_n03_three_failures_at_max_shots_is_censored_not_a_rate`.
+- `152fbea` **M0-EVAL-04**:
+  - New module `evaluate/checkpoint.py`, and `sample_and_decode(..., checkpoint_dir=None)`.
+  - A one-row Parquet shard per completed batch, written atomically (`.tmp`, fsync, rename) before the next batch is sampled.
+  - `result.parquet` marks the code finished.
+  - Resume re-creates the seeded sampler, draws and discards the completed batches, checks each against its shard's batch digest and running digest, and restores the counts.
+  - `CheckpointMismatchError` on a digest mismatch, a gap, or another seed, batch size or `max_shots`.
+  - Tests: `tests/test_evaluate_resume.py`, 18 tests, ~13 s. 5/5 mutants caught. Recorded in tasks.md and evals N-15.
+- `NARRATIVE.md` entry (this commit).
+
+**M0-EVAL-03 is not ticked. It is implemented, but not as the task words it.** Present:
+- `protocol_hash()` and `assert_single_protocol()` in `protocol.py`.
+- Tests in `tests/test_protocol.py`: `test_inv6_single_protocol_guard` (raises on two hashes and on none), the hash-stability tests, and the tests for the D-014, D-025, D-026 and decoder-version hash inputs.
+
+Missing:
+1. `tests/test_inv_6_protocol.py`, the file the task names, does not exist.
+2. CONTRACT's detector name `test_single_protocol_guard` does not exist; the test is called `test_inv6_single_protocol_guard`.
+3. INV-6-T says the guard raises "on a frame". It is only tested on a list, never on a DataFrame's `protocol_hash` column.
+4. "Every ranking and training entry point calls it" cannot be tested, because none exists yet. That belongs to METRIC and RUN-04.
+
+**Suite:** default only: **269 passed, 16 deselected**, 51 s (was 250). The slow tests were read, not run. `test_ler_increases_with_p` uses `max_shots=10_000` ≤ 10,240. None of the others depends on the changed constants.
+**CI:** reported in the session reply for the pushed SHA. The next entry should record it.
+**Blockers:** none.
+**Noticed, did not fix:**
+1. `CalibrationConfig.max_shots` defaults to `MAX_SHOTS`, so a calibration re-run on the same grid would now stop cells at 10,240 shots. The Kaggle run's [[12]] cells took 20,521. `summarize()` on the committed evidence now projects at the new constants by default. With `max_shots=200_000, shot_batch=10_000` it reproduces the stored `summary.json` projections exactly (checked).
+2. CONTRACT's SAMPLING paragraph does not mention resume: "a resumed code draws and discards its completed batches". Part 2 did not authorise a CONTRACT edit.
+3. M0-RUN-01's text says "must not draw codes with `CALIBRATION_CODE_SEED`". With an enumerated population the seed no longer decides membership, and the population includes the calibration's n ≤ 72 codes. Their calibration output is still refused by `reject_calibration`. The wording may need the owner.
+4. D-029's "revisit if M0-EVAL-04's writer lands": this checkpoint writer takes a circuit, not records, so `reject_calibration` has no input to check. The row writer is still M0-RUN-01.
+5. CONTRACT INV-3's "Why" still uses "3 times in 200,000 shots" as an illustration. It is not an exact value, so it was left.
+6. Carried from (ss): `format_summary` still titles its projection "300-code"; `evaluate/__init__.py` still has the placeholder docstring.
+
+**Spec changes:**
+- `CONTRACT.md`: exact values.
+- `spec/decisions.md`: D-031, and D-016 superseded.
+- `spec/architecture.md`: §6.
+- `spec/plan.md`: M0.
+- `spec/evals.md`: §4 N-03 and N-15, §7 M0 verdict diagnostic.
+- `spec/tasks.md`: EVAL-04 and EVAL-05 ticked.
+- `NARRATIVE.md`.
+
+---
+
 ## 2026-09-28 (ss) — Claude Opus 5.5 / Claude Code — Part 0 standing rules; M0-EVAL-07 calibration recorded; BP+OSD re-projection of the pilot
 
 **Milestone:** M0 — Falsification

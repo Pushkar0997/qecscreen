@@ -19,6 +19,30 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-28 — Choosing the pilot from the measurements, and one number that did not divide
+
+With the calibration in hand, the owner fixed the pilot. It keeps the standard decoder. The
+faster one was rejected because it doesn't just fail more often: how much more often varies
+from code to code, so it would change which codes look best, and that ranking is exactly what
+this project measures. The noise level drops from 0.5% to 0.2%. At 0.2% two of the three
+recipes measured behaved as a code should, with bigger codes doing better. The third did not,
+and its codes stay in the dataset as a known property rather than being filtered out. The
+pilot is now every admissible code up to 72 qubits, 244 of them, listed out in full rather
+than sampled. So the old target of "at least 250 rows" became "all 244". A criterion changed
+because the population is now defined, not drawn.
+
+The shot limit was meant to be 10,000, in batches of 256. But 10,000 is not a whole number
+of 256-shot batches. The project's own rules say both that every batch is exactly 256 shots
+and that the limit is never exceeded, and those two rules cannot both hold at 10,000. The
+code already refused such a setting, so the clash was caught before anything ran, and the
+owner chose 10,240, forty full batches. The reason for a cap near 10,000 is a clock, not
+statistics. At about 2.3 seconds per simulated shot on the largest pilot codes, 20,000 shots
+of one code would outlast a 12-hour Kaggle session. That is also why a code interrupted
+mid-run now picks up after its last finished batch. It re-creates the same random stream and
+skips what it already decoded, so the result is the same as if nothing had been interrupted.
+
+---
+
 ## 2026-09-28 — Asking every decoder about the same shots, and the cost wall behind it
 
 The project had two decoders to choose between: the slow standard one it had pinned, and a much
