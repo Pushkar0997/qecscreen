@@ -8,9 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# The repo is private through M0 (D-013), so Actions minutes are metered against
-# the free allowance. Cancel superseded runs and cap the job rather than letting
-# a hung run quietly eat the budget (INV-9).
+# The repo is public (D-030), so Actions minutes are no longer metered. The
+# concurrency cap and the timeout stay: superseded runs are cancelled, and a
+# hung run fails at the cap instead of holding a runner and leaving the pushed
+# commit's CI status unresolved.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
