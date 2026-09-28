@@ -36,7 +36,14 @@ import scipy.sparse as sp
 import stim
 from ldpc import BpOsdDecoder
 
-from qecscreen.evaluate.checkpoint import BatchRecord, CheckpointMismatchError, CodeCheckpoint
+from qecscreen import provenance as _provenance
+from qecscreen.evaluate.checkpoint import (
+    PROVENANCE_FIELDS,
+    BatchRecord,
+    CodeCheckpoint,
+    ProvenanceMismatchError,
+    SampleDigestMismatchError,
+)
 from qecscreen.protocol import DECODER_PARAMS, MAX_SHOTS, MIN_FAILURES, SHOT_BATCH
 
 __all__ = [
@@ -47,6 +54,7 @@ __all__ = [
     "CompiledBpOsd",
     "count_failures",
     "RunResult",
+    "run_provenance",
     "sample_and_decode",
 ]
 
@@ -182,6 +190,17 @@ def count_failures(predicted: np.ndarray, actual: np.ndarray, num_observables: i
     return int(np.count_nonzero(wrong.any(axis=1)))
 
 
+def run_provenance() -> dict[str, str | None]:
+    """This process's ``commit_sha``, ``stim_version`` and ``cpu_class``, read
+    from ``qecscreen.provenance`` at call time (D-017, D-027). Written into
+    every checkpoint shard (D-032)."""
+    return {
+        "commit_sha": _provenance.resolved_commit(),
+        "stim_version": _provenance.stim_version(),
+        "cpu_class": _provenance.cpu_class(),
+    }
+
+
 @dataclass(frozen=True)
 class RunResult:
     """Counts from one ``(code, p)`` run, plus what is needed to reproduce it.
@@ -230,8 +249,12 @@ def sample_and_decode(
     each checked against its shard's digest, and decodes from the next batch,
     so it ends with exactly the shots and failures of an uninterrupted run.
     Re-drawn shots that differ from the recorded ones (another stim version
-    or CPU class, D-027) raise ``CheckpointMismatchError`` rather than splice
-    two streams into one count.
+    or CPU class, D-027) raise ``SampleDigestMismatchError`` rather than
+    splice two streams into one count. Every shard records this process's
+    ``run_provenance()``; a resume by a process whose provenance differs from
+    the shards', or shards that disagree among themselves, raise
+    ``ProvenanceMismatchError`` before anything is drawn (D-032). Both are
+    ``CheckpointMismatchError``s.
     """
     if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2**64:
         raise ValueError(f"seed must be an int in range(2**64); got {seed!r}")
@@ -247,13 +270,20 @@ def sample_and_decode(
     checkpoint = None
     completed: list[BatchRecord] = []
     if checkpoint_dir is not None:
+        here = run_provenance()
         checkpoint = CodeCheckpoint(
-            checkpoint_dir, seed=seed, batch_size=batch_size, max_shots=max_shots
+            checkpoint_dir, seed=seed, batch_size=batch_size, max_shots=max_shots, provenance=here
         )
         stored = checkpoint.result()
         if stored is not None:
             return RunResult(**stored)
         completed = checkpoint.batches()
+        recorded = checkpoint.shard_provenance()
+        for field in PROVENANCE_FIELDS:
+            if recorded is not None and recorded[field] != here[field]:
+                raise ProvenanceMismatchError(
+                    f"{checkpoint_dir} was written with {field}={recorded[field]!r}; this process "
+                    f"has {here[field]!r}. One row's batches come from one {field} (D-032)", field)
 
     sampler = circuit.compile_detector_sampler(seed=seed)
     digest = hashlib.sha256()
@@ -271,7 +301,7 @@ def sample_and_decode(
     for rec in completed:  # resume: the same stream, drawn and discarded
         _, _, batch_digest = draw()
         if batch_digest != rec.batch_samples_sha256 or digest.hexdigest() != rec.samples_sha256:
-            raise CheckpointMismatchError(
+            raise SampleDigestMismatchError(
                 f"batch {rec.batch_index} re-drawn from seed {seed} differs from its shard in "
                 f"{checkpoint_dir}; the stim version or CPU class probably differs from the "
                 "run that wrote it (D-027), so its shots cannot be continued"

@@ -33,9 +33,9 @@ file per cell; on restart, completed cells are skipped.
 
 ``code_id`` follows CONTRACT's ``{program_id}-{sha256(params_json)[:12]}``
 with ``params_json`` the canonical (sorted keys, no whitespace) JSON of ``l``,
-``m``, ``a_exps`` and ``b_exps``. The dataset's own ``code_id`` function does
-not exist yet (M0-RUN-01); if it canonicalises differently, calibration and
-pilot ids for the same code will differ, which affects nothing here.
+``m``, ``a_exps`` and ``b_exps``. Since M0-RUN-01 it is computed by
+``qecscreen.codes.ids``, which the dataset's rows use too, so a code has one
+``code_id`` in both.
 """
 
 from __future__ import annotations
@@ -57,6 +57,7 @@ from ldpc import BpLsdDecoder
 from scipy.stats import binomtest
 
 from qecscreen.circuits.build import build_memory_circuit
+from qecscreen.codes import ids
 from qecscreen.codes.bb import generate
 from qecscreen.codes.distance import estimate_d_upper
 from qecscreen.codes.sample import sample_bb_params
@@ -186,15 +187,8 @@ class CalibrationConfig:
 
 
 def code_id(construction_program_id: str, l: int, m: int, a_exps, b_exps) -> str:
-    """``{program_id}-{sha256(params_json)[:12]}`` (CONTRACT, IDs)."""
-    params = {
-        "a_exps": [list(map(int, e)) for e in a_exps],
-        "b_exps": [list(map(int, e)) for e in b_exps],
-        "l": int(l),
-        "m": int(m),
-    }
-    params_json = json.dumps(params, sort_keys=True, separators=(",", ":"))
-    return f"{construction_program_id}-{hashlib.sha256(params_json.encode('utf-8')).hexdigest()[:12]}"
+    """``{program_id}-{sha256(params_json)[:12]}`` (CONTRACT, IDs), via ``qecscreen.codes.ids``."""
+    return ids.code_id(construction_program_id, ids.params_json(l, m, a_exps, b_exps))
 
 
 def _describe(params: Mapping[str, Any], name: str | None = None) -> dict[str, Any]:
