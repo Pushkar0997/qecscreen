@@ -6,6 +6,79 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-28 (ss) — Claude Opus 5.5 / Claude Code — Part 0 standing rules; M0-EVAL-07 calibration recorded; BP+OSD re-projection of the pilot
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:**
+- Part 0: three owner-authorised edits, in separate commits.
+- Part 1: record the Kaggle calibration (M0-EVAL-07, ticked).
+- Part 2: re-project the pilot over the owner's grid with the pinned BP+OSD.
+
+No decoding was run. `DECODER_PARAMS`, `P_PILOT`, `SHOT_BATCH`, `MAX_SHOTS`, `codes/` and `circuits/` are untouched. No new dependency. Nothing is recommended.
+
+**CI for (rr)'s commit `7e91f82`:** success (run 36340014354), read through the public API.
+
+**Landed:**
+- `ed28f05` AGENTS.md §5:
+  - locally run only the default suite; the slow tests run in CI;
+  - after every push, check that commit's CI through the public GitHub API and report its conclusion;
+  - not done while that run is in progress or red.
+- `0ead429` INV-9 summary: the repo is public (D-030), so the notebook token is optional.
+- `5150fe3` ci.yml comment: Actions minutes are no longer metered. The concurrency cap and timeout are kept.
+- `ea5579f` **M0-EVAL-07**:
+  - Evidence: `evidence/calibration/2026-09-27-7e91f82/` (35 files).
+  - Records: `spec/evals.md §7` has a calibration result, not a verdict. `spec/tasks.md` is ticked. `spec/architecture.md §2` gains `evidence/`.
+  - The folder was **not** at the path the brief gave. The output was in `~/Downloads/qecscreen_kaggle_test/`: a `results.zip` and an unzipped copy with 6 files moved into a `claude/` subfolder.
+  - All 35 files of the two copies are byte-identical. The committed copy is the zip's flat layout, and its provenance commit is `7e91f82e…`.
+  - `reject_calibration` refuses the directory.
+  - `summarize()` at HEAD reproduces the stored summary, apart from the last digits of the power-law fit.
+- `318517a` Part 2, code and spec together:
+  - `summarize(out_dir, *, population=None, max_shots=MAX_SHOTS, shot_batch=SHOT_BATCH)`; `_shots_needed`, `_run_shots` and `_project_pilot` take the same values.
+  - Each projection also reports `censored_overall`, `max_code_core_hours`, `fit_codes`, `interpolation_brackets` and `outside_fit_range`.
+  - Defaults unchanged. New test: `test_projection_under_other_constants_and_population`.
+  - Evidence: `evidence/reprojection/2026-09-28/`, holding `reproject.py` and `reprojection.json`, both marked calibration.
+  - Recorded in `spec/evals.md §7`, plus a D-029 note.
+- `20c7d30` NARRATIVE entry.
+
+**Findings (details in evals §7):**
+- **Size scaling (BP+OSD):**
+  - pair_2_2 is sub-threshold, with intervals separate, at p = 0.0015, 0.002 and 0.003.
+  - sym_3_3 is sub-threshold only at 0.002, on 20 gross shots.
+  - mixed_3_5 shows no improvement at any p, and every completed interval lies above p.
+- **Paired decoders:** LSD fails more than OSD in 15/27 cells at McNemar p ≤ 2e-3. LSD-0/OSD runs 1.29–2.53 and LSD-4/OSD 1.20–2.25, falling with p in every code. The ratio is not constant.
+- **[[140,6,≤16]]** died in all 4 cells, exit −9. Three died before their first decode, and one after 3 shots.
+- **The killed [[112]] cell** at p=0.003 is explained by its timings: ~25 s setup, then 3 × 334 s. Shot 3 started at ~1,026 s, and its LSD-4 decode would end at ~1,360 s, past the 1,320 s kill. There is no evidence of a real-shot hang.
+- **Re-projection:**
+  - 116 / 175 / 244 / 373 admitted codes at budget 48 / 60 / 72 / 96.
+  - Core-hours from 8.4 (48, p=0.002) to 935 (96, p=0.0015, 50k shots).
+  - No code lies outside the fit's `n·d_upper` range.
+  - But the power law misses the fit codes themselves by 0.17–7×.
+
+**Suite:** default only (the new §5 rule): **250 passed, 16 deselected**, 31 s. The full suite runs in CI.
+**CI:** this entry is committed before the push. The pushed commit's result is reported in the session reply and should be recorded by the next entry.
+**Blockers:** none. The decoder, `P_PILOT`, `SHOT_BATCH` and `MAX_SHOTS` decisions are the owner's.
+**Noticed, did not fix:**
+1. The "60-shot test that saw no difference", cited in the brief, is not in AGENT_LOG, NARRATIVE or the spec. The NARRATIVE entry cites it as the owner reported it.
+2. `spec/architecture.md §6` still carries the 5 ms/shot planning figure. M0-EVAL-05 is open, and the calibration now gives measured numbers: BP+OSD takes 1.1–2.3 s/shot on [[42]]–[[72]] and 48–78 s on gross.
+3. The cost model's `n·d_upper` does not separate codes with different DEM sizes. [[136,2]] has 31,960 mechanisms and [[112,6]] has 88,704; they are 7× over-predicted and 2.5× under-predicted. The mechanism count might fit better. Not changed, because the brief asked for a minimal extension.
+4. The re-projection's censoring is a step function of which of the 7 calibration codes donates the failure fraction, as evals §7 explains. At p=0.0015, 10,000 vs 20,000 shots flips every d_upper 3–4 code on [[12]]'s 11,244 shots.
+5. At budget 96 the costliest single codes project at 29–163 core-hours, longer than one 12 h Kaggle session. M0-EVAL-04's resume is per code, not within a code.
+6. D-029's 120 s kill margin assumed ~1 min for one shot on every decoder. [[112]] takes ~5.5 min, and [[140]] ~6 min for OSD alone.
+7. Enumerating the four populations took ~2 min locally (`estimate_d_upper` per candidate), not seconds.
+8. `format_summary` still titles the projection "300-code pilot projection" whatever the population size.
+9. `evaluate/__init__.py` still has the placeholder docstring.
+
+**Spec changes:**
+- `AGENTS.md`: §5 and the INV-9 summary.
+- `.github/workflows/ci.yml`: comment.
+- `spec/evals.md §7`: calibration result and re-projection.
+- `spec/tasks.md`: EVAL-07 ticked.
+- `spec/architecture.md §2`: `evidence/`.
+- `spec/decisions.md`: D-029 note.
+- `NARRATIVE.md`: new entry.
+
+---
+
 ## 2026-09-27 (rr) — Claude Opus 5.5 / Claude Code — D-030: the repo is public, the notebook install needs no token
 
 **Milestone:** M0 — Falsification
