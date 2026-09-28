@@ -100,7 +100,7 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 
 ## 5. Definition of done
 
-- [ ] Tests pass clean — no errors, no new warnings
+- [ ] Tests pass clean — no errors, no new warnings. **Locally, run only the default suite** (`pytest -q`); the slow tests run in CI, which runs the full suite on every leg. The owner's laptop is not for heavy compute
 - [ ] Acceptance criteria observably met
 - [ ] Relevant test in `spec/evals.md` passes
 - [ ] `spec/smoke.md` passes for the affected area
@@ -110,8 +110,11 @@ The M0 verdict is posted publicly within **7 days** of being recorded, whatever 
 - [ ] If the session produced a finding worth explaining to a person — a wrong assumption corrected, a criterion that changed, a surprising measurement — append an entry to `NARRATIVE.md`. Routine task completion does not qualify.
 - [ ] Committed with the task ID in the message
 - [ ] **Pushed to `origin`**
+- [ ] **CI checked on the pushed commit** through the public GitHub API (`https://api.github.com/repos/Pushkar0997/qecscreen/actions/runs?head_sha=<full sha>`), and its conclusion reported. Not done while that run is still in progress or has failed
 
 Push at the end of **every** session, including a session that ends mid-task — the remote is the backup, and it is the only thing that lets CI look at the work at all. Commits that sit locally are invisible to CI and die with the laptop; this rule exists because twelve of them once accumulated in a single day.
+
+Because the slow tests run only in CI, a pushed commit is not verified until CI has finished on it. Report the run's conclusion for the exact pushed SHA, not for an earlier commit, and do not report the work as done while that run is queued, in progress or red.
 
 "It runs" is not done. "The numbers look reasonable" is emphatically not done — reasonable-looking wrong numbers are this project's characteristic failure. And work that exists on exactly one disk is not done either.
 
