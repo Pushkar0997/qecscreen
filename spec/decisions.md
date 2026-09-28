@@ -663,6 +663,29 @@ The models above are unchanged, and no protocol constant moves. The first use is
 - In the re-projection, a finished probe code costs its measured decode seconds; a partial one, its measured seconds/shot times the model's run shots (at least the shots done); every other code, its projected core-hours times the ratio. For censoring, a probe code with shots uses its own counts (`_shots_needed` on them, or its final count if finished); every other code uses its donor. "Lowest failure fractions" is reported as every measured probe code in order, and a count over the lowest third, as the top third is counted.
 - `_project_pilot(..., per_code=True)` adds the per-code projections the report needs; without it the output, and so `summarize`, is unchanged.
 
+### D-033 amendment 2 (owner, 2026-09-28) — the pilot travels between sessions as one tar
+
+D-033's "Revisit if" fired before the first session: Kaggle keeps at most 500 files of a version's output (the owner confirmed Kaggle's error, "Too many output files (max 500)"), and the pilot writes one shard per batch, up to ~10,000 files. As first built, the chain would break by session 2. This supersedes D-033's "copies it verbatim into `OUT_DIR` under `/kaggle/working`".
+
+- **The pilot directory is scratch.** The notebook passes `OUT_DIR = /kaggle/tmp/m0-pilot`, which Kaggle does not keep. A session refuses an `OUT_DIR` inside the archive directory.
+- **The only pilot file kept is one uncompressed tar,** `m0-pilot.tar` in `/kaggle/working` (`PilotConfig.archive_dir`, whose default is `/kaggle/working`, because the notebook's cell 5 is fixed), with a sidecar `m0-pilot.tar.sha256`. The session summary (without its file inventory) and the notebook's artifact stay small separate files beside it.
+- **Written atomically:** to `.tmp`, fsynced, renamed.
+- **Refreshed every 60 min (`SNAPSHOT_MINUTES`) and at session end,** so a session that dies still leaves its last snapshot.
+- **`PREVIOUS` may be a directory holding exactly one `m0-pilot.tar`.** Its sha256 is checked against the sidecar, it is extracted into `OUT_DIR`, and the inventory check runs. A sha256 mismatch, a missing sidecar, zero tars or two tars are refused.
+- **`pilot_cost_report` and `assemble_measurements` take the tar or an extracted directory.** A tar is verified the same way and extracted into a temporary directory.
+
+*Pinned here:*
+- **Each snapshot writes `inventory.json`** into the pilot directory, the sha256 of every other file, and the tar carries it. The inventory check uses it when present, and otherwise the last session summary's inventory as before. A mid-session snapshot has to carry its own inventory: during a session the manifest is rewritten (cost gates) and stale codes are moved, so the previous summary's inventory no longer matches.
+- The tar's one top-level directory is `m0-pilot/`. Extraction takes only plain files and directories under it, and refuses anything else (links, absolute paths, `..`) rather than skipping it.
+- The sidecar is `sha256sum`'s format, `<hex>  m0-pilot.tar`. It is renamed into place after the tar. A death between the two renames leaves a pair that disagrees, which the next session refuses; the owner then attaches the version before.
+- **A resumed mid-session snapshot keeps its session number.** It holds no summary for the session that died, so the next session is numbered the same, and that session's deaths are not counted. **A pilot with a manifest but no session summary is a probe that died:** the next session runs as the probe again, with `COST_GATE` empty. Without this rule, it would demand a cost gate that `pilot_cost_report` could not produce, since that needs a probe summary.
+- If `PREVIOUS` holds no tar, one old-format pilot directory is still accepted and copied as before.
+
+**Rejected:**
+- *A compressed tar.* The shards are Parquet and already compressed, and a plain tar can be listed and checked without decompressing.
+- *One tar per session, holding only that session's new files.* Every later session would need all earlier outputs attached. D-033 rejected that for directories, for the same reason.
+- *Keeping the pilot directory in `/kaggle/working` and deleting shards once a code finishes.* The shards are the code's evidence (D-032 digests, per-batch provenance), and a partial code still has up to 40.
+
 ---
 
 ## Template

@@ -60,15 +60,21 @@ def _parent(monkeypatch, commit="a" * 40, cpu="x86_64/sse2", stim="1.16.0"):
 GATE = "evals §7 2026-09-28 — probe cost report (test)"
 
 
-def cfg(previous=None, *, wall=1.0, setup=None, processes=2, population=POP, gate="auto", probe_codes=12):
+def cfg(previous=None, *, wall=1.0, setup=None, processes=2, population=POP, gate="auto", probe_codes=12,
+        archive=None, snapshot_minutes=pilot.SNAPSHOT_MINUTES):
     """``wall`` applies to the probe and to later sessions alike. ``gate`` defaults to
-    GATE for a session with ``previous`` (a later session) and to none otherwise."""
+    GATE for a session with ``previous`` (a later session) and to none otherwise.
+    ``archive`` is the stand-in for /kaggle/working, created here; None writes no tar."""
     if gate == "auto":
         gate = GATE if previous is not None else None
+    if archive is not None:
+        Path(archive).mkdir(parents=True, exist_ok=True)
     return PilotConfig(previous=None if previous is None else str(previous), cost_gate=gate,
                        session_wall_hours=wall, probe_wall_hours=wall, probe_codes=probe_codes,
-                       processes=processes, _population=population, _batch_size=BATCH, _max_shots=MAX,
-                       _worker_setup=setup or functools.partial(fakes.fake_provenance, **SSE2))
+                       processes=processes, archive_dir=None if archive is None else str(archive),
+                       _population=population, _batch_size=BATCH, _max_shots=MAX,
+                       _worker_setup=setup or functools.partial(fakes.fake_provenance, **SSE2),
+                       _snapshot_minutes=snapshot_minutes)
 
 
 def _code(i):
@@ -106,45 +112,103 @@ def _files(root):
 # --- the chain ------------------------------------------------------------------
 
 
+def _pin_to_pop(monkeypatch):
+    """Point assembly's pins at this three-code pilot."""
+    monkeypatch.setattr(pilot, "POPULATION_SHA256", pilot.population_digest([pilot._record(c) for c in POP]))
+    monkeypatch.setattr(pilot, "POPULATION_SIZE", 3)
+    monkeypatch.setattr(pilot, "SHOT_BATCH", BATCH)
+    monkeypatch.setattr(pilot, "MAX_SHOTS", MAX)
+
+
 @pytest.mark.slow
 def test_a_three_session_chain_equals_one_uninterrupted_run(tmp_path, monkeypatch):
+    """Through tars, as on Kaggle: session i's pilot directory is scratch<i>/m0-pilot,
+    its kept output is working<i> (the stand-in for /kaggle/working), and session
+    i + 1's PREVIOUS is working<i>."""
     ref = reference_rows(tmp_path, monkeypatch)
     _parent(monkeypatch)
 
+    def scratch(i):
+        return tmp_path / f"scratch{i}" / "m0-pilot"
+
+    def working(i):
+        return tmp_path / f"working{i}"
+
     # Session 1 ends mid-code: two workers run one batch each, the third code never starts.
-    s1 = run_session(cfg(wall=2.0 / 3600, setup=functools.partial(fakes.past_deadline, **SSE2)),
-                     tmp_path / "k1" / "pilot")
+    s1 = run_session(cfg(wall=2.0 / 3600, setup=functools.partial(fakes.past_deadline, **SSE2),
+                         archive=working(1)), scratch(1))
     assert s1["session"] == 1 and s1["deadline_passed"]
     assert sorted(s1["codes"]["partial"]) == sorted(IDS[:2]) and s1["codes"]["not_started"] == [IDS[2]]
     assert all(s1["per_code"][cid]["shots"] == BATCH for cid in IDS[:2])
     assert s1["started"] == IDS[:2]  # longest first
 
-    s2 = run_session(cfg(tmp_path / "k1"), tmp_path / "k2" / "pilot")
+    s2 = run_session(cfg(working(1), archive=working(2)), scratch(2))
     assert s2["session"] == 2 and sorted(s2["codes"]["done"]) == sorted(IDS)
     assert s2["started"] == IDS
+    assert s2["copied_from"] == str(working(1) / "m0-pilot.tar")
 
-    before = {p: h for p, h in _files(tmp_path / "k2" / "pilot").items() if p.startswith(tuple(IDS))}
-    s3 = run_session(cfg(tmp_path / "k2"), tmp_path / "k3" / "pilot")
+    before = {p: h for p, h in _files(scratch(2)).items() if p.startswith(tuple(IDS))}
+    s3 = run_session(cfg(working(2), archive=working(3)), scratch(3))
     assert s3["session"] == 3 and s3["started"] == [] and sorted(s3["codes"]["done"]) == sorted(IDS)
-    after = {p: h for p, h in _files(tmp_path / "k3" / "pilot").items() if p.startswith(tuple(IDS))}
-    assert after == before  # completed codes are copied and never touched
+    after = {p: h for p, h in _files(scratch(3)).items() if p.startswith(tuple(IDS))}
+    assert after == before  # completed codes are carried through the tar and never touched
     assert s3["decode_core_hours"]["this_session"] == 0.0
     assert s3["decode_core_hours"]["cumulative"] == pytest.approx(s2["decode_core_hours"]["cumulative"])
 
-    rows = pilot_rows(tmp_path / "k3" / "pilot")
+    # The kept output: the tar, its sidecar and the small session summary, nothing else.
+    for i, s in enumerate((s1, s2, s3), start=1):
+        kept = sorted(p.name for p in working(i).rglob("*"))
+        assert kept == ["m0-pilot.tar", "m0-pilot.tar.sha256", f"session_{i:03d}.json"] and len(kept) < 10
+        assert s["archive"]["sha256"] == pilot._sha256(working(i) / "m0-pilot.tar")
+        assert "inventory" not in json.loads((working(i) / f"session_{i:03d}.json").read_text())
+
+    rows = pilot_rows(scratch(3))
     assert {c: without_timing(r) for c, r in rows.items()} == {c: without_timing(r) for c, r in ref.items()}
 
-    # Final assembly, with the pins pointed at this three-code pilot.
-    monkeypatch.setattr(pilot, "POPULATION_SHA256", pilot.population_digest([pilot._record(c) for c in POP]))
-    monkeypatch.setattr(pilot, "POPULATION_SIZE", 3)
-    monkeypatch.setattr(pilot, "SHOT_BATCH", BATCH)
-    monkeypatch.setattr(pilot, "MAX_SHOTS", MAX)
-    out = assemble_measurements(tmp_path / "k3" / "pilot", tmp_path / "data")
+    # Final assembly from the downloaded tar.
+    _pin_to_pop(monkeypatch)
+    out = assemble_measurements(working(3) / "m0-pilot.tar", tmp_path / "data")
     assert out == tmp_path / "data" / "m0_measurements.parquet"
     table = pq.read_table(out).to_pylist()
     assert {r["code_id"]: without_timing(r) for r in table} == {c: without_timing(r) for c, r in ref.items()}
     with pytest.raises(PilotRefusal, match="does not overwrite"):
-        assemble_measurements(tmp_path / "k3" / "pilot", tmp_path / "data")
+        assemble_measurements(working(3) / "m0-pilot.tar", tmp_path / "data")
+
+
+@pytest.mark.slow
+def test_a_snapshot_taken_mid_session_resumes_correctly(tmp_path, monkeypatch):
+    """A session that dies leaves its last periodic snapshot; the next session resumes from it."""
+    ref = reference_rows(tmp_path, monkeypatch)
+    _parent(monkeypatch)
+    run_session(cfg(wall=0.0, archive=tmp_path / "working1"), tmp_path / "scratch1" / "m0-pilot")
+
+    real, crashed = pilot._write_archive, tmp_path / "crashed"
+
+    def keep_first_mid_code_snapshot(pilot_dir, archive_dir, *, reason):
+        sha = real(pilot_dir, archive_dir, reason=reason)
+        if reason == "periodic" and not crashed.exists():
+            with pilot.tarfile.open(archive_dir / "m0-pilot.tar") as tar:
+                names = tar.getnames()
+            if any(f"m0-pilot/{c}/batch_000000.parquet" in names and f"m0-pilot/{c}/{RESULT_FILE}" not in names
+                   for c in IDS):
+                crashed.mkdir()
+                for name in ("m0-pilot.tar", "m0-pilot.tar.sha256"):
+                    pilot.shutil.copy2(archive_dir / name, crashed / name)
+        return sha
+
+    monkeypatch.setattr(pilot, "_write_archive", keep_first_mid_code_snapshot)
+    slow = functools.partial(fakes.slow_batches, seconds=0.3, **SSE2)
+    run_session(cfg(tmp_path / "working1", setup=slow, archive=tmp_path / "working2",
+                    snapshot_minutes=0.25 / 60), tmp_path / "scratch2" / "m0-pilot")
+    monkeypatch.setattr(pilot, "_write_archive", real)
+    assert crashed.exists(), "no periodic snapshot caught a code mid-way"
+
+    # The session is resumed from its snapshot, which holds no session_002.json: it is session 2 again.
+    s = run_session(cfg(crashed, archive=tmp_path / "working3"), tmp_path / "scratch3" / "m0-pilot")
+    assert s["session"] == 2 and s["kind"] == "session" and s["stale_restarted"] == [] and s["died"] == []
+    assert sorted(s["codes"]["done"]) == sorted(IDS)
+    rows = pilot_rows(tmp_path / "scratch3" / "m0-pilot")
+    assert {c: without_timing(r) for c, r in rows.items()} == {c: without_timing(r) for c, r in ref.items()}
 
 
 @pytest.mark.slow
@@ -223,6 +287,73 @@ def test_previous_with_zero_or_two_pilot_directories_is_refused(tmp_path, monkey
     with pytest.raises(PilotRefusal, match="2 pilot directories"):
         run_session(cfg(two), tmp_path / "w" / "pilot")
     assert not (tmp_path / "w").exists()
+
+
+def _first_archive(tmp_path, monkeypatch):
+    """Session 1 with a tar in working1 (starts nothing: no workers, fast)."""
+    _parent(monkeypatch)
+    run_session(cfg(wall=0.0, archive=tmp_path / "working1"), tmp_path / "scratch1" / "m0-pilot")
+    return tmp_path / "working1"
+
+
+def test_a_corrupted_tar_is_refused(tmp_path, monkeypatch):
+    working = _first_archive(tmp_path, monkeypatch)
+    tar = working / "m0-pilot.tar"
+    data = bytearray(tar.read_bytes())
+    data[len(data) // 2] ^= 0xFF
+    tar.write_bytes(bytes(data))
+    with pytest.raises(PilotRefusal, match="sha256"):
+        run_session(cfg(working, archive=tmp_path / "working2"), tmp_path / "scratch2" / "m0-pilot")
+    assert not (tmp_path / "scratch2").exists()
+    with pytest.raises(PilotRefusal, match="sha256"):
+        assemble_measurements(tar, tmp_path / "data")
+    (working / "m0-pilot.tar.sha256").unlink()
+    with pytest.raises(PilotRefusal, match="no m0-pilot.tar.sha256"):
+        run_session(cfg(working, archive=tmp_path / "working2"), tmp_path / "scratch2" / "m0-pilot")
+
+
+def test_two_tars_or_none_are_refused(tmp_path, monkeypatch):
+    working = _first_archive(tmp_path, monkeypatch)
+    two = tmp_path / "two"
+    for name in ("a", "b"):
+        pilot.shutil.copytree(working, two / name)
+    with pytest.raises(PilotRefusal, match="2 m0-pilot.tar files"):
+        run_session(cfg(two, archive=tmp_path / "working2"), tmp_path / "scratch2" / "m0-pilot")
+    (tmp_path / "none").mkdir()
+    with pytest.raises(PilotRefusal, match="no m0-pilot.tar and 0 pilot directories"):
+        run_session(cfg(tmp_path / "none", archive=tmp_path / "working2"), tmp_path / "scratch2" / "m0-pilot")
+    assert not (tmp_path / "scratch2").exists()
+
+
+def test_a_tar_is_checked_against_its_inventory(tmp_path, monkeypatch):
+    """A tar whose sha256 matches its sidecar but whose contents disagree with its inventory."""
+    working = _first_archive(tmp_path, monkeypatch)
+    scratch = tmp_path / "scratch1" / "m0-pilot"
+    (scratch / "population.parquet").write_bytes(b"not the population")
+    with pilot.tarfile.open(working / "m0-pilot.tar", "w") as tar:  # re-tar, inventory.json unchanged
+        for p in sorted(scratch.rglob("*")):
+            tar.add(p, arcname=f"m0-pilot/{p.relative_to(scratch).as_posix()}", recursive=False)
+    (working / "m0-pilot.tar.sha256").write_text(f"{pilot._sha256(working / 'm0-pilot.tar')}  m0-pilot.tar\n")
+    with pytest.raises(PilotRefusal, match="truncated or altered"):
+        run_session(cfg(working, archive=tmp_path / "working2"), tmp_path / "scratch2" / "m0-pilot")
+
+
+def test_the_pilot_directory_may_not_live_in_the_archive_dir(tmp_path, monkeypatch):
+    _parent(monkeypatch)
+    with pytest.raises(PilotRefusal, match="at most 500 output files"):
+        run_session(cfg(wall=0.0, archive=tmp_path / "working"), tmp_path / "working" / "m0-pilot")
+    with pytest.raises(PilotRefusal, match="not a directory"):
+        run_session(PilotConfig(archive_dir=str(tmp_path / "missing"), _population=POP), tmp_path / "pilot")
+    assert not (tmp_path / "working" / "m0-pilot").exists()
+
+
+def test_a_probe_that_died_before_its_summary_is_resumed_as_the_probe(tmp_path, monkeypatch):
+    out = _first_session(tmp_path, monkeypatch)
+    (out / "session_001.json").unlink()  # its last snapshot was taken before the summary
+    with pytest.raises(PilotRefusal, match="forget PREVIOUS"):
+        run_session(cfg(wall=0.0, gate=GATE), out)
+    s = run_session(cfg(wall=0.0, gate=None), out)
+    assert (s["session"], s["kind"]) == (1, "probe")
 
 
 def test_a_copy_that_differs_from_its_source_is_refused(tmp_path, monkeypatch):
@@ -489,6 +620,14 @@ def test_the_cost_report_on_synthetic_shards(tmp_path, monkeypatch):
     assert c["overall"]["projected_censored"] == 1 + sum(s is True for s in model_status)
     assert c["top_third_by_d_upper"]["codes"] == 3 and c["top_third_by_d_upper"]["d_upper_min"] == 6  # d 9, 8, 6
     assert "x2" in pilot.format_cost_report(report)
+
+
+def test_the_cost_report_reads_the_tar_as_it_reads_the_directory(tmp_path):
+    out, *_ = _synthetic_pilot(tmp_path)
+    (tmp_path / "working").mkdir()
+    pilot._write_archive(out, tmp_path / "working", reason="session_end")
+    from_dir = pilot.pilot_cost_report(out, CALIBRATION)
+    assert pilot.pilot_cost_report(tmp_path / "working" / "m0-pilot.tar", CALIBRATION) == from_dir
 
 
 def test_the_cost_report_needs_a_probe(tmp_path):

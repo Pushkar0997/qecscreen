@@ -11,13 +11,28 @@ sessions. **All of it lives in one pilot directory:**
 - one checkpoint directory per ``code_id`` (``qecscreen.evaluate.checkpoint``);
 - ``stale/``: partial checkpoints that could not be continued, moved aside,
   never deleted;
-- one ``session_NNN.json`` summary per session.
+- one ``session_NNN.json`` summary per session;
+- ``inventory.json``: the sha256 of every other file, rewritten at each snapshot.
+
+**The archive** (D-033 amendment 2). Kaggle keeps at most 500 files of a
+version's output, and the pilot directory reaches ~10,000. So the pilot
+directory lives in a scratch directory (the notebook's ``/kaggle/tmp/m0-pilot``)
+and the only pilot file in ``archive_dir`` (``/kaggle/working``) is one
+uncompressed tar, ``m0-pilot.tar``, with a sidecar ``m0-pilot.tar.sha256``,
+beside the session summary without its inventory. The tar is written to
+``.tmp``, fsynced and renamed, every ``SNAPSHOT_MINUTES`` and at session end,
+so a session that dies still leaves its last snapshot. ``pilot_cost_report``
+and ``assemble_measurements`` take the tar or an extracted directory.
 
 **Session start** (``run_session``). With ``previous`` (a notebook's earlier
-output, attached under ``/kaggle/input``), the one pilot directory under it
-is copied verbatim into ``out_dir`` and checked file by file, and against the
-file inventory the previous session recorded, so an output Kaggle truncated
-is refused rather than resumed. The first session writes the manifest; every
+output, attached under ``/kaggle/input``), the one ``m0-pilot.tar`` under it is
+checked against its sidecar's sha256 and extracted into ``out_dir``; zero or
+two tars are refused. (A ``previous`` holding no tar but one pilot directory is
+copied verbatim.) Either way the files are checked against the inventory the
+last snapshot, or failing that the last session, recorded, so an output Kaggle
+truncated is refused rather than resumed. A pilot with a manifest but no
+session summary is a probe that died before its end, and is resumed as the
+probe. The first session writes the manifest; every
 later one refuses to start if the protocol hash, the installed ldpc or stim,
 the commit or the population digest differ, and says which. The population is
 enumerated every session and checked against ``POPULATION_SIZE`` and
@@ -50,6 +65,7 @@ refuses while any code is unfinished.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import datetime
 import hashlib
@@ -59,10 +75,12 @@ import multiprocessing.connection
 import os
 import shutil
 import sys
+import tarfile
+import tempfile
 import time
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import pyarrow as pa
@@ -95,6 +113,7 @@ from qecscreen.protocol import (
 )
 
 __all__ = [
+    "ARCHIVE_FILE",
     "BUDGET",
     "EXIT_STALE",
     "MANIFEST_KEYS",
@@ -105,6 +124,7 @@ __all__ = [
     "PROBE_CODES",
     "PROBE_WALL_HOURS",
     "SESSION_WALL_HOURS",
+    "SNAPSHOT_MINUTES",
     "PilotConfig",
     "PilotRefusal",
     "assemble_measurements",
@@ -138,7 +158,15 @@ MEASUREMENTS_FILE = "m0_measurements.parquet"  # owner, 2026-09-28, under data/ 
 MANIFEST_FILE = "manifest.json"
 POPULATION_FILE = "population.parquet"
 STALE_DIR = "stale"
+INVENTORY_FILE = "inventory.json"
 FORMAT = "qecscreen_m0_pilot_v1"
+
+# D-033 amendment 2 (owner, 2026-09-28): Kaggle keeps at most 500 output files.
+KAGGLE_WORKING = "/kaggle/working"  # what Kaggle keeps as a version's output
+ARCHIVE_FILE = "m0-pilot.tar"  # uncompressed; the only pilot file in archive_dir
+ARCHIVE_ROOT = "m0-pilot"  # the tar's one top-level directory
+SHA256_SUFFIX = ".sha256"  # sidecar: "<sha256>  m0-pilot.tar", as sha256sum writes it
+SNAPSHOT_MINUTES = 60.0  # owner: the tar is refreshed this often, and at session end
 EXIT_STALE = 75  # a worker's exit code for "this partial checkpoint cannot be continued"
 
 # Every session must agree on these with the first (D-033).
@@ -166,10 +194,13 @@ class PilotConfig:
     """One session's settings. The notebook sets ``previous`` and ``cost_gate`` only.
 
     ``previous`` is ``None`` or a path (under ``/kaggle/input``) holding
-    exactly one pilot directory. ``cost_gate`` is required from session 2 on:
+    exactly one ``m0-pilot.tar``. ``cost_gate`` is required from session 2 on:
     the ``spec/evals.md §7`` entry that approved the probe's cost report.
-    The underscored fields are for tests only: a small population, small
-    batches, and a hook run first in each worker.
+    ``archive_dir`` is where the tar, its sidecar and the session summary go:
+    ``/kaggle/working`` by default, which must exist; ``None`` writes no archive
+    (tests, and a local run). The underscored fields are for tests only: a small
+    population, small batches, a hook run first in each worker, and the
+    snapshot period.
     """
 
     previous: str | None = None
@@ -178,14 +209,18 @@ class PilotConfig:
     probe_wall_hours: float = PROBE_WALL_HOURS
     probe_codes: int = PROBE_CODES
     processes: int = PROCESSES
+    archive_dir: str | None = KAGGLE_WORKING
     _population: tuple[Mapping[str, Any], ...] | None = None
     _batch_size: int = SHOT_BATCH
     _max_shots: int = MAX_SHOTS
     _worker_setup: Callable[[Mapping[str, Any]], None] | None = None
+    _snapshot_minutes: float = SNAPSHOT_MINUTES
 
     def __post_init__(self) -> None:
         if min(self.session_wall_hours, self.probe_wall_hours) < 0 or min(self.processes, self.probe_codes) < 1:
             raise ValueError("wall hours must be >= 0, and processes and probe_codes >= 1")
+        if not self._snapshot_minutes > 0:
+            raise ValueError("the snapshot period must be > 0")
         if not 0 < self._max_shots <= MAX_SHOTS or self._max_shots % self._batch_size:
             raise ValueError("max_shots must be a whole number of batches, at most MAX_SHOTS")
 
@@ -303,30 +338,142 @@ def locate_pilot(previous: str | os.PathLike[str]) -> Path:
     found = sorted({m.parent for m in root.rglob(MANIFEST_FILE) if _is_pilot_manifest(m)})
     if len(found) != 1:
         raise PilotRefusal(
-            f"PREVIOUS={root} holds {len(found)} pilot directories, not exactly one: "
+            f"PREVIOUS={root} holds no {ARCHIVE_FILE} and {len(found)} pilot directories, not exactly one: "
             f"{[str(f) for f in found]}. Attach only the previous session's output"
         )
     return found[0]
 
 
-def _copy_previous(previous: str, out: Path) -> Path:
-    src = locate_pilot(previous)
+def _check_inventory(pilot: Path, files: Mapping[str, str] | None = None) -> None:
+    """Refuse a pilot lacking or altering a file its last snapshot (else its last session) recorded."""
+    files = _files(pilot) if files is None else files
+    if (pilot / INVENTORY_FILE).is_file():
+        recorded, by = json.loads((pilot / INVENTORY_FILE).read_text(encoding="utf-8"))["files"], "snapshot"
+    elif summaries := _summaries(pilot):
+        recorded, by = summaries[-1]["inventory"], "session"
+    else:
+        return
+    missing = {p: h for p, h in recorded.items() if files.get(p) != h}
+    if missing:
+        raise PilotRefusal(
+            f"the attached pilot {pilot} lacks or differs in {len(missing)} of the files its last "
+            f"{by} recorded, e.g. {sorted(missing)[:5]}; its output was truncated or altered"
+        )
+
+
+def _write_bytes_synced(path: Path, data: bytes) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def _write_archive(pilot: Path, archive_dir: Path, *, reason: str) -> str:
+    """Snapshot ``pilot`` as ``<archive_dir>/m0-pilot.tar`` and its sidecar; return the tar's sha256.
+
+    Writes ``inventory.json`` into ``pilot`` first, so the tar carries the
+    inventory it is checked against. Shards are only ever renamed into place,
+    so a snapshot taken while workers run holds whole shards; a code's newest
+    shard may be missing, which costs a batch, not the code. The tar goes to
+    ``.tmp``, is fsynced and renamed, then the sidecar the same way: a death
+    between the two renames leaves a pair whose sha256 disagrees, which the
+    next session refuses.
+    """
+    files = {p: h for p, h in _files(pilot).items() if p != INVENTORY_FILE}
+    _write_json(pilot / INVENTORY_FILE, {"format": FORMAT, "taken_at": _utc(), "reason": reason, "files": files})
+    target = archive_dir / ARCHIVE_FILE
+    tmp = target.with_name(target.name + ".tmp")
+    with open(tmp, "wb") as f:
+        with tarfile.open(fileobj=f, mode="w", format=tarfile.PAX_FORMAT) as tar:
+            for rel in sorted([*files, INVENTORY_FILE]):
+                tar.add(pilot / rel, arcname=f"{ARCHIVE_ROOT}/{rel}", recursive=False)
+        f.flush()
+        os.fsync(f.fileno())
+    sha = _sha256(tmp)
+    os.replace(tmp, target)
+    _write_bytes_synced(target.with_name(ARCHIVE_FILE + SHA256_SUFFIX), f"{sha}  {ARCHIVE_FILE}\n".encode())
+    return sha
+
+
+def _verify_archive(tar_path: Path) -> str:
+    """The tar's sha256, after checking it against its sidecar; refuses a mismatch or no sidecar."""
+    sidecar = tar_path.with_name(tar_path.name + SHA256_SUFFIX)
+    if not sidecar.is_file():
+        raise PilotRefusal(f"{tar_path} has no {sidecar.name} beside it; its sha256 cannot be checked")
+    recorded = (sidecar.read_text(encoding="utf-8").split() or [""])[0].lower()
+    actual = _sha256(tar_path)
+    if recorded != actual:
+        raise PilotRefusal(f"{tar_path} has sha256 {actual}, but {sidecar.name} records {recorded!r}; "
+                           "the archive is corrupt or not the one its sidecar describes")
+    return actual
+
+
+def _extract_archive(tar_path: Path, dest: Path) -> None:
+    """Extract a pilot tar's ``m0-pilot/`` into ``dest``. Only plain files and
+    directories under that one root; anything else is refused, not skipped."""
+    dest.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(tar_path, mode="r:") as tar:
+        for member in tar:
+            parts = PurePosixPath(member.name).parts
+            if (not parts or parts[0] != ARCHIVE_ROOT or ".." in parts or member.name.startswith("/")
+                    or not (member.isfile() or member.isdir())):
+                raise PilotRefusal(f"{tar_path} is not a pilot archive: member {member.name!r}")
+            target = dest.joinpath(*parts[1:])
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with tar.extractfile(member) as src, open(target, "xb") as out:
+                shutil.copyfileobj(src, out)
+    if not _is_pilot_manifest(dest / MANIFEST_FILE):
+        raise PilotRefusal(f"{tar_path} holds no pilot manifest")
+
+
+@contextlib.contextmanager
+def _opened(pilot_or_archive: str | os.PathLike[str]) -> Iterator[Path]:
+    """A pilot directory, or a verified ``m0-pilot.tar`` extracted into a temporary one."""
+    path = Path(pilot_or_archive)
+    if not path.is_file():
+        yield path
+        return
+    _verify_archive(path)
+    with tempfile.TemporaryDirectory(prefix="qecscreen-pilot-") as tmp:
+        pilot = Path(tmp) / ARCHIVE_ROOT
+        _extract_archive(path, pilot)
+        _check_inventory(pilot)
+        yield pilot
+
+
+def _copy_previous(previous: str, out: Path, archive: Path | None) -> Path:
+    """Bring the previous session's pilot into ``out``: its one tar, or failing that its one pilot directory."""
+    root = Path(previous)
+    if not root.is_dir():
+        raise PilotRefusal(f"PREVIOUS={root} is not a directory")
+    tars = sorted(p for p in root.rglob(ARCHIVE_FILE) if p.is_file())
+    if len(tars) > 1:
+        raise PilotRefusal(
+            f"PREVIOUS={root} holds {len(tars)} {ARCHIVE_FILE} files, not exactly one: "
+            f"{[str(t) for t in tars]}. Attach only the previous session's output"
+        )
+    src = tars[0] if tars else locate_pilot(root)
     if out.exists() and any(out.iterdir()):
         raise PilotRefusal(
             f"OUT_DIR={out} is not empty; a session with PREVIOUS copies into an empty OUT_DIR. "
             "To continue in this same session, set PREVIOUS = None"
         )
+    if tars:
+        if archive is not None and src.parent.resolve() == archive.resolve():
+            raise PilotRefusal(f"PREVIOUS's {src} would be overwritten by this session's archive")
+        _verify_archive(src)
+        _extract_archive(src, out)
+        _check_inventory(out)
+        return src
     if out.resolve().is_relative_to(src.resolve()) or src.resolve().is_relative_to(out.resolve()):
         raise PilotRefusal(f"OUT_DIR={out} and the previous pilot {src} overlap")
     source = _files(src)
-    summaries = _summaries(src)
-    if summaries:  # what the previous session wrote, against what was attached
-        missing = {p: h for p, h in summaries[-1]["inventory"].items() if source.get(p) != h}
-        if missing:
-            raise PilotRefusal(
-                f"the attached pilot {src} lacks or differs in {len(missing)} of the files its last "
-                f"session recorded, e.g. {sorted(missing)[:5]}; its output was truncated or altered"
-            )
+    _check_inventory(src, source)  # what the previous session wrote, against what was attached
     shutil.copytree(src, out, dirs_exist_ok=True)
     copied = _files(out)
     if copied != source:
@@ -435,12 +582,23 @@ def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[st
     """Run one session of the pilot into ``out_dir``; write and return its summary."""
     started_at, t0 = _utc(), time.time()
     out = Path(out_dir)
-    copied_from = _copy_previous(config.previous, out) if config.previous is not None else None
-    probe = not (out / MANIFEST_FILE).exists()  # session 1 is the probe
+    archive = None if config.archive_dir is None else Path(config.archive_dir)
+    if archive is not None:
+        if not archive.is_dir():
+            raise PilotRefusal(f"archive_dir={archive} is not a directory (on Kaggle: {KAGGLE_WORKING})")
+        if out.resolve().is_relative_to(archive.resolve()):
+            raise PilotRefusal(
+                f"OUT_DIR={out} is inside archive_dir={archive}: Kaggle keeps at most 500 output files, "
+                f"and the pilot directory holds up to ~10,000. Put OUT_DIR in a scratch directory"
+            )
+    copied_from = _copy_previous(config.previous, out, archive) if config.previous is not None else None
+    # Session 1 is the probe. A manifest with no session summary is a probe that
+    # died before its end (its last snapshot was attached): it is resumed as the probe.
+    probe = not (out / MANIFEST_FILE).exists() or not _summaries(out)
     gate = (config.cost_gate or "").strip()
     if probe and gate:
         raise PilotRefusal(
-            f"{out} holds no pilot, so this would be session 1, the probe; but COST_GATE is set, "
+            f"{out} holds no completed session, so this session is the probe; but COST_GATE is set, "
             "which only a later session needs. Did you forget PREVIOUS?"
         )
 
@@ -487,6 +645,8 @@ def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[st
     ctx = multiprocessing.get_context("spawn")  # no fork of a threaded kernel
     pending, running = list(todo), {}
     started, died, restarted = [], [], set()
+    period = config._snapshot_minutes * 60.0
+    next_snapshot = t0 + period
     while pending or running:
         while pending and len(running) < config.processes and time.time() < deadline:
             rec = pending.pop(0)
@@ -496,7 +656,12 @@ def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[st
             print(f"started {rec['code_id']} (n*d_upper={rec['n_d_upper']})", flush=True)
         if not running:
             break
-        multiprocessing.connection.wait(list(running))
+        multiprocessing.connection.wait(
+            list(running), timeout=None if archive is None else max(0.0, next_snapshot - time.time()))
+        if archive is not None and time.time() >= next_snapshot:
+            sha = _write_archive(out, archive, reason="periodic")
+            next_snapshot = time.time() + period
+            print(f"snapshot {archive / ARCHIVE_FILE} sha256 {sha}", flush=True)
         for sentinel, (rec, proc) in list(running.items()):
             if proc.is_alive():
                 continue
@@ -516,9 +681,16 @@ def run_session(config: PilotConfig, out_dir: str | os.PathLike[str]) -> dict[st
                 died.append({"code_id": cid, "exitcode": proc.exitcode})
                 print(f"DIED (exit code {proc.exitcode}): {cid}", flush=True)
 
-    return _finish_session(out, config, manifest, population, session, started_at, deadline,
-                           copied_from, started, died, stale, seconds_before,
-                           kind="probe" if probe else "session", cost_gate=gate or None)
+    summary = _finish_session(out, config, manifest, population, session, started_at, deadline,
+                              copied_from, started, died, stale, seconds_before,
+                              kind="probe" if probe else "session", cost_gate=gate or None)
+    if archive is not None:
+        sha = _write_archive(out, archive, reason="session_end")
+        summary = {**summary, "archive": {"file": ARCHIVE_FILE, "sha256": sha}}
+        _write_json(archive / f"session_{session:03d}.json",  # small: the inventory stays in the tar
+                    {k: v for k, v in summary.items() if k != "inventory"})
+        print(f"archive {archive / ARCHIVE_FILE} sha256 {sha}", flush=True)
+    return summary
 
 
 def _finish_session(out, config, manifest, population, session, started_at, deadline,
@@ -602,18 +774,25 @@ def format_session(summary: Mapping[str, Any]) -> str:
 def assemble_measurements(pilot_dir: str | os.PathLike[str], data_dir: str | os.PathLike[str]) -> Path:
     """Build every row and write ``<data_dir>/m0_measurements.parquet``; return its path.
 
+    ``pilot_dir`` is a pilot directory or an ``m0-pilot.tar`` (checked against
+    its sidecar's sha256, and against its inventory once extracted).
     ``data_dir`` must be a directory named ``data`` (architecture §2), and the
     file must not exist yet. Refuses while any code is unfinished, if the
     population is not the pinned M0 population, if the rows do not share one
     protocol hash (INV-6) equal to the manifest's, or if there are not
     ``POPULATION_SIZE`` of them.
     """
-    pilot, data = Path(pilot_dir), Path(data_dir)
+    data = Path(data_dir)
     if data.name != "data":
         raise PilotRefusal(f"measurements go under data/ (architecture §2), not {data}")
     target = data / MEASUREMENTS_FILE
     if target.exists():
         raise PilotRefusal(f"{target} exists; assembly does not overwrite the measurements")
+    with _opened(pilot_dir) as pilot:
+        return _assemble(pilot, data, target)
+
+
+def _assemble(pilot: Path, data: Path, target: Path) -> Path:
     reject_calibration(pilot)
     manifest = json.loads((pilot / MANIFEST_FILE).read_text(encoding="utf-8"))
     population = _read_population(pilot)
@@ -644,8 +823,9 @@ def assemble_measurements(pilot_dir: str | os.PathLike[str], data_dir: str | os.
 def pilot_cost_report(pilot_dir: str | os.PathLike[str], calibration_dir: str | os.PathLike[str]) -> dict[str, Any]:
     """The probe's measured cost and failure fractions, against the D-029 projection.
 
-    Run locally, on the probe session's downloaded pilot directory, before any
-    later session is approved (``cost_gate``). Decodes nothing and enumerates
+    Run locally, on the probe session's downloaded ``m0-pilot.tar`` (or an
+    extracted pilot directory), before any later session is approved
+    (``cost_gate``). Decodes nothing and enumerates
     nothing: the population comes from ``population.parquet``. The projection
     is ``calibrate._project_pilot`` over the calibration's completed BP+OSD
     cells at ``P_PILOT``, with ``MAX_SHOTS`` and ``SHOT_BATCH``: seconds/shot a
@@ -667,12 +847,16 @@ def pilot_cost_report(pilot_dir: str | os.PathLike[str], calibration_dir: str | 
       donors), and among the probe codes with the lowest measured failure
       fractions, all of them listed in order.
     """
+    with _opened(pilot_dir) as pilot:
+        return _cost_report(pilot, Path(calibration_dir))
+
+
+def _cost_report(pilot: Path, cal: Path) -> dict[str, Any]:
     import math
     import statistics
 
     from qecscreen.evaluate import calibrate  # scipy.stats and ldpc's LSD: not for workers
 
-    pilot, cal = Path(pilot_dir), Path(calibration_dir)
     manifest = json.loads((pilot / MANIFEST_FILE).read_text(encoding="utf-8"))
     if "probe_codes" not in manifest or not any(s.get("kind") == "probe" for s in _summaries(pilot)):
         raise PilotRefusal(f"{pilot} holds no probe session")
