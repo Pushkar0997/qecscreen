@@ -25,7 +25,9 @@ order of first appearance.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
+import os
 import time
 from dataclasses import dataclass
 
@@ -34,6 +36,7 @@ import scipy.sparse as sp
 import stim
 from ldpc import BpOsdDecoder
 
+from qecscreen.evaluate.checkpoint import BatchRecord, CheckpointMismatchError, CodeCheckpoint
 from qecscreen.protocol import DECODER_PARAMS, MAX_SHOTS, MIN_FAILURES, SHOT_BATCH
 
 __all__ = [
@@ -205,6 +208,7 @@ def sample_and_decode(
     seed: int,
     batch_size: int = SHOT_BATCH,
     max_shots: int = MAX_SHOTS,
+    checkpoint_dir: str | os.PathLike[str] | None = None,
 ) -> RunResult:
     """Sample ``circuit`` with a stim sampler seeded by ``seed`` and decode with BP+OSD.
 
@@ -217,6 +221,17 @@ def sample_and_decode(
     ``MAX_SHOTS``; smaller values exist for tests. ``max_shots`` may not exceed
     ``MAX_SHOTS`` and must be a whole number of batches, so every batch in a
     run has the same size.
+
+    With ``checkpoint_dir`` (one directory per code and p), every completed
+    batch is flushed there before the next is sampled (M0-EVAL-04,
+    ``qecscreen.evaluate.checkpoint``). A code that has already finished
+    returns its stored result without sampling or decoding. A partial one
+    re-creates the seeded sampler, draws and discards its completed batches,
+    each checked against its shard's digest, and decodes from the next batch,
+    so it ends with exactly the shots and failures of an uninterrupted run.
+    Re-drawn shots that differ from the recorded ones (another stim version
+    or CPU class, D-027) raise ``CheckpointMismatchError`` rather than splice
+    two streams into one count.
     """
     if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2**64:
         raise ValueError(f"seed must be an int in range(2**64); got {seed!r}")
@@ -229,28 +244,80 @@ def sample_and_decode(
             f"max_shots={max_shots} is not a whole number of batch_size={batch_size} batches"
         )
 
-    decoder = CompiledBpOsd(detector_error_model(circuit))
+    checkpoint = None
+    completed: list[BatchRecord] = []
+    if checkpoint_dir is not None:
+        checkpoint = CodeCheckpoint(
+            checkpoint_dir, seed=seed, batch_size=batch_size, max_shots=max_shots
+        )
+        stored = checkpoint.result()
+        if stored is not None:
+            return RunResult(**stored)
+        completed = checkpoint.batches()
+
     sampler = circuit.compile_detector_sampler(seed=seed)
     digest = hashlib.sha256()
-    shots = failures = 0
+    shots = failures = osd_invocations = 0
     decode_seconds = 0.0
-    while failures < MIN_FAILURES and shots < max_shots:
+
+    def draw() -> tuple[np.ndarray, np.ndarray, str]:
         dets, obs = sampler.sample(batch_size, separate_observables=True, bit_packed=True)
         digest.update(dets.tobytes())
         digest.update(obs.tobytes())
+        batch = hashlib.sha256(dets.tobytes())
+        batch.update(obs.tobytes())
+        return dets, obs, batch.hexdigest()
+
+    for rec in completed:  # resume: the same stream, drawn and discarded
+        _, _, batch_digest = draw()
+        if batch_digest != rec.batch_samples_sha256 or digest.hexdigest() != rec.samples_sha256:
+            raise CheckpointMismatchError(
+                f"batch {rec.batch_index} re-drawn from seed {seed} differs from its shard in "
+                f"{checkpoint_dir}; the stim version or CPU class probably differs from the "
+                "run that wrote it (D-027), so its shots cannot be continued"
+            )
+        shots, failures = rec.shots, rec.failures
+        osd_invocations += rec.batch_osd_invocations
+        decode_seconds += rec.batch_decode_seconds
+
+    decoder = None
+    while failures < MIN_FAILURES and shots < max_shots:
+        if decoder is None:
+            decoder = CompiledBpOsd(detector_error_model(circuit))
+        dets, obs, batch_digest = draw()
+        osd_before = decoder.osd_invocations
         start = time.perf_counter()
         pred = decoder.decode_shots_bit_packed(bit_packed_detection_event_data=dets)
-        decode_seconds += time.perf_counter() - start
-        failures += count_failures(pred, obs, circuit.num_observables)
+        batch_seconds = time.perf_counter() - start
+        batch_failures = count_failures(pred, obs, circuit.num_observables)
+        batch_osd = decoder.osd_invocations - osd_before
         shots += batch_size
+        failures += batch_failures
+        osd_invocations += batch_osd
+        decode_seconds += batch_seconds
+        if checkpoint is not None:
+            checkpoint.write_batch(BatchRecord(
+                batch_index=shots // batch_size - 1,
+                batch_shots=batch_size,
+                batch_failures=batch_failures,
+                batch_osd_invocations=batch_osd,
+                batch_decode_seconds=batch_seconds,
+                batch_samples_sha256=batch_digest,
+                shots=shots,
+                failures=failures,
+                samples_sha256=digest.hexdigest(),
+            ))
 
-    return RunResult(
+    result = RunResult(
         seed=seed,
         batch_size=batch_size,
         shots=shots,
         failures=failures,
         stopped_by="min_failures" if failures >= MIN_FAILURES else "max_shots",
-        osd_invocations=decoder.osd_invocations,
+        osd_invocations=osd_invocations,
         samples_sha256=digest.hexdigest(),
         decode_seconds=decode_seconds,
     )
+    if checkpoint is not None:
+        checkpoint.write_result(dataclasses.asdict(result))
+    return result
