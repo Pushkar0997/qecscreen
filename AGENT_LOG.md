@@ -6,6 +6,79 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-28 (uu) — Claude Opus 5.5 / Claude Code — D-032 resume rule; M0-RUN-01 row writer and pilot runner; M0-RUN-02 pilot notebook, probe and cost gate (D-033)
+
+**Milestone:** M0 — Falsification
+**Tasks attempted:**
+- Part 0: owner decisions recorded (spec only).
+- Part 1: the measurement-row writer (M0-RUN-01).
+- Part 2: the pilot runner, chained across Kaggle sessions (M0-RUN-01).
+- Part 3: the pilot notebook, the probe session, the cost gate and `pilot_cost_report` (M0-RUN-02).
+
+Nothing was decoded beyond test-sized runs on [[12]] codes locally. No notebook was run.
+
+**CI for (tt)'s commit `c47273d`:** success (run 36395846316), read through the public API.
+
+**Owner answers asked for this session** (the brief marked them "confirm", or left them unpinned):
+- `SESSION_WALL_HOURS` = **10.5**, not the proposed 11.0.
+- The probe: **12 codes, 3 h**, not 2 h.
+- The measurements file: **`data/m0_measurements.parquet`**. Architecture §2 pinned `data/` but no file name, so this was a stop-and-ask.
+
+**Landed:**
+- `49a4260` **Part 0**, spec only.
+  - CONTRACT SAMPLING gains the batch-level resume rule, recorded as **D-032**.
+  - D-031's status line notes the owner's approval of plan.md's "one row for each of the 244 codes".
+  - D-031's reason for rejecting 20,000 shots is restated as cost (~13 vs ~6.5 core-hours for a capped code), with a dated correction note and the owner's "Revisit if".
+  - tasks.md: M0-EVAL-03 reworded (done when test names match CONTRACT or CONTRACT is corrected, and the guard is tested on a DataFrame column). "Every ranking entry point calls it" moved to M0-METRIC-01. M0-RUN-01's `CALIBRATION_CODE_SEED` rule reworded as given.
+- `5a1a78f` **Part 1**, M0-RUN-01's row writer.
+  - `evaluate.rows.build_row(code, checkpoint_dir)`, with `MEASUREMENT_SCHEMA`, which is exactly architecture §3's columns and types. A test parses §3's table and compares.
+  - Checkpoint shards now record `commit_sha`, `stim_version` and `cpu_class` per batch. Shards that disagree raise `ProvenanceMismatchError`, as does a resume by a process that differs from them. A digest mismatch raises `SampleDigestMismatchError`. Both are `CheckpointMismatchError`s.
+  - New `codes/ids.py`: `params_json`, `code_id` and `regenerate`. `calibrate.code_id` delegates to it; a test checks the committed calibration's ids are unchanged.
+  - `build_row` refuses: calibration input; a missing, empty or placeholder commit; mixed provenance; an unfinished code; a seed that is not `sampling_seed(code_id, protocol_hash)` under the installed ldpc; a code record that disagrees with its parameters.
+  - N-16, 5 of 5 mutants caught.
+- `a67c6bc` **Part 2**, M0-RUN-01's runner: `evaluate/pilot.py`, D-033.
+  - The population is enumerated by the new `codes.sample.admissible_codes(72)`. It has 244 codes, pinned digest `5008e14e…`. Its per-template counts equal evals §7's budget-72 row. A slow test checks it equals `sample_bb_params(244, 72, CALIBRATION_CODE_SEED)`.
+  - `sample_and_decode(..., deadline=)` is checked between batches, predicting one batch ahead. The first batch of a call always runs.
+  - The copy of `PREVIOUS` is verified file by file, and against the inventory the previous session's summary recorded. A Kaggle-truncated output is therefore refused.
+  - Tests: `tests/test_pilot.py`, with worker hooks in `tests/_pilot_fakes.py`. N-17, 13 of 13 mutants caught (chaining and the manifest check).
+- `3f928e5` **Part 3**, M0-RUN-02.
+  - `notebooks/pilot.ipynb`: a runbook markdown cell, then the six template cells, cells 1–2 identical to the template. The runbook is mirrored in architecture §2.
+  - Session 1 (no manifest) is the probe. Later sessions refuse without `COST_GATE`, which is recorded in the manifest.
+  - `pilot_cost_report` and `format_cost_report`. `_project_pilot(per_code=True)` is opt-in, so `summarize`'s output is unchanged.
+  - D-033 amendment. N-18, 7 of 7 mutants caught.
+
+**M0-RUN task IDs this closes:** M0-RUN-01 and M0-RUN-02, both ticked. M0-RUN-03 (execute the pilot) stays open; it is the owner's Kaggle work. **Reworded because their wording predated D-031:**
+- M0-RUN-01: `scripts/run_m0_pilot.py` and "sample params" became the package runner.
+- M0-RUN-02: `m0_kaggle.ipynb` became `pilot.ipynb`.
+- M0-RUN-03: "≥250 rows" became 244 rows, with the session procedure.
+
+**Merged for spec-with-code:** each part's spec edits are in that part's commit. Part 3's commit also carries the `_project_pilot` change the cost report needs.
+
+**No column had to be invented.** The row stores exactly architecture §3's columns. Deliberately not in the row, but kept in each checkpoint directory: `stopped_by`, `osd_invocations`, `samples_sha256`, `batch_size`, `max_shots`. The last two are CONTRACT constants that the manifest also records.
+
+**Suite:** default **313 passed, 25 deselected**, 49 s. The 9 slow tests in `test_pilot.py` were also run locally once, because they are the chaining evidence: all pass, ~2.5 min.
+**CI:** this entry is committed before the push. The pushed SHA's run is reported in the session reply.
+**Blockers:** none. The pilot notebook is ready to upload with the pushed SHA as `QECSCREEN_SHA`.
+
+**Noticed, did not fix:**
+1. `spec/architecture.md §6` still says the cap is not 20,000 because ~13 h is "longer than a 12-hour Kaggle session". That is the rationale 0c corrected in D-031, but architecture was not in Part 0's authorised list.
+2. **Kaggle output file count, not checked.** A finished pilot directory holds up to ~10,000 small files (244 × ≤ 41). If Kaggle drops files from a large output, the inventory check refuses the next session rather than resuming wrongly. The probe (≤ ~500 files) will not show it. Session 2's copy is the first real test.
+3. **Kaggle input mount path, not checked.** The runbook says to set `PREVIOUS` to the directory the Input panel shows. The runner searches below it for the one pilot manifest, so the exact layout under `/kaggle/input` should not matter, but this is from the docs, not a run.
+4. **`PREVIOUS` pointing at the notebook's own output.** Attaching several versions of the same notebook is refused (two manifests). The runbook says to detach older versions.
+5. `format_summary` still titles its projection "300-code"; `evaluate/__init__.py` still has the placeholder docstring (carried from (ss) and (tt)).
+6. The Bash tool here failed twice on Python heredocs containing certain quoted text; the edits went through Edit instead. This is tooling, not the repo.
+
+**Spec changes:**
+- `CONTRACT.md`: SAMPLING (D-032).
+- `spec/decisions.md`: D-031 status and correction, D-032, D-033 and its amendment.
+- `spec/architecture.md`: §2, for `data/m0_measurements.parquet`, `pilot.ipynb` and the runbook.
+- `spec/evals.md`: N-15 extended; N-16, N-17, N-18.
+- `spec/tasks.md`: EVAL-03, METRIC-01, RUN-01, RUN-02 and RUN-03.
+
+No NARRATIVE entry: nothing surprising came up. The calibration/pilot shared-shots fact was the owner's, recorded as given.
+
+---
+
 ## 2026-09-28 (tt) — Claude Opus 5.5 / Claude Code — D-031 M0 pilot protocol (M0-EVAL-05 closed); M0-EVAL-04 resume within a code
 
 **Milestone:** M0 — Falsification
