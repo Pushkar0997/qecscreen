@@ -168,6 +168,119 @@ Recorded here rather than in `AGENT_LOG.md` alone because a criterion is **unmet
 
 ---
 
+### 2026-09-27 — M0-EVAL-07 decoder calibration (calibration result, not a milestone verdict)
+
+Recorded here because it is a measurement that the decoder, `P_PILOT`, `SHOT_BATCH` and `MAX_SHOTS` decisions will rest on. It is **not** an M0 verdict and it moves no exit criterion. Nothing below is a label: every file is marked `"calibration": true`, and `reject_calibration` refuses the directory (D-029).
+
+**Run.** `notebooks/calibrate.ipynb` on Kaggle at `7e91f82`, provenance read back: Python 3.12.13, stim 1.16.0, ldpc 2.4.1, `x86_64/sse2`. Grid and decoders as D-029. 4 workers on 4 cores, so every ms/shot below is one core under full load. **Evidence:** `evidence/calibration/2026-09-27-7e91f82/` holds 35 files: `plan.json`, `summary.json`, the artifact and 32 cell files. They are byte-identical to the Kaggle output zip. `summarize()` on this directory at the current commit reproduces the stored `summary.json`, apart from the last digits of the power-law fit.
+
+**Cells.** 32 in all:
+- 27 completed: 11 stopped at `MIN_FAILURES` on every decoder, 16 at the 20-min wall cap, 0 at `max_shots`.
+- 1 killed: [[112,6,≤14]] at p=0.003.
+- 4 died: [[140,6,≤16]] at every p.
+
+Most large-code cells have ≤ 24 shots, so their intervals are wide. Every per-round rate below is the INV-4 Z-memory rate per round per logical qubit. The 95% Wilson interval is mapped through `logical_error_rate`. Point estimates are shown even where INV-3 would censor a label.
+
+#### Size scaling per template (BP+OSD)
+
+| Template | p | Smaller code: fail/shots, rate [95%] | Larger code(s) | Reading |
+|---|---|---|---|---|
+| sym_3_3 | 0.001 | [[72]] 13/670, 2.7e-4 [1.6e-4, 4.7e-4] | [[144]] 0/24, ≤ 1.0e-3 | unresolved |
+| sym_3_3 | 0.0015 | [[72]] 27/556, 6.9e-4 [4.7e-4, 1.0e-3] | [[144]] 2/21, 7.0e-4 [1.9e-4, 2.4e-3] | unresolved; equal point estimates |
+| sym_3_3 | 0.002 | [[72]] 87/486, 2.7e-3 [2.2e-3, 3.4e-3] | [[144]] 1/20, 3.6e-4 [6.2e-5, 1.9e-3] | **sub-threshold**, intervals separate |
+| sym_3_3 | 0.003 | [[72]] 100/283, 6.0e-3 [4.9e-3, 7.3e-3] | [[144]] 9/11, 1.2e-2 [5.1e-3, 2.0e-2] | larger code's point estimate higher; intervals overlap |
+| pair_2_2 | 0.001 | [[12]] 100/20521, 8.1e-4 [6.7e-4, 9.9e-4] | [[136]] 0/238, ≤ 7.3e-4 | consistent with sub-threshold; intervals overlap |
+| pair_2_2 | 0.0015 | [[12]] 100/11244, 1.5e-3 [1.2e-3, 1.8e-3] | [[136]] 0/179, ≤ 9.7e-4 | **sub-threshold**, separate |
+| pair_2_2 | 0.002 | [[12]] 100/5229, 3.2e-3 [2.6e-3, 3.9e-3] | [[136]] 0/164, ≤ 1.05e-3 | **sub-threshold**, separate |
+| pair_2_2 | 0.003 | [[12]] 100/3015, 5.6e-3 [4.6e-3, 6.8e-3] | [[136]] 5/159, 1.5e-3 [6.2e-4, 3.4e-3] | **sub-threshold**, separate |
+| mixed_3_5 | 0.001 | [[42]] 100/595, 5.1e-3 [4.2e-3, 6.2e-3] | [[112]] 3/9, 4.8e-3 [1.5e-3, 1.2e-2]; [[140]] died | no improvement; every interval above p |
+| mixed_3_5 | 0.0015 | [[42]] 100/279, 1.2e-2 [1.0e-2, 1.5e-2] | [[112]] 5/8, 1.2e-2 [4.3e-3, 2.3e-2]; [[140]] died after 3 shots (2 OSD failures) | no improvement; every interval above p |
+| mixed_3_5 | 0.002 | [[42]] 100/192, 2.0e-2 [1.6e-2, 2.4e-2] | [[112]] 5/7, 1.5e-2 [5.3e-3, 2.9e-2]; [[140]] died | no improvement; every interval above p |
+| mixed_3_5 | 0.003 | [[42]] 100/119, 5.0e-2 [3.9e-2, 6.1e-2] | [[112]] killed (3/3 failed before the kill); [[140]] died | no larger-code data |
+
+What each template shows:
+- **pair_2_2** shows sub-threshold behaviour at p = 0.0015, 0.002 and 0.003. At 0.001 it is consistent with it but not separated.
+- **sym_3_3** shows it at p = 0.002 only, and on 20 gross shots. At 0.0015 the two point estimates are equal. At 0.003 the gross estimate is higher.
+- **mixed_3_5** shows it at no p. Its [[42]] and [[112]] point estimates agree within 30% at every p where both exist. Every completed mixed_3_5 interval lies wholly above p, so the encoded qubit does worse per round than an unprotected one.
+
+The threshold is therefore template-dependent. `quad_4_2` has one calibration code, and the other 7 templates have none, so no size-scaling reading exists for them.
+
+#### BP+LSD vs BP+OSD, paired (same shots, 27 completed cells)
+
+"Disc." is the discordant shots: only LSD fails / only OSD fails. p is McNemar's exact test. The ratio is LSD failures / OSD failures. ms/shot is `decode()` wall time per shot, one core.
+
+| p | Code | Shots (stop) | OSD fail | LSD-0 fail | Disc. | p | LSD-0/OSD | LSD-4 fail | Disc. | p | LSD-4/OSD | OSD ms | LSD-0 ms | LSD-4 ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.001 | [[12,2,≤3]] pair_2_2 | 20521 (min_f) | 100 | 231 | 149/18 | 7.5e-27 | 2.31 | 225 | 139/14 | 4.7e-27 | 2.25 | 0.2 | 0.2 | 0.2 |
+| 0.001 | [[42,6,≤6]] mixed_3_5 | 595 (min_f) | 100 | 174 | 75/1 | 2.0e-21 | 1.74 | 147 | 57/10 | 4.0e-9 | 1.47 | 1,100 | 154 | 154 |
+| 0.001 | [[48,4,≤8]] quad_4_2 | 1084 (wall) | 19 | 48 | 31/2 | 1.3e-7 | 2.53 | 40 | 23/2 | 1.9e-5 | 2.11 | 944 | 79 | 81 |
+| 0.001 | [[72,12,≤6]] sym_3_3 | 670 (wall) | 13 | 25 | 12/0 | 4.9e-4 | 1.92 | 23 | 10/0 | 2.0e-3 | 1.77 | 1,589 | 98 | 101 |
+| 0.001 | [[112,6,≤14]] mixed_3_5 | 9 (wall) | 3 | 2 | 0/1 | 1 | 0.67 | 3 | 0/0 | 1 | 1.00 | 124,625 | 3,949 | 3,952 |
+| 0.001 | [[136,2,≤11]] pair_2_2 | 238 (wall) | 0 | 0 | 0/0 | 1 | – | 0 | 0/0 | 1 | – | 4,875 | 85 | 86 |
+| 0.001 | [[144,12,≤12]] sym_3_3 | 24 (wall) | 0 | 0 | 0/0 | 1 | – | 0 | 0/0 | 1 | – | 48,179 | 1,135 | 1,136 |
+| 0.0015 | [[12,2,≤3]] pair_2_2 | 11244 (min_f) | 100 | 230 | 145/15 | 6.8e-28 | 2.30 | 216 | 129/13 | 3.5e-25 | 2.16 | 0.3 | 0.3 | 0.3 |
+| 0.0015 | [[42,6,≤6]] mixed_3_5 | 279 (min_f) | 100 | 143 | 46/3 | 7.0e-11 | 1.43 | 133 | 38/5 | 2.5e-7 | 1.33 | 1,479 | 256 | 258 |
+| 0.0015 | [[48,4,≤8]] quad_4_2 | 854 (wall) | 57 | 114 | 60/3 | 9.0e-15 | 2.00 | 97 | 45/5 | 4.2e-9 | 1.70 | 1,183 | 110 | 111 |
+| 0.0015 | [[72,12,≤6]] sym_3_3 | 556 (wall) | 27 | 51 | 24/0 | 1.2e-7 | 1.89 | 43 | 18/2 | 4.0e-4 | 1.59 | 1,889 | 132 | 134 |
+| 0.0015 | [[112,6,≤14]] mixed_3_5 | 8 (wall) | 5 | 5 | 0/0 | 1 | 1.00 | 5 | 0/0 | 1 | 1.00 | 129,728 | 8,608 | 8,482 |
+| 0.0015 | [[136,2,≤11]] pair_2_2 | 179 (wall) | 0 | 0 | 0/0 | 1 | – | 0 | 0/0 | 1 | – | 6,485 | 107 | 107 |
+| 0.0015 | [[144,12,≤12]] sym_3_3 | 21 (wall) | 2 | 2 | 0/0 | 1 | 1.00 | 2 | 0/0 | 1 | 1.00 | 52,955 | 1,925 | 1,905 |
+| 0.002 | [[12,2,≤3]] pair_2_2 | 5229 (min_f) | 100 | 173 | 86/13 | 2.3e-14 | 1.73 | 162 | 77/15 | 3.3e-11 | 1.62 | 0.5 | 0.3 | 0.3 |
+| 0.002 | [[42,6,≤6]] mixed_3_5 | 192 (min_f) | 100 | 133 | 36/3 | 3.6e-8 | 1.33 | 123 | 25/2 | 5.6e-6 | 1.23 | 1,688 | 348 | 352 |
+| 0.002 | [[48,4,≤8]] quad_4_2 | 571 (min_f) | 100 | 159 | 65/6 | 1.3e-13 | 1.59 | 136 | 44/8 | 4.0e-7 | 1.36 | 1,304 | 151 | 154 |
+| 0.002 | [[72,12,≤6]] sym_3_3 | 486 (wall) | 87 | 121 | 38/4 | 5.7e-8 | 1.39 | 115 | 30/2 | 2.5e-7 | 1.32 | 2,068 | 198 | 198 |
+| 0.002 | [[112,6,≤14]] mixed_3_5 | 7 (wall) | 5 | 4 | 0/1 | 1 | 0.80 | 5 | 0/0 | 1 | 1.00 | 154,093 | 10,351 | 10,466 |
+| 0.002 | [[136,2,≤11]] pair_2_2 | 164 (wall) | 0 | 0 | 0/0 | 1 | – | 0 | 0/0 | 1 | – | 7,085 | 114 | 117 |
+| 0.002 | [[144,12,≤12]] sym_3_3 | 20 (wall) | 1 | 3 | 2/0 | 0.5 | 3.00 | 2 | 1/0 | 1 | 2.00 | 55,580 | 2,558 | 2,599 |
+| 0.003 | [[12,2,≤3]] pair_2_2 | 3015 (min_f) | 100 | 175 | 86/11 | 1.4e-15 | 1.75 | 150 | 69/19 | 7.8e-8 | 1.50 | 0.8 | 0.4 | 0.4 |
+| 0.003 | [[42,6,≤6]] mixed_3_5 | 119 (min_f) | 100 | 101 | 2/1 | 1 | 1.01 | 101 | 2/1 | 1 | 1.01 | 1,892 | 592 | 594 |
+| 0.003 | [[48,4,≤8]] quad_4_2 | 242 (min_f) | 100 | 129 | 34/5 | 2.4e-6 | 1.29 | 123 | 27/4 | 3.4e-5 | 1.23 | 1,382 | 297 | 299 |
+| 0.003 | [[72,12,≤6]] sym_3_3 | 283 (min_f) | 100 | 137 | 38/1 | 1.5e-10 | 1.37 | 120 | 25/5 | 3.2e-4 | 1.20 | 2,303 | 371 | 371 |
+| 0.003 | [[136,2,≤11]] pair_2_2 | 159 (wall) | 5 | 4 | 1/2 | 1 | 0.80 | 4 | 1/2 | 1 | 0.80 | 7,172 | 172 | 181 |
+| 0.003 | [[144,12,≤12]] sym_3_3 | 11 (wall) | 9 | 9 | 0/0 | 1 | 1.00 | 9 | 0/0 | 1 | 1.00 | 77,820 | 18,117 | 18,160 |
+
+**Failures.** BP+LSD fails more often than BP+OSD in 15 of the 27 cells, both orders, at McNemar p ≤ 2e-3. Those are every cell on [[12]], [[42]], [[48]] and [[72]] except [[42]] at p=0.003. No cell shows LSD significantly better. The other 12 cells cannot resolve a difference: the large codes have ≤ 238 shots, and [[42]] at p=0.003 has 3 discordant shots.
+
+**The ratio is not constant.** Across those 15 cells, LSD-0/OSD runs from 1.29 to 2.53, and LSD-4/OSD from 1.20 to 2.25. It depends on the code, and within every code it falls as p rises:
+- [[12]]: 2.31 → 1.75
+- [[42]]: 1.74 → 1.01
+- [[48]]: 2.53 → 1.29
+- [[72]]: 1.92 → 1.37
+
+A fixed correction factor between the two decoders' labels would be wrong. LSD-4 fails no more often than LSD-0 in every resolved cell.
+
+**Cost.** OSD vs LSD ms/shot per code, over the four p (LSD-0; LSD-4 is within 6% of it everywhere):
+
+| Code | OSD ms/shot | LSD-0 ms/shot | OSD / LSD |
+|---|---|---|---|
+| [[12,2,≤3]] | 0.2–0.8 | 0.2–0.4 | 1–2× |
+| [[42,6,≤6]] | 1,100–1,892 | 154–592 | 3–7× |
+| [[48,4,≤8]] | 944–1,382 | 79–297 | 5–12× |
+| [[72,12,≤6]] | 1,589–2,303 | 98–371 | 6–16× |
+| [[136,2,≤11]] | 4,875–7,172 | 85–172 | 42–62× |
+| [[112,6,≤14]] | 124,625–154,093 (225,348 at p=0.003, 3 shots before the kill) | 3,949–10,351 (54,191) | 15–32× |
+| [[144,12,≤12]] | 48,179–77,820 | 1,135–18,117 | 4–42× |
+| [[140,6,≤16]] | 344,149 (p=0.0015, 3 shots before dying) | 16,735 | 21× |
+
+LSD's cost rises steeply with p on the large codes: gross costs 1.1 s at p=0.001 and 18 s at p=0.003. In the pinned BP+OSD, one gross shot costs 48–78 s. The (mm) planning figure was ~13–25 s.
+
+**[[140,6,≤16]] died in all four cells** with exit code −9 at 4 workers. That is a SIGKILL the calibration's parent did not send, because its own kill is recorded as `killed`. The owner reads it as the kernel's out-of-memory kill. Three of the cells died before their first `decode()` call (`batch_index` null, no partial). The p=0.0015 cell died during shot 3's BP+OSD decode, after 3 shots.
+
+**The killed [[112,6,≤14]] cell at p=0.003 is explained by its per-shot timings. There is no evidence of a hang on a real shot.**
+- Setup, the time to build the circuit, DEM and decoders, was 24–26 s in this code's three completed cells.
+- The kept partial covers 3 shots at 225 s (OSD) + 54 s + 54 s (LSD) per shot, 1,001 s of decoding in all. So shot 3 started at about 1,026 s, before the 1,200 s cap. The cap is checked between shots, not between decoders.
+- At the same rates, shot 3's OSD and LSD-0 end at about 1,305 s, and its LSD-4 at about 1,360 s. The hard kill at 1,320 s (cap + 120 s margin) fell inside LSD-4, which is exactly where it was recorded.
+
+The 120 s margin was sized for "one shot per decoder past the cap (~1 min on the largest code)". On this code one shot for all three decoders takes ~5.5 min. The syndrome-in-span check that D-029's amendment describes was not run, since nothing points to a hang.
+
+**Closes?** M0-EVAL-07 is done: the run is recorded. Choosing the decoder, `P_PILOT`, `SHOT_BATCH` and `MAX_SHOTS` is the owner's decision, and CONTRACT changes need approval.
+**Caveats carried forward:**
+- The large-code cells rest on 7–24 shots (gross, [[112]]) or zero failures ([[136]]).
+- The size-scaling readings cover three templates of 11.
+- Every ms/shot is from a Kaggle CPU under 4 concurrent workers.
+
+---
+
 ### M0 verdict
 
 *Not yet run.*

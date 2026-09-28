@@ -1,0 +1,2452 @@
+{
+ "calibration": true,
+ "codes": [
+  {
+   "a_exps": [
+    [
+     3,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "b_exps": [
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "code_id": "bb_v1_sym_3_3-6d2a992b16a4",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 12,
+   "l": 6,
+   "m": 6,
+   "n": 72,
+   "name": "ref72"
+  },
+  {
+   "a_exps": [
+    [
+     3,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "b_exps": [
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "code_id": "bb_v1_sym_3_3-e2a88777e704",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 12,
+   "k": 12,
+   "l": 12,
+   "m": 6,
+   "n": 144,
+   "name": "gross144"
+  },
+  {
+   "a_exps": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "b_exps": [
+    [
+     0,
+     1
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "code_id": "bb_v1_pair_2_2-afbf55db2c35",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 2,
+   "l": 2,
+   "m": 3,
+   "n": 12,
+   "name": "bb_v1_pair_2_2-afbf55db2c35"
+  },
+  {
+   "a_exps": [
+    [
+     4,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "b_exps": [
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "code_id": "bb_v1_mixed_3_5-cf5649b397df",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 6,
+   "k": 6,
+   "l": 3,
+   "m": 7,
+   "n": 42,
+   "name": "bb_v1_mixed_3_5-cf5649b397df"
+  },
+  {
+   "a_exps": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "b_exps": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     2
+    ]
+   ],
+   "code_id": "bb_v1_quad_4_2-c7c6d07a81bf",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 4,
+   "l": 6,
+   "m": 4,
+   "n": 48,
+   "name": "bb_v1_quad_4_2-c7c6d07a81bf"
+  },
+  {
+   "a_exps": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "b_exps": [
+    [
+     0,
+     1
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "code_id": "bb_v1_pair_2_2-deb94a2172e3",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 11,
+   "k": 2,
+   "l": 17,
+   "m": 4,
+   "n": 136,
+   "name": "bb_v1_pair_2_2-deb94a2172e3"
+  },
+  {
+   "a_exps": [
+    [
+     4,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "b_exps": [
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "code_id": "bb_v1_mixed_3_5-3a2afa35a12f",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 14,
+   "k": 6,
+   "l": 8,
+   "m": 7,
+   "n": 112,
+   "name": "bb_v1_mixed_3_5-3a2afa35a12f"
+  },
+  {
+   "a_exps": [
+    [
+     4,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "b_exps": [
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "code_id": "bb_v1_mixed_3_5-3fde0f6a646a",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 16,
+   "k": 6,
+   "l": 10,
+   "m": 7,
+   "n": 140,
+   "name": "bb_v1_mixed_3_5-3fde0f6a646a"
+  }
+ ],
+ "config": {
+  "budget": 150,
+  "cell_kill_margin_seconds": 120.0,
+  "cell_wall_seconds": 1200.0,
+  "code_seed": 20260926,
+  "codes": [],
+  "decoders": [
+   "bposd",
+   "bplsd_cs_0",
+   "bplsd_cs_4"
+  ],
+  "max_hours": 3.0,
+  "max_shots": 200000,
+  "n_sampled_codes": 6,
+  "population_size": 300,
+  "processes": 4,
+  "ps": [
+   0.001,
+   0.0015,
+   0.002,
+   0.003
+  ],
+  "reference_codes": true,
+  "sample_batch": 256
+ },
+ "format": "qecscreen_decoder_calibration_v1",
+ "population": [
+  {
+   "code_id": "bb_v1_sq_4_2-f38baf26e7b5",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-6e170b05490a",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 7,
+   "k": 2,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-d67326aebbff",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-bc36f6280b04",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 3,
+   "k": 6,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-1ca465b555c8",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 54
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-2efd74455da6",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 3,
+   "k": 4,
+   "n": 18
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-a72e5e596b40",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-aa3e61b30634",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-c69838f7c479",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-752c87d5f879",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 102
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-bb844ffb098f",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-158d9dfd7ce4",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-166bac3690ac",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-75a132486696",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-197bf81f0f42",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 12,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-871febf1001d",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-70652cfa3b41",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 8,
+   "k": 2,
+   "n": 128
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-df72054865a0",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-fd74ea31a91b",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-76e8d5f7a721",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 12,
+   "k": 12,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-e706f74d2f27",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 8,
+   "k": 2,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-7e20ca30fc2d",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 4,
+   "k": 6,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-4448b7578b24",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 9,
+   "k": 2,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-624bdf04e884",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 2,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-27e87148aa98",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-5a9e585e38d4",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-8cabaa1d1227",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 8,
+   "k": 6,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-3a2afa35a12f",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 14,
+   "k": 6,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-4387f1100798",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 8,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-64b3b6e91e6e",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 54
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-6e36dc25e3d3",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 24
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-d6743eefd2a0",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 8,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-d7b0fe08c1c0",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 102
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-1621a86b6025",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-90421beb5a4e",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 138
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-1e4c2d05b647",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 4,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-74263417f63c",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-fc5ac5a5b128",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 10,
+   "k": 6,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-b40f0bcbb130",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 92
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-57241f4edf35",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 24
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-85108021d469",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 54
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-aeb0b8016af4",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 5,
+   "k": 2,
+   "n": 130
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-ee6532981cad",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 136
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-3cead4538648",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 48
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-590d0c8b20ae",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 5,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-5045b2a64d2f",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 7,
+   "k": 2,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-71be1991b75c",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-ab983aa33a3d",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 124
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-e828595c0eea",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 124
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-e952cb6cbcd0",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 5,
+   "k": 6,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-8e06f820914a",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 30
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-1c10eb0abbc4",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 6,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-b669652329d1",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 7,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-ad3e01e4a7f5",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-68ed664e9996",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 9,
+   "k": 4,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-e140c2401a9d",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-e56a17916718",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 8,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-b0e0984fdbb8",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-b378fef60813",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-dbf9fd44b715",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 2,
+   "n": 78
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-0f9d53909d97",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-04ac3db7b136",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-6420d266a76a",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-bfc6e2af6c07",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 6,
+   "k": 4,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-4dc802cd08c6",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 24
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-24c450961831",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-deb94a2172e3",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 11,
+   "k": 2,
+   "n": 136
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-afbf55db2c35",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 2,
+   "n": 12
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-26c32f622c97",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-dc5018c42dac",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-e12bfc59b684",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 128
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-5f31481e50ee",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-f851af73a567",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-e2ea8027e6b3",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 6,
+   "k": 6,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-4678ae5bdace",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 4,
+   "k": 6,
+   "n": 56
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-9c1e1f44b1c1",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 24
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-cca7df7feac9",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-5dfed8a5428d",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-bc7b64ca06fd",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-4d939707656e",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-d87d667f20c1",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-5fb0f2bd8c23",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 104
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-ac08d0832ba3",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 54
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-a4d2bc7acb0d",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 4,
+   "k": 18,
+   "n": 98
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-0a3e0b27114a",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 8,
+   "k": 6,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-4cea29f75ada",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-0660a8e5f3d2",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 7,
+   "k": 4,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-81323dbc78ae",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 4,
+   "k": 6,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-b700b93131a4",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 5,
+   "k": 4,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-d315374dd46e",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-51a9d9af4a83",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-192184147442",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-8d10776a01cd",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 8,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-ec1500516062",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-b5e4e9dc33fe",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-7410ed9fecf7",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 5,
+   "k": 4,
+   "n": 56
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-292375256c14",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 4,
+   "k": 6,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-04d0dff8ae04",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-7fc82cb918a0",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-d435b1f8e29b",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 9,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-12dc8664694c",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 5,
+   "k": 2,
+   "n": 56
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-cdea4a92a1eb",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-f63a87e7ee46",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-c1b4fd0066f4",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 2,
+   "n": 102
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-612476fe0053",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 12,
+   "k": 12,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-63a93537a4c3",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-14d3658f5017",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 116
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-e156cb4d46fe",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-84e479f0ae32",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 8,
+   "k": 6,
+   "n": 56
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-b840e98d99a4",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 104
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-96fab351e781",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-1d6a30aa3b0e",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 6,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-4c469622b7c4",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-a83637de6824",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-765544bc817f",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-e87bc1d0636e",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-8f8f1dc8ff76",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 14,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-db4fa81beec8",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 12,
+   "k": 2,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-07fd2609c0fa",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-58911e54875a",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-ac48d6b38263",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 12,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-2b5ce8258e7f",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-085f23900275",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 7,
+   "k": 4,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-a8bcde11190c",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 8,
+   "k": 6,
+   "n": 128
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-bea172c70777",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 3,
+   "k": 6,
+   "n": 42
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-2a9694c586a8",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 138
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-484ec5a76d7c",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-d81059017365",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-7fc39991c340",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-57ebd89240f0",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-6c01ae5e3357",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-f7202097bbfe",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 42
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-e468a4957d2a",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-092ee91d2e89",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 116
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-c7b3fad05e2a",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 3,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-7d310de8ceb8",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 5,
+   "k": 4,
+   "n": 150
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-5df3bb70aa3b",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-a585ed65f575",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 8,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-d8540bc00983",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-9ec57044ada0",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 12,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-a779d09bb062",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-b9fac6ddc420",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-240128cb2871",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-c7c6d07a81bf",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 4,
+   "n": 48
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-e11666870f5b",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-6c92142d0e09",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 4,
+   "k": 6,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-83b7f7ba10c0",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 8,
+   "k": 6,
+   "n": 70
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-bf25df109518",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 8,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-0baff21aacd2",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-43d2372c2edf",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 6,
+   "n": 64
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-4c597d8736a7",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 100
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-8dfe69b2d927",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 2,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-794b40c4a843",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 3,
+   "k": 8,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-4faad046f1a9",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 7,
+   "k": 2,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-0555379ffa32",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 10,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-76d4902a3b8e",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-c468b73291e1",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-922894e5fbf4",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 148
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-b8405b07488f",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 48
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-85f2795ac067",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 102
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-fd699bf5c037",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 80
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-84fcf3be8f50",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 54
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-bc38d3c194b6",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 88
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-04eb190dc5be",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-e23f562c1b23",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-94a22c68285e",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-4d91883e2045",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 9,
+   "k": 2,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-b37365e55f9e",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 20
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-d6806eaab2f2",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 5,
+   "k": 6,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-6d7840c28357",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-8af6613a6217",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 3,
+   "k": 6,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-61301b7cdd01",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-73cdf7c6a66c",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-38777e48fb9d",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 3,
+   "k": 6,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-8ff3d208c72d",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-e847da5bdd6a",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 128
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-e8ddae3870ff",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 12,
+   "k": 12,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-a8b2c7bdfd6d",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-deac71b7461e",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 5,
+   "k": 6,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-ea219f0e5849",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 88
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-307c4c363228",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 56
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-b1a98065ad2b",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 114
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-9086c3d74adb",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-3b8013f3bd0a",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-768f6905794f",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 10,
+   "k": 8,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-18d60e31a8d8",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 10,
+   "k": 6,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-11ec895771b0",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-1b010b5df9d9",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-a4df1be0d161",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 3,
+   "k": 8,
+   "n": 48
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-7b15674b2446",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-aee8035e81c8",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 6,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-044585eaa0a0",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 76
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-766cb68eca95",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 10,
+   "k": 2,
+   "n": 150
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-d6fa0e40cf7c",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 52
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-a75abdd5d740",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 6,
+   "n": 128
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-c7e5e1c34829",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 3,
+   "k": 4,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-6d33910ab1a9",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-c75e65abe316",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 6,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-90eb8f848f4f",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 148
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-3b53dd548d97",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 2,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-ac5f08ba387d",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 3,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-d751510b6f1e",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 124
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-00cedb094a3c",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 12,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-7afa05ef9c5e",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 8,
+   "k": 2,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-618817d1877e",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 24
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-79d0af66ecdb",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-cf5649b397df",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 6,
+   "k": 6,
+   "n": 42
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-b0816a1be402",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-eb45204e348c",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 66
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-9b4ff186d1e7",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-87d8bd532a6b",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-d803ff02e2c9",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 80
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-4022db5b62f6",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-c5cdcdd8f27a",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-2f11fa5d8480",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 150
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-8a90963dea2b",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-8bb773b560a9",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-cccb4d83a0bf",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-f857ad8bef32",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 54
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-4b50f37cb5ba",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 5,
+   "k": 4,
+   "n": 80
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-d7e57654d6fa",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-81a9faa0d712",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 5,
+   "k": 6,
+   "n": 70
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-b04747d26414",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 8,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-ce30d346d07d",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-3c072b640fc3",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 100
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-95c07c991fc0",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 10,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-0a387065902e",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-a58490a2cb88",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 3,
+   "k": 6,
+   "n": 42
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-d51a9c1b0849",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-3d98cc512429",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 78
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-208164e161dc",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-bb688c87a618",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-383fea8f7664",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-2d0f8498c08d",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 78
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-9fc633c3662a",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 14,
+   "k": 2,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-a55edec2ff80",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 10,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-dcb5ebd4e267",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 10,
+   "k": 6,
+   "n": 98
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-437806407a72",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-65c8986ff2f3",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-5763dfc5e213",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-c81bc8970961",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 10,
+   "k": 2,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-ababcc60ea21",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 6,
+   "k": 6,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-c44a694a92e7",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 68
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-5658cc3dbe39",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-55517c8ab886",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 8,
+   "k": 2,
+   "n": 136
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-1ec58dbf31f5",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 4,
+   "n": 128
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-30be50e97673",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-594538908018",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-d9fc8ef023e6",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 6,
+   "k": 8,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-bdf02dc80baf",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 12,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-7878d7825dd9",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-12df55763f3e",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 90
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-db0851e90661",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 4,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-be2d62a58d7d",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 4,
+   "k": 6,
+   "n": 56
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-9c155a765142",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 10,
+   "k": 4,
+   "n": 150
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-20675510a846",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-f59017f93fca",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 2,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-58e2ff313b6d",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-d2559d152e65",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-6f982c0b0977",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 9,
+   "k": 4,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-789382300b89",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-ef972ea362f9",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 10,
+   "k": 2,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_rare_2_3-966847dc4a5e",
+   "construction_program_id": "bb_v1_rare_2_3",
+   "d_upper": 7,
+   "k": 6,
+   "n": 98
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-3bcba9840c9d",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-5e1c2794277c",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 54
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-2ca6fa1a02c2",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 5,
+   "k": 4,
+   "n": 100
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-9f6134dadc84",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 8,
+   "k": 4,
+   "n": 136
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-39e769ccbcc7",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 12,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_bb288_3_3-24412fd01818",
+   "construction_program_id": "bb_v1_bb288_3_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-860693a93bae",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 2,
+   "n": 96
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-9a8846314498",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-0e526ceb8392",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 10,
+   "k": 8,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-385ba6d512bf",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 60
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-e222f7ed5146",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-b2e4ead1d992",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 4,
+   "n": 64
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-eedc1b0f9bc0",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-c65663a65f9a",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 8,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-92fc649fe9cd",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-57e54fc47d26",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 8,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-a9ebca324148",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 4,
+   "k": 6,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-d05fa156438b",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 8,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_sq_4_2-825a34fb9cfe",
+   "construction_program_id": "bb_v1_sq_4_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 78
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-7f43f184f615",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 6,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-a0ba746e71d7",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 8,
+   "k": 6,
+   "n": 112
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-51016afdbba3",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 36
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-f37b7090d204",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 2,
+   "n": 120
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-9f475fd8f79c",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 2,
+   "n": 114
+  },
+  {
+   "code_id": "bb_v1_mod_2_3-a215db027ab4",
+   "construction_program_id": "bb_v1_mod_2_3",
+   "d_upper": 4,
+   "k": 4,
+   "n": 132
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-e2a88777e704",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 12,
+   "k": 12,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-3fde0f6a646a",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 16,
+   "k": 6,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-b55b2a54d244",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 6,
+   "k": 2,
+   "n": 84
+  },
+  {
+   "code_id": "bb_v1_rare_3_4-6793f7622e98",
+   "construction_program_id": "bb_v1_rare_3_4",
+   "d_upper": 5,
+   "k": 6,
+   "n": 70
+  },
+  {
+   "code_id": "bb_v1_tri_3_3-cb73160fabb1",
+   "construction_program_id": "bb_v1_tri_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 108
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-aaa54e6bd74d",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 10,
+   "k": 6,
+   "n": 140
+  },
+  {
+   "code_id": "bb_v1_mixed_3_5-41659195d87b",
+   "construction_program_id": "bb_v1_mixed_3_5",
+   "d_upper": 4,
+   "k": 6,
+   "n": 28
+  },
+  {
+   "code_id": "bb_v1_diag_3_3-7ccc88d0d143",
+   "construction_program_id": "bb_v1_diag_3_3",
+   "d_upper": 6,
+   "k": 4,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_sym_3_3-6d2a992b16a4",
+   "construction_program_id": "bb_v1_sym_3_3",
+   "d_upper": 6,
+   "k": 12,
+   "n": 72
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-733b16eacf85",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 8,
+   "k": 8,
+   "n": 144
+  },
+  {
+   "code_id": "bb_v1_quad_4_2-a7b101bdefc5",
+   "construction_program_id": "bb_v1_quad_4_2",
+   "d_upper": 4,
+   "k": 6,
+   "n": 126
+  },
+  {
+   "code_id": "bb_v1_pair_2_2-0038b328eaa9",
+   "construction_program_id": "bb_v1_pair_2_2",
+   "d_upper": 3,
+   "k": 6,
+   "n": 54
+  }
+ ],
+ "provenance": {
+  "commit_sha": "7e91f82e3471c72b4261ae3bb8f7d8cc300f158a",
+  "cpu_class": "x86_64/sse2",
+  "decoder_version": "2.4.1",
+  "python_version": "3.12.13",
+  "stim_version": "1.16.0"
+ }
+}

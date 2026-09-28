@@ -1,0 +1,159 @@
+{
+ "batch_index": 0,
+ "calibration": true,
+ "code": {
+  "a_exps": [
+   [
+    4,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "b_exps": [
+   [
+    0,
+    4
+   ],
+   [
+    1,
+    0
+   ],
+   [
+    2,
+    1
+   ],
+   [
+    3,
+    0
+   ],
+   [
+    0,
+    2
+   ]
+  ],
+  "code_id": "bb_v1_mixed_3_5-3a2afa35a12f",
+  "construction_program_id": "bb_v1_mixed_3_5",
+  "d_upper": 14,
+  "k": 6,
+  "l": 8,
+  "m": 7,
+  "n": 112,
+  "name": "bb_v1_mixed_3_5-3a2afa35a12f"
+ },
+ "decoder": "bplsd_cs_4",
+ "format": "qecscreen_decoder_calibration_v1",
+ "killed_after_seconds": 1320.0,
+ "p": 0.003,
+ "partial": {
+  "calibration": true,
+  "decoders": {
+   "bplsd_cs_0": {
+    "all_shots_failed": true,
+    "bp_converged": 0,
+    "bp_convergence_fraction": 0.0,
+    "censored": false,
+    "decode_seconds": 162.573931078,
+    "failures": 3,
+    "ldpc_class": "BpLsdDecoder",
+    "ler": null,
+    "ler_ci_high": null,
+    "ler_ci_low": null,
+    "ms_per_shot": 54191.31035933333,
+    "params": {
+     "bp_method": "minimum_sum",
+     "lsd_method": "lsd_cs",
+     "lsd_order": 0,
+     "max_iter": 30,
+     "ms_scaling_factor": 0.625,
+     "schedule": "parallel"
+    },
+    "syndromes_sha256": "5db78eda165caaa9a165c3318e18bdb881bac22ee265f9d12a127d02c8bd2fec"
+   },
+   "bplsd_cs_4": {
+    "all_shots_failed": true,
+    "bp_converged": 0,
+    "bp_convergence_fraction": 0.0,
+    "censored": false,
+    "decode_seconds": 162.7852162980007,
+    "failures": 3,
+    "ldpc_class": "BpLsdDecoder",
+    "ler": null,
+    "ler_ci_high": null,
+    "ler_ci_low": null,
+    "ms_per_shot": 54261.738766000235,
+    "params": {
+     "bp_method": "minimum_sum",
+     "lsd_method": "lsd_cs",
+     "lsd_order": 4,
+     "max_iter": 30,
+     "ms_scaling_factor": 0.625,
+     "schedule": "parallel"
+    },
+    "syndromes_sha256": "5db78eda165caaa9a165c3318e18bdb881bac22ee265f9d12a127d02c8bd2fec"
+   },
+   "bposd": {
+    "all_shots_failed": true,
+    "bp_converged": 0,
+    "bp_convergence_fraction": 0.0,
+    "censored": false,
+    "decode_seconds": 676.0448864929995,
+    "failures": 3,
+    "ldpc_class": "BpOsdDecoder",
+    "ler": null,
+    "ler_ci_high": null,
+    "ler_ci_low": null,
+    "ms_per_shot": 225348.2954976665,
+    "params": {
+     "bp_method": "minimum_sum",
+     "max_iter": 30,
+     "ms_scaling_factor": 0.625,
+     "osd_method": "osd_cs",
+     "osd_order": 10,
+     "schedule": "parallel"
+    },
+    "syndromes_sha256": "5db78eda165caaa9a165c3318e18bdb881bac22ee265f9d12a127d02c8bd2fec"
+   }
+  },
+  "format": "qecscreen_decoder_calibration_v1",
+  "paired": {
+   "bplsd_cs_0_vs_bposd": {
+    "both_fail": 3,
+    "mcnemar_exact_p": 1.0,
+    "neither_fails": 0,
+    "only_bplsd_cs_0_fails": 0,
+    "only_bposd_fails": 0
+   },
+   "bplsd_cs_4_vs_bposd": {
+    "both_fail": 3,
+    "mcnemar_exact_p": 1.0,
+    "neither_fails": 0,
+    "only_bplsd_cs_4_fails": 0,
+    "only_bposd_fails": 0
+   }
+  },
+  "shots": 3,
+  "status": "partial"
+ },
+ "protocol_hash_pinned": "6258e0304f5100d26dca632e8406496bfcd225662fbbcd9ac6fec60ba3bf05ac",
+ "provenance": {
+  "commit_sha": "7e91f82e3471c72b4261ae3bb8f7d8cc300f158a",
+  "cpu_class": "x86_64/sse2",
+  "decoder_version": "2.4.1",
+  "python_version": "3.12.13",
+  "stim_version": "1.16.0"
+ },
+ "reproduce": "build_memory_circuit(code, p, rounds).compile_detector_sampler(seed=sampling_seed); call .sample(sample_batch, separate_observables=True) batch_index + 1 times; the syndrome is row shot_in_batch of the last call, as uint8",
+ "rounds": 14,
+ "sample_batch": 256,
+ "sampling_seed": 3898417469163483786,
+ "shot_in_batch": 3,
+ "shot_index": 3,
+ "status": "killed"
+}

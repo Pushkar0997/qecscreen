@@ -67,6 +67,9 @@ qecscreen/
 │                            because Kaggle sessions die at 12 hours.
 ├── tests/                 ← Mirrors src/. Invariant tests named test_inv_<n>_*.
 ├── data/                  ← Gitignored. Local Parquet. Releases go to Zenodo.
+├── evidence/              ← Committed run outputs that are not dataset rows, e.g.
+│                            calibration/<date>-<sha>/ (D-029). Kept unmodified,
+│                            markers intact; refused by reject_calibration.
 └── notebooks/             ← Kaggle/Colab runners. Thin: import and call, no logic.
                              template_run.ipynb is the six-cell shape (rules below).
                              calibrate.ipynb runs the decoder calibration (D-029).

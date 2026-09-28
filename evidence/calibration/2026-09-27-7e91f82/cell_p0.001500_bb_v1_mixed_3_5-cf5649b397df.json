@@ -1,0 +1,151 @@
+{
+ "calibration": true,
+ "code": {
+  "a_exps": [
+   [
+    4,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "b_exps": [
+   [
+    0,
+    4
+   ],
+   [
+    1,
+    0
+   ],
+   [
+    2,
+    1
+   ],
+   [
+    3,
+    0
+   ],
+   [
+    0,
+    2
+   ]
+  ],
+  "code_id": "bb_v1_mixed_3_5-cf5649b397df",
+  "construction_program_id": "bb_v1_mixed_3_5",
+  "d_upper": 6,
+  "k": 6,
+  "l": 3,
+  "m": 7,
+  "n": 42,
+  "name": "bb_v1_mixed_3_5-cf5649b397df"
+ },
+ "decoders": {
+  "bplsd_cs_0": {
+   "bp_converged": 28,
+   "bp_convergence_fraction": 0.1003584229390681,
+   "censored": false,
+   "decode_seconds": 71.48573608400875,
+   "failures": 143,
+   "ldpc_class": "BpLsdDecoder",
+   "ler": 0.019762033446173888,
+   "ler_ci_high": 0.023210510638716597,
+   "ler_ci_low": 0.016674972539522437,
+   "ms_per_shot": 256.2212762867697,
+   "params": {
+    "bp_method": "minimum_sum",
+    "lsd_method": "lsd_cs",
+    "lsd_order": 0,
+    "max_iter": 30,
+    "ms_scaling_factor": 0.625,
+    "schedule": "parallel"
+   },
+   "syndromes_sha256": "617e6ea5c919c689bab67c3dc372fbf0385e6b38a23291e3f1cd36a5021fbf43"
+  },
+  "bplsd_cs_4": {
+   "bp_converged": 28,
+   "bp_convergence_fraction": 0.1003584229390681,
+   "censored": false,
+   "decode_seconds": 72.02862684500815,
+   "failures": 133,
+   "ldpc_class": "BpLsdDecoder",
+   "ler": 0.01782819546176473,
+   "ler_ci_high": 0.021058591902644586,
+   "ler_ci_low": 0.014961380973380844,
+   "ms_per_shot": 258.1671213082729,
+   "params": {
+    "bp_method": "minimum_sum",
+    "lsd_method": "lsd_cs",
+    "lsd_order": 4,
+    "max_iter": 30,
+    "ms_scaling_factor": 0.625,
+    "schedule": "parallel"
+   },
+   "syndromes_sha256": "617e6ea5c919c689bab67c3dc372fbf0385e6b38a23291e3f1cd36a5021fbf43"
+  },
+  "bposd": {
+   "bp_converged": 28,
+   "bp_convergence_fraction": 0.1003584229390681,
+   "censored": false,
+   "decode_seconds": 412.54762800499793,
+   "failures": 100,
+   "ldpc_class": "BpOsdDecoder",
+   "ler": 0.012252814730030925,
+   "ler_ci_high": 0.014841732036460109,
+   "ler_ci_low": 0.010033208194161314,
+   "ms_per_shot": 1478.665333351247,
+   "params": {
+    "bp_method": "minimum_sum",
+    "max_iter": 30,
+    "ms_scaling_factor": 0.625,
+    "osd_method": "osd_cs",
+    "osd_order": 10,
+    "schedule": "parallel"
+   },
+   "syndromes_sha256": "617e6ea5c919c689bab67c3dc372fbf0385e6b38a23291e3f1cd36a5021fbf43"
+  }
+ },
+ "format": "qecscreen_decoder_calibration_v1",
+ "num_detectors": 252,
+ "num_mechanisms": 13419,
+ "p": 0.0015,
+ "paired": {
+  "bplsd_cs_0_vs_bposd": {
+   "both_fail": 97,
+   "mcnemar_exact_p": 6.981082378842984e-11,
+   "neither_fails": 133,
+   "only_bplsd_cs_0_fails": 46,
+   "only_bposd_fails": 3
+  },
+  "bplsd_cs_4_vs_bposd": {
+   "both_fail": 95,
+   "mcnemar_exact_p": 2.4995097192004323e-07,
+   "neither_fails": 141,
+   "only_bplsd_cs_4_fails": 38,
+   "only_bposd_fails": 5
+  }
+ },
+ "protocol_hash_pinned": "5ebf6ae12ada4f8e0d357e3b63f481d48f418311c834e9c24c6515dba9a0c587",
+ "provenance": {
+  "commit_sha": "7e91f82e3471c72b4261ae3bb8f7d8cc300f158a",
+  "cpu_class": "x86_64/sse2",
+  "decoder_version": "2.4.1",
+  "python_version": "3.12.13",
+  "stim_version": "1.16.0"
+ },
+ "rounds": 6,
+ "sample_batch": 256,
+ "samples_sha256": "bce9d73f96900a60f810436d331db7725bd46c268df252746c54065ee325e94c",
+ "sampling_seed": 3686047662923082791,
+ "setup_seconds": 2.1737061869998797,
+ "shots": 279,
+ "status": "completed",
+ "stopped_by": "min_failures",
+ "wall_seconds": 558.5618062140002
+}

@@ -1,0 +1,70 @@
+{
+ "batch_index": null,
+ "calibration": true,
+ "code": {
+  "a_exps": [
+   [
+    4,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "b_exps": [
+   [
+    0,
+    4
+   ],
+   [
+    1,
+    0
+   ],
+   [
+    2,
+    1
+   ],
+   [
+    3,
+    0
+   ],
+   [
+    0,
+    2
+   ]
+  ],
+  "code_id": "bb_v1_mixed_3_5-3fde0f6a646a",
+  "construction_program_id": "bb_v1_mixed_3_5",
+  "d_upper": 16,
+  "k": 6,
+  "l": 10,
+  "m": 7,
+  "n": 140,
+  "name": "bb_v1_mixed_3_5-3fde0f6a646a"
+ },
+ "decoder": null,
+ "exitcode": -9,
+ "format": "qecscreen_decoder_calibration_v1",
+ "p": 0.003,
+ "partial": null,
+ "protocol_hash_pinned": "6258e0304f5100d26dca632e8406496bfcd225662fbbcd9ac6fec60ba3bf05ac",
+ "provenance": {
+  "commit_sha": "7e91f82e3471c72b4261ae3bb8f7d8cc300f158a",
+  "cpu_class": "x86_64/sse2",
+  "decoder_version": "2.4.1",
+  "python_version": "3.12.13",
+  "stim_version": "1.16.0"
+ },
+ "reproduce": "build_memory_circuit(code, p, rounds).compile_detector_sampler(seed=sampling_seed); call .sample(sample_batch, separate_observables=True) batch_index + 1 times; the syndrome is row shot_in_batch of the last call, as uint8",
+ "rounds": 16,
+ "sample_batch": 256,
+ "sampling_seed": 8301897416413460382,
+ "shot_in_batch": null,
+ "shot_index": null,
+ "status": "died"
+}

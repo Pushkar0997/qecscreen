@@ -1,0 +1,143 @@
+{
+ "calibration": true,
+ "code": {
+  "a_exps": [
+   [
+    3,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    2
+   ]
+  ],
+  "b_exps": [
+   [
+    0,
+    3
+   ],
+   [
+    1,
+    0
+   ],
+   [
+    2,
+    0
+   ]
+  ],
+  "code_id": "bb_v1_sym_3_3-6d2a992b16a4",
+  "construction_program_id": "bb_v1_sym_3_3",
+  "d_upper": 6,
+  "k": 12,
+  "l": 6,
+  "m": 6,
+  "n": 72,
+  "name": "ref72"
+ },
+ "decoders": {
+  "bplsd_cs_0": {
+   "bp_converged": 57,
+   "bp_convergence_fraction": 0.10251798561151079,
+   "censored": true,
+   "decode_seconds": 73.27458324098643,
+   "failures": 51,
+   "ldpc_class": "BpLsdDecoder",
+   "ler": null,
+   "ler_ci_high": 0.001751867424294562,
+   "ler_ci_low": 0.0010142075784869142,
+   "ms_per_shot": 131.78881877875256,
+   "params": {
+    "bp_method": "minimum_sum",
+    "lsd_method": "lsd_cs",
+    "lsd_order": 0,
+    "max_iter": 30,
+    "ms_scaling_factor": 0.625,
+    "schedule": "parallel"
+   },
+   "syndromes_sha256": "7125d263e823fd8078728cfcd037bc3a51f63ca9a68fc0f4c40e81f78726c7d5"
+  },
+  "bplsd_cs_4": {
+   "bp_converged": 57,
+   "bp_convergence_fraction": 0.10251798561151079,
+   "censored": true,
+   "decode_seconds": 74.6612487649927,
+   "failures": 43,
+   "ldpc_class": "BpLsdDecoder",
+   "ler": null,
+   "ler_ci_high": 0.0015016987645302127,
+   "ler_ci_low": 0.000828360363338887,
+   "ms_per_shot": 134.28282151977106,
+   "params": {
+    "bp_method": "minimum_sum",
+    "lsd_method": "lsd_cs",
+    "lsd_order": 4,
+    "max_iter": 30,
+    "ms_scaling_factor": 0.625,
+    "schedule": "parallel"
+   },
+   "syndromes_sha256": "7125d263e823fd8078728cfcd037bc3a51f63ca9a68fc0f4c40e81f78726c7d5"
+  },
+  "bposd": {
+   "bp_converged": 57,
+   "bp_convergence_fraction": 0.10251798561151079,
+   "censored": true,
+   "decode_seconds": 1050.2420985099907,
+   "failures": 27,
+   "ldpc_class": "BpOsdDecoder",
+   "ler": null,
+   "ler_ci_high": 0.0010034143894261938,
+   "ler_ci_low": 0.0004743729824868703,
+   "ms_per_shot": 1888.9246376078968,
+   "params": {
+    "bp_method": "minimum_sum",
+    "max_iter": 30,
+    "ms_scaling_factor": 0.625,
+    "osd_method": "osd_cs",
+    "osd_order": 10,
+    "schedule": "parallel"
+   },
+   "syndromes_sha256": "7125d263e823fd8078728cfcd037bc3a51f63ca9a68fc0f4c40e81f78726c7d5"
+  }
+ },
+ "format": "qecscreen_decoder_calibration_v1",
+ "num_detectors": 432,
+ "num_mechanisms": 15840,
+ "p": 0.0015,
+ "paired": {
+  "bplsd_cs_0_vs_bposd": {
+   "both_fail": 27,
+   "mcnemar_exact_p": 1.1920928955078125e-07,
+   "neither_fails": 505,
+   "only_bplsd_cs_0_fails": 24,
+   "only_bposd_fails": 0
+  },
+  "bplsd_cs_4_vs_bposd": {
+   "both_fail": 25,
+   "mcnemar_exact_p": 0.0004024505615234375,
+   "neither_fails": 511,
+   "only_bplsd_cs_4_fails": 18,
+   "only_bposd_fails": 2
+  }
+ },
+ "protocol_hash_pinned": "5ebf6ae12ada4f8e0d357e3b63f481d48f418311c834e9c24c6515dba9a0c587",
+ "provenance": {
+  "commit_sha": "7e91f82e3471c72b4261ae3bb8f7d8cc300f158a",
+  "cpu_class": "x86_64/sse2",
+  "decoder_version": "2.4.1",
+  "python_version": "3.12.13",
+  "stim_version": "1.16.0"
+ },
+ "rounds": 6,
+ "sample_batch": 256,
+ "samples_sha256": "ab9f15d367d0cc89620ceda579527045c5970ee5d096efadf677dcfe16a2723d",
+ "sampling_seed": 7051529181935659743,
+ "setup_seconds": 2.7311140110005,
+ "shots": 556,
+ "status": "completed",
+ "stopped_by": "wall_clock",
+ "wall_seconds": 1201.691793207
+}
