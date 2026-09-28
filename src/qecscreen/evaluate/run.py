@@ -205,7 +205,8 @@ def run_provenance() -> dict[str, str | None]:
 class RunResult:
     """Counts from one ``(code, p)`` run, plus what is needed to reproduce it.
 
-    ``stopped_by`` is ``"min_failures"`` or ``"max_shots"``. ``samples_sha256``
+    ``stopped_by`` is ``"min_failures"`` or ``"max_shots"``, or ``"deadline"``
+    for a checkpointed run that stopped early and has not finished. ``samples_sha256``
     digests every sampled detection-event and observable byte in order, so two
     runs saw identical shots exactly when their digests match.
     ``decode_seconds`` is telemetry, never an input to anything.
@@ -228,6 +229,7 @@ def sample_and_decode(
     batch_size: int = SHOT_BATCH,
     max_shots: int = MAX_SHOTS,
     checkpoint_dir: str | os.PathLike[str] | None = None,
+    deadline: float | None = None,
 ) -> RunResult:
     """Sample ``circuit`` with a stim sampler seeded by ``seed`` and decode with BP+OSD.
 
@@ -255,6 +257,14 @@ def sample_and_decode(
     the shards', or shards that disagree among themselves, raise
     ``ProvenanceMismatchError`` before anything is drawn (D-032). Both are
     ``CheckpointMismatchError``s.
+
+    ``deadline`` (``time.time()`` seconds; needs ``checkpoint_dir``) is checked
+    between batches, never inside one: after a batch is flushed, the run stops
+    if the next batch, taking as long as the last one did, would end past the
+    deadline. The first batch of a call always runs, so every call makes
+    progress. A run stopped this way returns ``stopped_by="deadline"``, writes
+    no result, and resumes from its shards on the next call. A session that
+    ends this way ends cleanly, and never relies on being killed (M0-RUN-01).
     """
     if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2**64:
         raise ValueError(f"seed must be an int in range(2**64); got {seed!r}")
@@ -266,6 +276,8 @@ def sample_and_decode(
         raise ValueError(
             f"max_shots={max_shots} is not a whole number of batch_size={batch_size} batches"
         )
+    if deadline is not None and checkpoint_dir is None:
+        raise ValueError("a deadline needs a checkpoint_dir: a run stopped early must be resumable")
 
     checkpoint = None
     completed: list[BatchRecord] = []
@@ -311,7 +323,14 @@ def sample_and_decode(
         decode_seconds += rec.batch_decode_seconds
 
     decoder = None
+    last_batch_wall = None
     while failures < MIN_FAILURES and shots < max_shots:
+        if (deadline is not None and last_batch_wall is not None
+                and time.time() + last_batch_wall > deadline):
+            return RunResult(seed=seed, batch_size=batch_size, shots=shots, failures=failures,
+                             stopped_by="deadline", osd_invocations=osd_invocations,
+                             samples_sha256=digest.hexdigest(), decode_seconds=decode_seconds)
+        batch_start = time.perf_counter()
         if decoder is None:
             decoder = CompiledBpOsd(detector_error_model(circuit))
         dets, obs, batch_digest = draw()
@@ -337,6 +356,7 @@ def sample_and_decode(
                 failures=failures,
                 samples_sha256=digest.hexdigest(),
             ))
+        last_batch_wall = time.perf_counter() - batch_start
 
     result = RunResult(
         seed=seed,

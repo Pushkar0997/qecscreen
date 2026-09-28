@@ -238,3 +238,22 @@ def test_a_gap_in_the_shards_is_refused(monkeypatch, tmp_path):
     (tmp_path / "batch_000001.parquet").unlink()
     with pytest.raises(CheckpointMismatchError, match="missing"):
         sample_and_decode(circuit, checkpoint_dir=tmp_path, **kw)
+
+
+def test_a_deadline_stops_between_batches_and_resumes_to_the_uninterrupted_result(tmp_path):
+    """M0-RUN-01: past the deadline, the first batch still runs, is flushed, and the
+    run stops with no result; the next call resumes to the uninterrupted counts."""
+    import time
+
+    p, batch_size, max_shots, _ = CONFIGS["min_failures"]
+    circuit = build_memory_circuit(SMALL, p, SMALL_ROUNDS)
+    full = sample_and_decode(circuit, seed=SEED, batch_size=batch_size, max_shots=max_shots)
+    stopped = sample_and_decode(circuit, seed=SEED, batch_size=batch_size, max_shots=max_shots,
+                                checkpoint_dir=tmp_path, deadline=time.time() - 1.0)
+    assert stopped.stopped_by == "deadline" and stopped.shots == batch_size
+    assert _shards(tmp_path) == ["batch_000000.parquet"] and not (tmp_path / RESULT_FILE).exists()
+    resumed = sample_and_decode(circuit, seed=SEED, batch_size=batch_size, max_shots=max_shots,
+                                checkpoint_dir=tmp_path)
+    assert _counts(resumed) == _counts(full)
+    with pytest.raises(ValueError, match="needs a checkpoint_dir"):
+        sample_and_decode(circuit, seed=SEED, batch_size=batch_size, max_shots=max_shots, deadline=0.0)

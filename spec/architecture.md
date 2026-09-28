@@ -67,6 +67,8 @@ qecscreen/
 │                            because Kaggle sessions die at 12 hours.
 ├── tests/                 ← Mirrors src/. Invariant tests named test_inv_<n>_*.
 ├── data/                  ← Gitignored. Local Parquet. Releases go to Zenodo.
+│                            M0's measurements: data/m0_measurements.parquet, written
+│                            only by evaluate.pilot.assemble_measurements (D-033).
 ├── evidence/              ← Committed run outputs that are not dataset rows, e.g.
 │                            calibration/<date>-<sha>/ (D-029). Kept unmodified,
 │                            markers intact; refused by reject_calibration.

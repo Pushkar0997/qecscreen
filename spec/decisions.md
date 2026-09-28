@@ -621,6 +621,38 @@ The models above are unchanged, and no protocol constant moves. The first use is
 
 ---
 
+## D-033 — The M0 pilot runs as a chain of Kaggle sessions in one cumulative pilot directory
+
+**Status:** decided (owner, 2026-09-28: the session model, the manifest, the scheduling, the stale and death rules, and the values marked *owner*; the choices marked *pinned here* are the agent's readings, listed so they can be overruled). Implemented in `qecscreen.evaluate.pilot` (M0-RUN-01).
+**Decision:**
+- **One pilot directory, cumulative across sessions.** It holds `manifest.json`, `population.parquet` (the 244 codes with `n`, `k`, `d_upper`, `n_d_upper`), one checkpoint directory per `code_id`, `stale/`, and one `session_NNN.json` per session.
+- **Session start.** `PREVIOUS` is `None` or a path under `/kaggle/input`. The runner finds exactly one pilot directory under it (by a `manifest.json` of this format), refuses zero or several, copies it verbatim into `OUT_DIR` under `/kaggle/working`, and verifies the copy file by file (sha256).
+- **Manifest.** The first session records `protocol_hash`, the installed ldpc (`decoder_version`) and stim versions, `commit_sha` and the population digest. Every later session refuses to start if any differs, and names which. There is no override flag. A process with no resolved commit refuses to start (D-017).
+- **Population.** Enumerated every session (`codes.sample.admissible_codes(72)`), asserted to be 244 codes with digest `5008e14eb8292df8549aa5fddada442938ce52f91950e4612dfbb85dc6e3d94f`, pinned in `pilot.py`. A change to the templates, the `(l, m)` grid, `validate` or `estimate_d_upper` fails loudly. A slow test checks the set equals `sample_bb_params(244, 72, CALIBRATION_CODE_SEED)`, as D-031 recorded.
+- **Scheduling.** One spawned worker per code, 4 at a time, longest first by `n * d_upper` descending (ties by `code_id`). Each code is checkpointed per batch (M0-EVAL-04).
+- **`SESSION_WALL_HOURS = 10.5`** (*owner*; proposed 11.0, the owner chose 10.5 for more margin). Workers get the session deadline and check it between batches; a worker stops after flushing its shard and exits cleanly. No worker starts after the deadline. The session ends normally, before Kaggle's 12 h, and never relies on being killed.
+- **Stale partial codes.** A partial code whose shards were written on another `cpu_class`, or whose re-drawn batches do not reproduce their digests (D-032), is moved to `stale/<code_id>-<cpu_class>-<utc>/`, never deleted, and restarted from batch 0. The session summary reports it.
+- **Deaths.** A worker that dies is recorded with its exit code and retried once, in the next session. If it dies a second time, its code is failed, is not run again, and is reported (AGENTS §4: two failures, stop).
+- **A code whose row builds is never re-run.** A code with a result is never re-run at all; its row is built each session to check it, and a row that fails to build is reported, not re-run.
+- **Session summary:** codes done, partial, not started, failed, stale-restarted and died; measured decode core-hours this session and cumulative; per code, measured seconds/shot and failure fraction so far.
+- **Final assembly** (`assemble_measurements(pilot_dir, data_dir)`) builds every row, calls `assert_single_protocol` on the frame's `protocol_hash` column, asserts 244 rows and the manifest's hash, and writes **`data/m0_measurements.parquet`** (*owner*; `data/` is architecture §2's location, the file name was not pinned). It refuses while any code is unfinished, outside a directory named `data`, over an existing file, and unless the manifest records the pinned population and CONTRACT's `SHOT_BATCH`, `MAX_SHOTS` and `P_PILOT`.
+
+*Pinned here:*
+- **The deadline check predicts one batch ahead.** A worker stops before a batch if that batch, taking as long as its previous one in this process, would end past the deadline. The first batch of each worker always runs, so every started worker makes progress. At 10.5 h, the worst late start is a small code (longest first), and one [[72]]-class batch at 7× the projection is ~70 min, which still ends before 12 h.
+- **The copy is checked against the previous session's own inventory.** Each summary records the sha256 of every file in the pilot directory at the end of its session. The next session refuses an attached output that lacks or alters any of them, so an output truncated by Kaggle is refused, not silently resumed from fewer shards.
+- A worker signals "cannot continue this partial checkpoint" with exit code 75 (`EXIT_STALE`); the parent moves the directory. At most one stale restart per code per session.
+- The manifest also records `p`, `batch_size` and `max_shots`, and checks them like the other keys.
+- The row's `seed` column is 0: the population is admitted with `generate(..., seed=0)` and `estimate_d_upper(..., seed=0)` (D-031).
+
+**Rejected:**
+- *The parent kills workers at the deadline.* It loses the batch in progress and relies on a kill, which is what the session rule forbids.
+- *A pilot directory per session, merged at the end.* Every session would need all earlier outputs attached, and a merge is one more place for two runs of one code to meet.
+- *An override flag for the manifest check.* Not in this session's scope (owner). A changed commit or library means a new pilot or a decision.
+
+**Revisit if:** Kaggle's output handling drops files at the pilot's file count (up to 244 × 41 checkpoint files; the inventory check would refuse such an output, and the chain would need an archive); or the probe session shows a code's single batch longer than the margin between 10.5 h and 12 h.
+
+---
+
 ## Template
 
 ```

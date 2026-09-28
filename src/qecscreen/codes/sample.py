@@ -34,7 +34,7 @@ from qecscreen.codes.bb import generate
 from qecscreen.codes.distance import estimate_d_upper
 from qecscreen.codes.validate import InvalidCodeError, validate
 
-__all__ = ["sample_bb_params", "BBSample", "TEMPLATES", "MIN_D_UPPER", "template_key"]
+__all__ = ["sample_bb_params", "admissible_codes", "BBSample", "TEMPLATES", "MIN_D_UPPER", "template_key"]
 
 # Minimum l/m: keeps the cyclic groups non-degenerate. 1 would collapse a
 # dimension entirely (S_1 is the 1x1 identity), which is a valid input to
@@ -198,6 +198,31 @@ def _rejection_cause(template_idx: int, l: int, m: int) -> str | None:
     if d_upper < MIN_D_UPPER:
         return f"d_upper<{MIN_D_UPPER}"
     return None
+
+
+def admissible_codes(budget: int) -> list[dict[str, Any]]:
+    """Every admissible code at ``budget``, enumerated, not sampled (D-031).
+
+    Each ``(template, l, m)`` on the balanced sampler's grid (``2*l*m <=
+    budget``, ``l, m >= 2``) whose code passes ``validate`` and has
+    ``estimate_d_upper(seed=0) >= MIN_D_UPPER``: the admission rule the
+    samplers apply (``_rejection_cause``), applied to the whole grid. In
+    ``TEMPLATES`` order, then grid order. Each dict is ``sample_bb_params``'s
+    plus ``n``, ``k`` and ``d_upper``. At budget 72 this is the M0 population.
+    """
+    pairs, _ = _lm_grid(budget)
+    out: list[dict[str, Any]] = []
+    for t, (_, a_exps, b_exps) in enumerate(TEMPLATES):
+        for l, m in pairs:
+            h_x, h_z = generate(l, m, a_exps, b_exps, seed=0)
+            try:
+                n, k = validate(h_x, h_z)
+            except InvalidCodeError:
+                continue
+            d_upper, _ = estimate_d_upper(h_x, h_z, seed=0)
+            if d_upper >= MIN_D_UPPER:
+                out.append({**_params(t, l, m), "n": n, "k": k, "d_upper": d_upper})
+    return out
 
 
 def _new_rejections() -> dict[str, int]:
