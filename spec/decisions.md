@@ -571,7 +571,7 @@ The models above are unchanged, and no protocol constant moves. The first use is
 
 ## D-031 — M0 pilot protocol: BP+OSD kept, `P_PILOT = 0.002`, 244 enumerated codes at n ≤ 72, `SHOT_BATCH = 256`, `MAX_SHOTS = 10,240`
 
-**Status:** decided (owner, 2026-09-28), on the Kaggle calibration at `7e91f82` and its re-projection (`spec/evals.md §7`). Supersedes D-016's `p = 0.005`. Changes `CONTRACT.md`'s exact values, `protocol.py`, `spec/architecture.md §6` and `spec/plan.md`.
+**Status:** decided (owner, 2026-09-28), on the Kaggle calibration at `7e91f82` and its re-projection (`spec/evals.md §7`). Supersedes D-016's `p = 0.005`. Changes `CONTRACT.md`'s exact values, `protocol.py`, `spec/architecture.md §6` and `spec/plan.md`. The owner approved `plan.md`'s restated exit criterion, "one row for each of the 244 codes" (2026-09-28). Corrected 2026-09-28: the reason for rejecting `MAX_SHOTS = 20,000` is cost, not the 12-hour session (below).
 **Decision:**
 - **Decoder:** the pinned BP+OSD (D-005, `DECODER_PARAMS`) is unchanged.
 - **`P_PILOT = 0.002`.** The evidence is in the calibration's size-scaling table:
@@ -584,7 +584,8 @@ The models above are unchanged, and no protocol constant moves. The first use is
 - **M0's scope, stated explicitly:** BB codes; the 11 templates of D-024; `d_upper >= 3`; `n <= 72`. **Larger n is M1's question.** M0's verdict is a claim about this population only.
 - **`SHOT_BATCH = 256`, `MAX_SHOTS = 10,240`.**
   - The owner decided 10,000. But 10,000 is not a whole number of 256-shot batches, and CONTRACT requires both "batches of exactly `SHOT_BATCH`" and `MAX_SHOTS` as a hard cap. The agent flagged the conflict, and the owner chose 10,240 = 40 × 256, the nearest whole-batch value at or above 10,000. `test_d031_shot_cap_is_a_whole_number_of_batches` pins the relation.
-  - **Why ~10,000 and not 20,000:** at ~2.3 s/shot (the calibration's [[72,12,≤6]] BP+OSD cost, measured up to 2,303 ms), a code that hits the cap takes ~13 h at 20,000 shots. That is longer than a 12-hour Kaggle session. At 10,240 it takes ~6.5 h.
+  - **Why ~10,000 and not 20,000: cost.** At ~2.3 s/shot (the calibration's [[72,12,≤6]] BP+OSD cost, measured up to 2,303 ms), a code that hits the cap costs ~13 core-hours at 20,000 shots and ~6.5 at 10,240. That cost falls on exactly the codes that reach the cap, which are the censored ones.
+  - *Corrected 2026-09-28.* This bullet first said a ~13 h code was "longer than a 12-hour Kaggle session". M0-EVAL-04 resumes a code within itself, at batch granularity, so a session boundary costs at most one batch and a code may span sessions. The session limit is no longer a reason; the cost is.
   - At p = 0.002 the budget-72 re-projection is the same at 10,000, 20,000 and 50,000 shots: 52.5 core-hours, 0% projected censored. So no projected code gets near the cap, and 10,240 changes none of those numbers.
 - **Per-shot cost:** `spec/architecture.md §6` now carries the measured BP+OSD costs and the budget-72 projection, not the 5 ms/shot estimate. This closes M0-EVAL-05.
 
@@ -593,13 +594,30 @@ The models above are unchanged, and no protocol constant moves. The first use is
 **Rejected:**
 - **BP+LSD** (`lsd_cs`, order 0 or 4). On the paired calibration shots (`spec/evals.md §7`) it fails more often than BP+OSD in 15 of 27 cells, at McNemar p ≤ 2e-3, and significantly less often in none. The ratio of LSD to OSD failures is not constant: LSD-0/OSD runs 1.29–2.53 and LSD-4/OSD 1.20–2.25, and it varies by code and falls with p within every code. A decoder whose penalty varies by code would **re-rank codes**, which is the quantity this project measures. LSD is up to 62× faster (1–2× on [[12]]); that does not buy back a ranking distortion.
 - **`P_PILOT = 0.005` (D-016).** It was chosen before any measurement, from the literature's ~0.7% [[72,12,6]] threshold. In the calibration, mixed_3_5 is already above threshold at 0.001, and at 0.003 sym_3_3's gross code has the higher point estimate.
-- **`P_PILOT = 0.0015`.** At budget 72 and 10,000 shots, the re-projection censors 162 of 244 codes (66%), past `plan.md`'s 40% line. 20,000 shots would clear that, at the session-length cost above. sym_3_3's two point estimates are also equal there.
+- **`P_PILOT = 0.0015`.** At budget 72 and 10,000 shots, the re-projection censors 162 of 244 codes (66%), past `plan.md`'s 40% line. 20,000 shots would clear that, at the cost above. sym_3_3's two point estimates are also equal there.
 - **`P_PILOT = 0.003`.** sym_3_3's gross point estimate is above [[72]]'s there, so it is not sub-threshold.
 - **Budgets 48 and 60** (116 and 175 codes). They are cheaper but fewer codes. **Budget 96** (373 codes) projects 303–935 core-hours, and its costliest single codes project at 29–163 core-hours, longer than a Kaggle session. The re-projection's 300-code draw at 96 has the same problem.
 - **`MAX_SHOTS` 20,000 or 50,000.** Above.
 - **9,984 = 39 × 256, or a truncated last batch.** 9,984 stays under the owner's 10,000, but the owner preferred the value at or above it. A truncated last batch breaks "batches of exactly `SHOT_BATCH`".
 
-**Revisit if:** the pilot's own labels fail the size-scaling diagnostic in `spec/evals.md §7`'s M0 verdict section for most templates; the measured censoring rate exceeds 40% (`plan.md`); or M1 extends n past 72, which needs its own cost measurement, since the cost model misses its own fit codes by 0.17–7×.
+**Revisit if:** the pilot's own labels fail the size-scaling diagnostic in `spec/evals.md §7`'s M0 verdict section for most templates; the measured censoring rate exceeds 40% (`plan.md`); or M1 extends n past 72, which needs its own cost measurement, since the cost model misses its own fit codes by 0.17–7×. Revisit `MAX_SHOTS` if the pilot's cost check (the probe's cost report, `pilot_cost_report`) projects censoring among the lowest-failure-fraction codes.
+
+---
+
+## D-032 — Batch-level resume: re-drawn batches must reproduce, and one row has one provenance
+
+**Status:** decided (owner, 2026-09-28). Recorded in `CONTRACT.md`'s SAMPLING paragraph. Enforced by M0-EVAL-04's resume (digests) and by the M0 pilot's checkpoint shards and row writer (provenance, M0-RUN-01).
+**Decision:** A code may resume after its last completed batch. The sampler is re-created with the same seed; the completed batches are drawn, discarded, and must reproduce their recorded digests. Batches that do not reproduce are never continued. All batches of one row come from one `stim_version`, one `cpu_class` and one `commit_sha`.
+**Rationale:**
+- *Re-draw, not skip-ahead.* stim's seeded output depends on how shots are split into calls (D-026), so the only way to reach batch b of a stream is to draw batches 0..b-1 again. The digest check is what proves the re-drawn stream is the stream the shards counted.
+- *Never continued.* A resumed stream that differs from the recorded one would put two streams' shots into one count. The count would still look like a label.
+- *One provenance per row.* A row stores one `stim_version`, one `cpu_class` and one `commit_sha` (D-017, D-027). A row whose batches came from two of any of them would carry a value that is false for some of its shots. The digest check alone does not catch this: a different commit, or a CPU class that happens to draw the same bits, reproduces the digests.
+
+**Rejected:**
+- *Continue after a digest mismatch, recording both provenances.* The row has one column for each; and two streams are not one run of the seeded loop CONTRACT pins.
+- *Record provenance only once per code.* It would not show where a mixed code changed, and so could not refuse it.
+
+**Revisit if:** stim documents seeded output that is independent of the call split, or bit-identical across CPU classes.
 
 ---
 

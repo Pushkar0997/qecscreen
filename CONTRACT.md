@@ -244,6 +244,11 @@ SAMPLING                = our own seeded loop, never sinter (D-026)
   calls. The stopping rule is checked between batches. Same code, p, seed,
   stim_version and cpu_class -> identical shots and failures. Otherwise the
   same distribution, not the same bits (D-027).
+  Resume (D-032): a code may resume after its last completed batch. The
+  sampler is re-created with the same seed; the completed batches are drawn,
+  discarded, and must reproduce their recorded digests. Batches that do not
+  reproduce are never continued. All batches of one row come from one
+  stim_version, one cpu_class and one commit_sha.
 
 SAMPLING_SEED           = D-027. The seed for a row, stored as sampling_seed:
   first 8 bytes of sha256(f"{code_id}|{protocol_hash}"), the string UTF-8
