@@ -19,6 +19,41 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-28 — Asking every decoder about the same shots, and the cost wall behind it
+
+The project had two decoders to choose between: the slow standard one it had pinned, and a much
+faster newer one. An earlier comparison of about 60 simulated shots saw no difference between
+them. The calibration run on Kaggle did it differently. It generated each batch of noise once
+and made every decoder decode exactly the same shots, then counted only the shots where the
+two disagreed. On shared noise the difference is plain. In 15 of the 27 settings tested, the
+faster decoder failed 1.2 to 2.5 times as often as the standard one, at odds against chance
+of hundreds to one or more. The other settings either had too few shots to tell, or, in one
+case at the highest noise, both decoders failed on nearly the same shots. It was never better.
+Sixty separately drawn shots could never have
+seen that, because the difference was buried in the luck of the draw. The gap also shrank as
+the noise rose and differed from code to code. So one decoder's results cannot be converted
+into the other's with a fixed correction factor.
+
+The second finding is that "below threshold" is not one fact about bivariate bicycle codes. The
+idea is that making a code bigger should make it better, provided the noise is weak enough.
+Whether that happened depended on which polynomial recipe built the code:
+- For one recipe, the bigger code was clearly better at every noise level from 0.15% up.
+- For the recipe of the famous 144-qubit "gross" code, the bigger code was clearly better
+  only at 0.2%.
+- For a third recipe, the bigger code was no better at any level tested, and both sizes
+  protected their information worse than an unprotected qubit would.
+
+A single project-wide noise level can therefore put some families of codes in their useful
+regime and others outside it.
+
+The third finding is the cost. Labelling one gross-sized code honestly means decoding until
+it has failed 100 times. With the pinned decoder that takes about 30 CPU-hours at 0.2% noise,
+and the uncertainty allows several times more. The largest code in the calibration could not
+even be held in memory with four copies running side by side. At that price the project
+cannot measure the large codes it most wants to rank. That is the case for a screening
+surrogate in one number: a cheap score that decides which few codes are worth 30 CPU-hours
+each.
+
 ## 2026-09-25 — The decoder costs seconds per shot, not milliseconds
 
 The compute budget assumed each simulated experiment would take about 5 milliseconds to decode.
