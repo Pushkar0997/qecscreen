@@ -19,6 +19,26 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-09-29 — The first real session, and why the best codes were the ones going unmeasured
+
+Before spending a week of compute on the pilot, the first Kaggle session ran only 12 of the
+244 codes, spread evenly from smallest to largest, as a probe. The plan had leaned on a cost
+model built from eight calibration codes, and that model guessed each code's failure rate by
+borrowing it from the calibration code most like it. The probe showed how far off those
+borrowed guesses were: one code failed 137 times less often than its borrowed rate said.
+
+That mattered because of what happens at the shot limit. A code is only given a measured
+error rate once it has failed 100 times; otherwise it is recorded as an upper bound. Three
+of the 12 codes hit the 10,240-shot limit first. They were the three that failed least,
+which makes them the likeliest to be the best codes, and the project's headline metric is
+about finding exactly those. The limit was cutting information from the top of the ranking.
+The owner raised it fourfold, to 40,960, enough for all three, and restarted the pilot. Scaled
+up from the probe's measured 3.7 core-hours, the full pilot should cost about 110, under the
+158 set aside. The same observation raised a question for later: the rules rank censored codes
+at the bottom, as if they were the worst, when they are more likely the best.
+
+---
+
 ## 2026-09-28 — Choosing the pilot from the measurements, and one number that did not divide
 
 With the calibration in hand, the owner fixed the pilot. It keeps the standard decoder. The

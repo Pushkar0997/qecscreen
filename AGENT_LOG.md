@@ -6,6 +6,30 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-29 (ww) — Claude Opus 5.5 / Claude Code — D-034: `MAX_SHOTS` 40,960 after the probe; probe recorded as evidence
+
+**Milestone:** M0. **Tasks:** owner decisions from the probe (session 1 at `27873ec`), recorded as D-034; touches M0-RUN-03 (restart) and M0-METRIC-01 (a note). One commit, code and spec together, per the owner.
+
+**Changed:**
+- `MAX_SHOTS` 10,240 → **40,960** (160 × 256) in CONTRACT's exact values and `protocol.py`. `test_d031_…` asserts the new value; the relation stays. The cost-report test's partial probe code now derives its shots from `MAX_SHOTS` (it hard-coded "1 failure in 256 is censored", which is false at 40,960).
+- `evaluate/pilot.py`: `PROJECTED_CORE_HOURS` 52.5 → **110.0**, and the docstring. **This contradicts the brief's "no change to pilot.py is needed"**: the constant mirrors architecture §6's budget and is printed in the cost report as "architecture §6: …", so leaving it at 52.5 would have made the next probe's report cite a number §6 no longer has. For the restart itself no runner change is needed: the old manifest records `max_shots` 10,240, and `_check_manifest` and `assemble_measurements` refuse it.
+- `evidence/pilot/probe1-27873ec/`: `m0-pilot.tar` + sidecar, sha256 `e30a0719…af62`, checked with `sha256sum -c` after the copy.
+- Spec: evals §7 probe entry (report verbatim, owner's cost reading, why the 103/198 ratio re-projection is not used), N-03 and N-18 wording; architecture §6 budget replaced; D-034, D-031 status note; tasks.md METRIC-01 note (INV-3 untouched) and RUN-03 restart note; plan.md scope line and risk paragraph (both still said 10,240 / 52.5).
+- NARRATIVE entry: the borrowed failure fractions were off by up to 137×, and the cap was censoring the likely-best codes.
+
+**Checked:** the owner's 3.69 core-h reproduces from the report (Σ shots × s/shot = 13,300 s); the ~110 reproduces as ~108 (censored codes' extra shots to 100 failures at measured rates, × 244/12). Re-running the report on the committed tar at the new constants gives identical output except "architecture §6: 110.0".
+
+**Suite:** default only, **319 passed, 26 deselected**, 56 s. `test_p0_gives_zero_failures_at_contract_defaults` (default suite) now runs 40,960 p = 0 shots; it stayed fast.
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. The restart makes session 1 a probe again (3 h, 12 codes) and session 2 needs a new `COST_GATE`. The runner allows no other path from an empty pilot; if the owner wants to skip a second probe, that is a runner change.
+2. A code that censors at 40,960 at the probe's slowest rate (3.8 s/shot) is ~43 core-hours on one core, several sessions long. Resume covers it, but the wall-clock estimate (~28 h) assumes no such code.
+3. No `.gitattributes`: with `core.autocrlf=true` the sidecar may check out with CRLF on Windows. `_verify_archive` splits on whitespace, so it still verifies.
+4. D-033 amendment 2 says "a partial code still has up to 40" shards; it is now up to 160. Left as written (history).
+
+---
+
 ## 2026-09-28 (vv) — Claude Opus 5.5 / Claude Code — the pilot travels as one tar: Kaggle keeps at most 500 output files (D-033 amendment 2)
 
 **Milestone:** M0. **Task:** a fix to M0-RUN-01/02 before the probe runs. As built, the pilot directory sat in `/kaggle/working`, and with up to ~10,000 shards the chain would break by session 2 (owner confirmed Kaggle's "Too many output files (max 500)"). This was (uu)'s "noticed" item 2.

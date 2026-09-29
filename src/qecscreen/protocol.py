@@ -45,7 +45,7 @@ __all__ = [
 SCHEMA_VERSION = 1
 
 MIN_FAILURES = 100  # below this a row is censored (INV-3)
-MAX_SHOTS = 10_240  # hard cap per (code, p): 40 x SHOT_BATCH (D-031)
+MAX_SHOTS = 40_960  # hard cap per (code, p): 160 x SHOT_BATCH (D-034, raising D-031's 10,240)
 SHOT_BATCH = 256  # fixed batch size; sample/decode in batches, check the stopping rule between (D-031)
 
 CONFIDENCE = 0.95

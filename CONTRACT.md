@@ -272,10 +272,12 @@ ROUNDS_RULE             = "r = d_upper"   # D-006. The rule is hashed, never the
                                           # concrete r (INV-6, D-014).
 
 MIN_FAILURES            = 100          # below this the row is censored (INV-3)
-MAX_SHOTS               = 10_240       # hard cap per (code, p): 40 x SHOT_BATCH.
-                                       # D-031. The owner's 10,000, raised to a
-                                       # whole number of batches so both this cap
-                                       # and "batches of exactly SHOT_BATCH" hold.
+MAX_SHOTS               = 40_960       # hard cap per (code, p): 160 x SHOT_BATCH.
+                                       # D-034, raising D-031's 10,240: the pilot's
+                                       # probe censored its lowest-failure codes at
+                                       # 10,240. A whole number of batches, so both
+                                       # this cap and "batches of exactly
+                                       # SHOT_BATCH" hold.
 SHOT_BATCH              = 256          # fixed batch size; sample and decode in batches,
                                        # check stopping rule between. D-031
 CONFIDENCE              = 0.95         # Wilson score interval, two-sided, clamped

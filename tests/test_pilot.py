@@ -577,8 +577,14 @@ def _synthetic_pilot(tmp_path):
                              "decode_seconds": 0.0})
 
     shards(probe[0], [60, 45], 2.0, finish=True)  # finished at 105 failures, 2x the projected cost
-    shards(probe[1], [1], 3.0, finish=False)  # partial, 1 failure in 256, 3x the projected cost
+    shards(probe[1], PARTIAL_FAILURES, 3.0, finish=False)  # partial, 1 failure, 3x the projected cost
     return out, pop, probe, model  # probe[2] has not started
+
+
+# The partial probe code: silent batches, then 1 failure, enough shots that 100
+# failures would need more than MAX_SHOTS (1 batch at 10,240; 2 at 40,960).
+PARTIAL_FAILURES = [0] * (pilot.MAX_SHOTS // (100 * 256)) + [1]
+PARTIAL_SHOTS = 256 * len(PARTIAL_FAILURES)
 
 
 def pilot_calibrate():
@@ -596,21 +602,21 @@ def test_the_cost_report_on_synthetic_shards(tmp_path, monkeypatch):
     fin, part, unstarted = report["probe"]
     assert [e["code_id"] for e in report["probe"]] == probe
     assert fin["ratio"] == pytest.approx(2.0) and part["ratio"] == pytest.approx(3.0) and unstarted["ratio"] is None
-    assert fin["measured_failure_fraction"] == 105 / 512 and part["measured_failure_fraction"] == 1 / 256
+    assert fin["measured_failure_fraction"] == 105 / 512 and part["measured_failure_fraction"] == 1 / PARTIAL_SHOTS
     assert fin["donor_failure_fraction"] == model[probe[0]]["donor_failure_fraction"]
     assert report["ratio"] == {"codes": 2, "median": pytest.approx(2.5), "max": pytest.approx(3.0),
                                "min": pytest.approx(2.0)}
 
     others = sum(model[r["code_id"]]["core_hours"] for r in pop if r["code_id"] not in probe[:2])
     measured_fin = 512 * 2.0 * model[probe[0]]["seconds_per_shot"] / 3600
-    measured_part = 3.0 * model[probe[1]]["seconds_per_shot"] * max(model[probe[1]]["run_shots"], 256) / 3600
+    measured_part = 3.0 * model[probe[1]]["seconds_per_shot"] * max(model[probe[1]]["run_shots"], PARTIAL_SHOTS) / 3600
     ch = report["core_hours"]
     assert ch["projected"] == pytest.approx(sum(m["core_hours"] for m in model.values()))
     assert ch["reprojected_at_median_ratio"] == pytest.approx(measured_fin + measured_part + 2.5 * others)
     assert ch["reprojected_at_max_ratio"] == pytest.approx(measured_fin + measured_part + 3.0 * others)
-    assert (ch["architecture_projection"], ch["architecture_ceiling"]) == (52.5, 158.0)
+    assert (ch["architecture_projection"], ch["architecture_ceiling"]) == (110.0, 158.0)
 
-    # 1 failure in 256 shots needs ~25,600 shots to reach 100: censored at MAX_SHOTS. 105 failures: not.
+    # 1 failure in PARTIAL_SHOTS needs 100x that to reach 100, more than MAX_SHOTS: censored. 105 failures: not.
     assert (fin["censored_at_max_shots"], part["censored_at_max_shots"]) == (False, True)
     c = report["censoring"]
     assert [e["code_id"] for e in c["probe_by_measured_failure_fraction"]] == [probe[1], probe[0]]

@@ -150,8 +150,9 @@ SESSION_WALL_HOURS = 10.5  # owner, 2026-09-28 (D-033): under Kaggle's 12 h, wit
 PROBE_CODES = 12  # owner, 2026-09-28 (D-033): session 1 runs this many codes
 PROBE_WALL_HOURS = 3.0  # owner, 2026-09-28 (D-033); proposed 2.0
 
-# spec/architecture.md §6: the budget-72 re-projection at P_PILOT, and its 3x ceiling.
-PROJECTED_CORE_HOURS = 52.5
+# spec/architecture.md §6: the M0 budget at MAX_SHOTS (D-034, the owner's reading of
+# the probe at 27873ec; was D-031's 52.5), and the 158 core-hour ceiling.
+PROJECTED_CORE_HOURS = 110.0
 CEILING_CORE_HOURS = 158.0
 
 MEASUREMENTS_FILE = "m0_measurements.parquet"  # owner, 2026-09-28, under data/ (architecture §2)
@@ -840,8 +841,8 @@ def pilot_cost_report(pilot_dir: str | os.PathLike[str], calibration_dir: str | 
       decode seconds; a partial one at its measured seconds/shot times the
       model's run shots (at least the shots it has done); every other code at
       its projected core-hours times the median ratio, and again times the
-      maximum ratio. Both against architecture §6's 52.5 core-hours and its
-      158 core-hour ceiling;
+      maximum ratio. Both against architecture §6's budget
+      (``PROJECTED_CORE_HOURS``) and its 158 core-hour ceiling;
     - censoring projected at ``MAX_SHOTS``, overall and in the top third by
       ``d_upper`` (probe codes by their own measurements, others by their
       donors), and among the probe codes with the lowest measured failure

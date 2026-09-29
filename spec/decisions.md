@@ -571,7 +571,7 @@ The models above are unchanged, and no protocol constant moves. The first use is
 
 ## D-031 — M0 pilot protocol: BP+OSD kept, `P_PILOT = 0.002`, 244 enumerated codes at n ≤ 72, `SHOT_BATCH = 256`, `MAX_SHOTS = 10,240`
 
-**Status:** decided (owner, 2026-09-28), on the Kaggle calibration at `7e91f82` and its re-projection (`spec/evals.md §7`). Supersedes D-016's `p = 0.005`. Changes `CONTRACT.md`'s exact values, `protocol.py`, `spec/architecture.md §6` and `spec/plan.md`. The owner approved `plan.md`'s restated exit criterion, "one row for each of the 244 codes" (2026-09-28). Corrected 2026-09-28: the reason for rejecting `MAX_SHOTS = 20,000` is cost, not the 12-hour session (below).
+**Status:** decided (owner, 2026-09-28), on the Kaggle calibration at `7e91f82` and its re-projection (`spec/evals.md §7`). Supersedes D-016's `p = 0.005`. Changes `CONTRACT.md`'s exact values, `protocol.py`, `spec/architecture.md §6` and `spec/plan.md`. The owner approved `plan.md`'s restated exit criterion, "one row for each of the 244 codes" (2026-09-28). Corrected 2026-09-28: the reason for rejecting `MAX_SHOTS = 20,000` is cost, not the 12-hour session (below). **`MAX_SHOTS` superseded by D-034 (2026-09-29): 40,960.** The rest stands.
 **Decision:**
 - **Decoder:** the pinned BP+OSD (D-005, `DECODER_PARAMS`) is unchanged.
 - **`P_PILOT = 0.002`.** The evidence is in the calibration's size-scaling table:
@@ -685,6 +685,23 @@ D-033's "Revisit if" fired before the first session: Kaggle keeps at most 500 fi
 - *A compressed tar.* The shards are Parquet and already compressed, and a plain tar can be listed and checked without decompressing.
 - *One tar per session, holding only that session's new files.* Every later session would need all earlier outputs attached. D-033 rejected that for directories, for the same reason.
 - *Keeping the pilot directory in `/kaggle/working` and deleting shards once a code finishes.* The shards are the code's evidence (D-032 digests, per-batch provenance), and a partial code still has up to 40.
+
+---
+
+## D-034 — `MAX_SHOTS = 40,960`: the probe censored the lowest-failure codes
+
+**Status:** decided (owner, 2026-09-29), on the pilot's probe (session 1 at `27873ec`, `spec/evals.md §7`, `evidence/pilot/probe1-27873ec/`). This is D-031's "Revisit `MAX_SHOTS` if the probe's cost report projects censoring among the lowest-failure-fraction codes", which fired. Supersedes D-031's `MAX_SHOTS = 10,240`. Changes `CONTRACT.md`'s exact values, `protocol.py`, `spec/architecture.md §6` and `spec/plan.md`.
+**Decision:**
+- **`MAX_SHOTS` 10,240 → 40,960 = 160 × `SHOT_BATCH`.** `test_d031_shot_cap_is_a_whole_number_of_batches` keeps the relation.
+- **The M0 budget is the owner's reading of the probe** (architecture §6): 3.69 core-hours for 12 evenly ranked codes, so ~75 core-hours at 10,240 and ~110 estimated at 40,960, under the 158 ceiling.
+- **The pilot restarts fresh at the new cap.** The probe is evidence only. Its manifest records `max_shots` 10,240, so a session given it as `PREVIOUS` refuses it, and so does `assemble_measurements`. The new session 1 is a probe again (`PREVIOUS = None`, `COST_GATE = ""`), and session 2 needs a new cost gate. No change to the runner was needed.
+- `pilot.PROJECTED_CORE_HOURS`, which mirrors architecture §6's budget in the cost report, is 110.0 (was 52.5). `CEILING_CORE_HOURS` stays 158.
+
+**Rationale:** The probe censored 3 of 12 codes at 10,240, all pair_2_2, at failure fractions 0.0038–0.0097. They were its three lowest-failure codes, the likely best codes, and Recall@30-of-top-10 depends on exactly those. A censored row is an upper bound (INV-3), so at 10,240 the top of the ranking would be the part with the least information. At 40,960 a code reaches 100 failures if its failure fraction is at least ~0.0024, which covers all three. The D-029 model had projected 0% censored at any cap, but it borrowed failure fractions that were off by up to 137×, so that projection is void. D-031 chose 10,240 over 20,000 for cost, on the premise that no projected code gets near the cap. The probe removed the premise, and ~110 core-hours is under the ceiling.
+**Rejected:**
+- *Keep 10,240.* The censoring falls on the codes the headline metric depends on.
+- *Budget from the report's ratio re-projection (103 / 198 core-hours).* It scales the D-029 model's per-code cost, which carries the borrowed failure fractions (`spec/evals.md §7`).
+**Revisit if:** the new probe's measured core-hours, scaled by 244/12, exceed the 158 ceiling; its lowest-failure codes still censor at 40,960; or the censoring rate exceeds 40% (`plan.md`).
 
 ---
 

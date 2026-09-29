@@ -120,7 +120,7 @@ def test_d026_p_pilot_exported():
 def test_d031_shot_cap_is_a_whole_number_of_batches():
     """CONTRACT: batches of exactly SHOT_BATCH, and MAX_SHOTS a hard cap. Both
     hold only if the cap is a whole number of batches; 10,000 over 256 was not."""
-    assert (MAX_SHOTS, SHOT_BATCH) == (10_240, 256)  # CONTRACT.md exact values; D-031
+    assert (MAX_SHOTS, SHOT_BATCH) == (40_960, 256)  # CONTRACT.md exact values; D-031, D-034
     assert MAX_SHOTS % SHOT_BATCH == 0
 
 
