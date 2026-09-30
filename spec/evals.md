@@ -422,6 +422,45 @@ Re-run on the committed tar after D-034, the output is identical except that "ar
 - 12 codes; the ~110 assumes the rest of the population censors at 10,240 as often as the probe (3 of 12) and at the same kind of failure fraction. A code with a failure fraction below ~0.0024 still censors at 40,960, at up to 40,960 × its seconds/shot.
 - All seconds/shot are one core of a 4-core Kaggle CPU under 4 workers.
 
+#### 2026-09-30 — M0 pilot probe 2 at 1131f10 (cost gate approved)
+
+This title is the `COST_GATE` string session 2 uses. It is the cost gate for the restarted pilot (D-034), not an M0 verdict, and it moves no exit criterion.
+
+**Run.** `notebooks/pilot.ipynb` session 1 of the restarted pilot on Kaggle at `1131f10`: the probe, the same 12 codes as probe 1, `MAX_SHOTS` = 40,960. The manifest in the tar records `commit_sha` `1131f1000fdf0708dc7ba46e63d8859140d2c2bb` and `max_shots` 40960. **Evidence:** `evidence/pilot/probe2-1131f10/` holds `m0-pilot.tar` and `m0-pilot.tar.sha256` as downloaded, sha256 `55cf7b737e3f8cc030150139a4b2ca352c763722cb0d6e5217c743b9d6dafe74`, checked with `sha256sum -c` when committed.
+
+**The cost report, as the owner ran it** (`pilot_cost_report` on the tar against `evidence/calibration/2026-09-27-7e91f82`):
+
+```
+probe codes (measured vs projected BP+OSD s/shot; measured vs donor failure fraction):
+  bb_v1_quad_4_2-03c24c84c800 [[70,2,<=9]] 1280 shots: s/shot 4.27 vs 4.26 (x1); failure fraction 0.0805 vs 0.175 (bb_v1_quad_4_2-c7c6d07a81bf)
+  bb_v1_pair_2_2-721eb061d211 [[72,2,<=6]] 20480 shots: s/shot 0.303 vs 1.46 (x0.208); failure fraction 0.00488 vs 0.179 (ref72)
+  bb_v1_rare_3_4-6793f7622e98 [[70,6,<=5]] 512 shots: s/shot 2.8 vs 0.801 (x3.49); failure fraction 0.23 vs 0.179 (ref72)
+  bb_v1_pair_2_2-570f19471ff8 [[48,2,<=6]] 24576 shots: s/shot 0.144 vs 0.46 (x0.314); failure fraction 0.00407 vs 0.521 (bb_v1_mixed_3_5-cf5649b397df)
+  bb_v1_pair_2_2-42a40c4140d4 [[64,2,<=4]] 10496 shots: s/shot 0.0987 vs 0.329 (x0.3); failure fraction 0.00953 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+  bb_v1_quad_4_2-e3d9e7ce1e14 [[60,2,<=4]] 768 shots: s/shot 0.521 vs 0.274 (x1.9); failure fraction 0.176 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+  bb_v1_diag_3_3-0127099528eb [[48,4,<=4]] 768 shots: s/shot 0.331 vs 0.145 (x2.28); failure fraction 0.145 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+  bb_v1_quad_4_2-31b1559a4450 [[42,2,<=4]] 1024 shots: s/shot 0.239 vs 0.0995 (x2.4); failure fraction 0.107 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+  bb_v1_sq_4_2-1f7815221846 [[48,2,<=3]] 1280 shots: s/shot 0.154 vs 0.0642 (x2.4); failure fraction 0.0805 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+  bb_v1_mod_2_3-8e06f820914a [[30,4,<=4]] 2304 shots: s/shot 0.0479 vs 0.0382 (x1.25); failure fraction 0.0464 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+  bb_v1_quad_4_2-9c1e1f44b1c1 [[24,2,<=4]] 1024 shots: s/shot 0.0669 vs 0.0203 (x3.3); failure fraction 0.106 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+  bb_v1_sq_4_2-729429a7ebad [[12,2,<=3]] 1536 shots: s/shot 0.00496 vs 0.00125 (x3.98); failure fraction 0.0729 vs 0.0191 (bb_v1_pair_2_2-afbf55db2c35)
+ratio measured/projected over 12 codes: median 2.09, max 3.98, min 0.208
+core-hours: projected 52.5; re-projected at the median ratio 108.9 (architecture §6: 110.0), at the max ratio 202.7 (ceiling 158.0)
+censored at MAX_SHOTS: overall 0/244 (+0 unknown); top third by d_upper 0/82 (+0); lowest-failure-fraction third of the probe 0/4 (+0)
+```
+
+**What it shows:**
+- **12 of 12 codes finished, 0 censored.** The three pair_2_2 codes that censored at 10,240 in probe 1 finished at **20,480, 24,576 and 10,496 shots** ([[72,2,≤6]], [[48,2,≤6]], [[64,2,≤4]]). Probe 1 estimated about 20,900, 26,200 and 10,300.
+- **Measured decode: ~5.3 core-hours.** Checked as Σ shots × s/shot over the 12 lines above: 18,962 s = 5.27 h. Scaled × 244/12, as for probe 1: **~107 core-hours**, against the ~110 estimate (D-034, `spec/architecture.md §6`) and the 158 ceiling.
+- **"overall 0/244" is not a measurement.** 12 of the 244 codes were run. For the other 232 the report reads censoring from the D-029 model's donor failure fractions, which probe 1 showed are off by up to 137×. Only "0/12 of the probe" is measured.
+
+**Approved by the owner as the cost gate for session 2 onward.**
+
+**Closes?** Nothing. It opens M0-RUN-03's later sessions.
+**Caveats carried forward:**
+- ~107 is 12 codes scaled by 244/12. A code whose failure fraction is below ~0.0024 still censors at 40,960, at up to 40,960 × its seconds/shot. None of the 12 does.
+- All seconds/shot are one core of a 4-core Kaggle CPU under 4 workers.
+
 ---
 
 ### M0 verdict
