@@ -6,6 +6,7 @@ these fails, every label in the dataset is suspect.
 
 import math
 
+import pandas as pd
 import pytest
 
 from qecscreen.protocol import (
@@ -139,8 +140,8 @@ def test_d026_decoder_settings_enter_the_hash(monkeypatch, key, other):
     assert _protocol().hash() != before
 
 
-def test_inv6_single_protocol_guard():
-    """N-02: refuse to combine rows from two protocols."""
+def test_single_protocol_guard():
+    """INV-6-T, N-02: refuse to combine rows from two protocols. CONTRACT INV-6 names this test."""
     a = _protocol(p=0.005).hash()
     b = _protocol(p=0.010).hash()
     assert a != b
@@ -149,6 +150,19 @@ def test_inv6_single_protocol_guard():
         assert_single_protocol([a, b])
     with pytest.raises(ValueError):
         assert_single_protocol([])
+
+
+def test_single_protocol_guard_on_a_dataframe_column():
+    """INV-6-T on the input it guards in use: a frame's ``protocol_hash`` column (M0-EVAL-03)."""
+    a = _protocol(p=0.005).hash()
+    b = _protocol(p=0.010).hash()
+    single = pd.DataFrame({"code_id": ["c0", "c1", "c2"], "protocol_hash": [a, a, a]})
+    assert assert_single_protocol(single["protocol_hash"]) == a
+    mixed = pd.DataFrame({"code_id": ["c0", "c1", "c2"], "protocol_hash": [a, b, a]})
+    with pytest.raises(ValueError, match="2 distinct protocols"):
+        assert_single_protocol(mixed["protocol_hash"])
+    with pytest.raises(ValueError):
+        assert_single_protocol(single.iloc[0:0]["protocol_hash"])
 
 
 def test_protocol_hash_is_stable():
