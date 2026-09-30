@@ -53,7 +53,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 
 ### FEATURES
 
-- [ ] **M0-FEAT-01** Implement `src/qecscreen/features/structural.py`: `n`, `k`, `d_upper`, `phi_from_d_upper`, check-weight min/max/mean, qubit-degree min/max/mean, `n_ancilla`, `n_total`
+- [ ] **M0-FEAT-01** Implement `src/qecscreen/features/structural.py`: `n`, `k`, `d_upper`, `phi_from_d_upper`, check-weight min/max/mean, qubit-degree min/max/mean, `n_ancilla`, `n_total` — **partial (2026-09-30).** `features/structural.py` and `features/table.py`: `compute_features(population)` / `code_features(record)` read only `code_id`, `construction_program_id`, `params_json`, `seed`, regenerate the code (INV-7) and take `d_upper` from `estimate_d_upper` at that seed. Done: `n`, `k`, `d_upper`, `phi_from_d_upper`, check-weight min/max/mean (all checks, X and Z), `n_ancilla`, `n_total`. **Open: qubit-degree min/max/mean**, because which Tanner graph a degree is taken in is not pinned (owner decision, AGENT_LOG 2026-09-30 (yy)). Tests `tests/test_features.py`: INV-1 column names, INV-5 naming, no read of any key but those four (spy record), output unchanged under perturbed measurement columns
 - [ ] **M0-FEAT-02** Add Tanner-graph cycle features: 4-cycle count, 6-cycle count, girth. **This is the physically motivated hypothesis** — BP struggles with short cycles, so this is where signal Φ misses should live
 - [ ] **M0-FEAT-03** Add circuit features from the schedule: colouring number, CNOT depth, two-qubit gate count
 - [ ] **M0-FEAT-04** Add spectral feature: second-smallest Laplacian eigenvalue of the Tanner graph
