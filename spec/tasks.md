@@ -57,7 +57,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 - [ ] **M0-FEAT-02** Add Tanner-graph cycle features: 4-cycle count, 6-cycle count, girth. **This is the physically motivated hypothesis** — BP struggles with short cycles, so this is where signal Φ misses should live
 - [ ] **M0-FEAT-03** Add circuit features from the schedule: colouring number, CNOT depth, two-qubit gate count
 - [ ] **M0-FEAT-04** Add spectral feature: second-smallest Laplacian eigenvalue of the Tanner graph
-- [ ] **M0-FEAT-05** Assert every feature computes in <1s per code; fail the test if not
+- [x] **M0-FEAT-05** Assert every feature computes in <1s per code; fail the test if not — `test_feat05_every_feature_under_one_second_per_code` times `code_features` whole (regeneration and `d_upper` included) on [[72,12,6]], the largest M0 code, and [[12,2,≤3]]: ~0.07 s and less on the dev box. Features added by M0-FEAT-01..04 go through `code_features`, so they fall under the same bound
 
 ### SPLIT and METRICS
 

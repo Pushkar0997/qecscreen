@@ -6,6 +6,7 @@ enumeration (``admissible_codes(72)``) gives them.
 """
 
 import math
+import time
 from collections.abc import Mapping
 
 import numpy as np
@@ -125,3 +126,17 @@ def test_a_record_without_its_seed_is_refused():
     del record["seed"]
     with pytest.raises(KeyError):
         code_features(record)
+
+
+@pytest.mark.parametrize("code", [REFERENCE, SMALL], ids=["72_12_6", "12_2_3"])
+def test_feat05_every_feature_under_one_second_per_code(code):
+    """M0-FEAT-05, N-07: all of a code's features, regeneration and ``d_upper`` included, in under 1 s.
+
+    Times ``code_features`` whole, so each feature added to it falls under the
+    bound. [[72,12,6]] is the largest M0 code (n <= 72, D-031).
+    """
+    record = _record(*code)
+    start = time.perf_counter()
+    code_features(record)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 1.0, f"{record['code_id']}: features took {elapsed:.3f} s, over the 1 s bound"
