@@ -6,6 +6,34 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-30 (yy) — Claude Opus 5.5 / Claude Code — splits, EVAL-03, feature table; FEAT-02..04 stopped on unpinned definitions
+
+**Milestone:** M0, while the pilot runs at `1131f10`. Nothing on the pilot's path touched (`protocol.py`, `evaluate/`, `codes/`, `circuits/`).
+
+**Landed, one commit per task:**
+- `b16a93c` M0-EVAL-03: the test is renamed `test_single_protocol_guard`, CONTRACT's name (CONTRACT unchanged), plus a DataFrame-column test.
+- `d0e2cfe` M0-SPLIT-01: `splits.grouped_kfold(df, n_splits)`, sklearn `GroupKFold`, positional `(train, test)` pairs, the only export. A frame without the column raises `KeyError` (N-04), a null program `ValueError`.
+- `5627056` M0-SPLIT-02: `tests/test_inv_2_leakage.py::test_no_program_leakage` (CONTRACT's name), every export × every fold count × 5 frames on the 11 M0 programs. The check fires on a row-level `KFold`.
+- `dbc0a4c` M0-FEAT-01, **partial**: `features/table.py` `compute_features(population)` / `code_features(record)` reads only `code_id`, `construction_program_id`, `params_json`, `seed` → `ids.regenerate` → `estimate_d_upper` at that seed (the call `build_row` makes). Features: `n`, `k`, `d_upper`, `phi_from_d_upper`, check-weight min/max/mean over all checks, `n_ancilla`, `n_total`. Tests: INV-1 names, INV-5 names, a spy record (only the four keys read), and output unchanged under perturbed `true_*`/`shots`/`failures`. Run on 3 codes, not 244.
+- `3162db6` M0-FEAT-05: <1 s per code on [[72,12,6]] and [[12,2,≤3]], timing `code_features` whole (~0.07 s).
+
+**Stopped, owner decision needed (not picked):**
+1. *Which Tanner graph* (qubit degree, FEAT-02, FEAT-04): `H_X` and `H_Z` separately (per-type columns), the combined `[H_X; H_Z]`, or `H_Z` only (Z memory). Measured on the 244: the combined graph has 4-cycles in **all 244** (X/Z overlaps are even by commutation). [[72,12,6]] has 0 four-cycles in `H_X` and in `H_Z`, but 324 combined. Per-type 4-cycles occur in 142/244. Combined qubit degree is always |A|+|B| (= check weight); per-type degree varies in 139/244.
+2. *6-cycle*: simple 6-cycles counted once as subgraphs, chordless only, or closed non-backtracking walks of length 6.
+3. *FEAT-03*: "colouring number" of what (edge chromatic index = max degree by König; schedule layers per phase = |A|+|B|; something else). CNOT depth and two-qubit gate count per round or over the whole circuit (× r = `d_upper`). Per round, both are functions of check weight and n for BB.
+4. *FEAT-04*: Laplacian `D − A` vs normalised `I − D^-1/2 A D^-1/2`; 12/244 codes are disconnected in every graph choice, so λ2 = 0 there. Is 0 stored as a value, or null?
+5. The feature Parquet's file name and any feature-version column (not needed until assembly).
+
+**Suite:** default only, **341 passed, 26 deselected**, 89 s. No mutation testing (not asked).
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. `assert_single_protocol` returns `None` for an all-null `protocol_hash` column (`set` of one `None`), so a frame with no hashes passes the guard. The fix is in `protocol.py`, which is on the pilot's path; left for after the pilot.
+2. N-07 says "a 200-qubit code"; this session's brief and the test use [[72]], M0's largest. N-07's wording is not updated.
+3. Placeholder `features/__init__.py` left as is; the module is imported as `qecscreen.features.table`.
+
+---
+
 ## 2026-09-30 (xx) — Claude Opus 5.5 / Claude Code — probe 2 at `1131f10` recorded and approved as the cost gate
 
 **Milestone:** M0. **Task:** M0-RUN-03, spec and evidence only. No code change; the pilot keeps running at `1131f10`.
