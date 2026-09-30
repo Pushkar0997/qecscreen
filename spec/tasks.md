@@ -61,7 +61,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 
 ### SPLIT and METRICS
 
-- [ ] **M0-SPLIT-01** Implement `src/qecscreen/splits.py` with `grouped_kfold(df, n_splits)` grouping on `construction_program_id`; no other split function is exported
+- [x] **M0-SPLIT-01** Implement `src/qecscreen/splits.py` with `grouped_kfold(df, n_splits)` grouping on `construction_program_id`; no other split function is exported — `grouped_kfold(df, n_splits)` returns `(train, test)` positional-index pairs from sklearn's `GroupKFold`, deterministic; `__all__` and the module's public functions are exactly `grouped_kfold`. A frame without the column raises `KeyError` (N-04), a null program `ValueError` (`tests/test_splits.py`)
 - [ ] **M0-SPLIT-02** Write `tests/test_inv_2_leakage.py` asserting empty program-ID intersection across every split produced
 - [ ] **M0-METRIC-01** Implement `recall_at_k(true_ler, score, k, top_n=10)` and `spearman(true_ler, score)` in `metrics.py`. Every ranking entry point calls `assert_single_protocol` on its input's `protocol_hash` column, with a test that each one raises on a mixed-hash frame (INV-6-T; moved here from M0-EVAL-03, 2026-09-28). **Before implementing: owner decision on INV-3's "censored rows rank as ties at the bottom".** Codes censored at `MAX_SHOTS` have the fewest failures, so they are likely the best codes, not the worst (the probe, `spec/evals.md §7`, D-034). Candidate: rank censored rows by `true_ler_ub`. That is a CONTRACT change
 - [ ] **M0-METRIC-02** Implement bootstrap confidence intervals over codes for both metrics, 1,000 resamples, seeded
