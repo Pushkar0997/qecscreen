@@ -6,6 +6,25 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-09-30 (xx) — Claude Opus 5.5 / Claude Code — probe 2 at `1131f10` recorded and approved as the cost gate
+
+**Milestone:** M0. **Task:** M0-RUN-03, spec and evidence only. No code change; the pilot keeps running at `1131f10`.
+
+**Changed:**
+- `evidence/pilot/probe2-1131f10/`: `m0-pilot.tar` + sidecar, sha256 `55cf7b73…fe74`, `sha256sum -c` OK after the copy. Its manifest records `commit_sha` `1131f100…` and `max_shots` 40960.
+- `spec/evals.md §7`: entry "2026-09-30 — M0 pilot probe 2 at 1131f10 (cost gate approved)", the `COST_GATE` string session 2 uses. Report verbatim; 12/12 finished, 0 censored; the owner's approval.
+- `spec/tasks.md` M0-RUN-03: probe 2 approved, session 2 started.
+
+**Checked:** Σ shots × s/shot over the report = 18,962 s = 5.27 core-h; × 244/12 = 107.1, against ~110 and the 158 ceiling. The report's "0/244 censored" reads the 232 unrun codes from donor failure fractions; the entry says so.
+
+**Suite:** not run; no code touched.
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. The report's ratio re-projection (108.9 / 202.7) is printed but, as for probe 1, not the estimate used; the entry cites the scaled measured total only.
+
+---
+
 ## 2026-09-29 (ww) — Claude Opus 5.5 / Claude Code — D-034: `MAX_SHOTS` 40,960 after the probe; probe recorded as evidence
 
 **Milestone:** M0. **Tasks:** owner decisions from the probe (session 1 at `27873ec`), recorded as D-034; touches M0-RUN-03 (restart) and M0-METRIC-01 (a note). One commit, code and spec together, per the owner.
