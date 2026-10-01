@@ -69,6 +69,9 @@ qecscreen/
 ├── data/                  ← Gitignored. Local Parquet. Releases go to Zenodo.
 │                            M0's measurements: data/m0_measurements.parquet, written
 │                            only by evaluate.pilot.assemble_measurements (D-033).
+│                            M0's features: data/m0_features.parquet, written only
+│                            by features.table.write_features, feature_set
+│                            "m0_features_v1" on every row.
 ├── evidence/              ← Committed run outputs that are not dataset rows, e.g.
 │                            calibration/<date>-<sha>/ (D-029). Kept unmodified,
 │                            markers intact; refused by reject_calibration.
@@ -142,7 +145,7 @@ One Parquet table. One row per `(code, protocol)` pair.
 | `schema_version` | int32 | |
 | `created_at` | str | ISO 8601 UTC |
 
-Feature columns live in a **separate** Parquet keyed on `code_id`, so features can be recomputed and versioned without touching measurements. Predictions live in a third. Three files, joined on `code_id`, is how INV-1 is enforced structurally rather than by discipline.
+Feature columns live in a **separate** Parquet keyed on `code_id` (`data/m0_features.parquet`, columns `features.table.FEATURE_COLUMNS`, versioned by its `feature_set` column), so features can be recomputed and versioned without touching measurements. Predictions live in a third. Three files, joined on `code_id`, is how INV-1 is enforced structurally rather than by discipline.
 
 **Expensive to reverse:** the protocol definition and the LER normalisation. Changing either invalidates every label ever generated. Everything else is cheap.
 

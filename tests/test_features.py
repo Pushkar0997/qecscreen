@@ -330,3 +330,46 @@ def test_feat04_a_disconnected_m0_code():
     row = code_features(_record("bb_v1_pair_2_2", 3, 6, [(1, 0), (0, 2)], [(0, 1), (2, 0)]))
     for t in ("x", "z"):
         assert (row[f"n_components_{t}"], row[f"lambda2_{t}"]) == (3, 0.0)
+
+
+def test_every_row_carries_the_feature_set():
+    table = compute_features([_record(*REFERENCE), _record(*SMALL)])
+    assert FEATURE_COLUMNS[:2] == ("code_id", "feature_set")
+    assert table["feature_set"].tolist() == ["m0_features_v1"] * 2
+
+
+def test_write_features_round_trips_and_does_not_overwrite(tmp_path):
+    import pyarrow.parquet as pq
+
+    from qecscreen.features.table import FEATURE_SET, write_features
+
+    table = compute_features([_record(*REFERENCE), _record(*SMALL)])
+    data = tmp_path / "data"
+    data.mkdir()
+    path = write_features(table, data)
+    assert path == data / "m0_features.parquet"
+    assert pq.read_schema(path).equals(FEATURE_SCHEMA, check_metadata=False)
+    pd.testing.assert_frame_equal(pd.read_parquet(path), table)
+    assert not list(data.glob("*.tmp"))
+    with pytest.raises(FileExistsError):
+        write_features(table, data)
+    assert set(pd.read_parquet(path)["feature_set"]) == {FEATURE_SET}
+
+
+def test_write_features_refusals(tmp_path):
+    from qecscreen.features.table import write_features
+
+    table = compute_features([_record(*SMALL)])
+    data = tmp_path / "data"
+    data.mkdir()
+    with pytest.raises(ValueError, match="data/"):
+        write_features(table, tmp_path / "elsewhere")
+    with pytest.raises(ValueError, match="FEATURE_COLUMNS"):
+        write_features(table.drop(columns="girth_x"), data)
+    with pytest.raises(ValueError, match="feature_set"):
+        write_features(table.assign(feature_set="m0_features_v0"), data)
+    with pytest.raises(ValueError, match="twice"):
+        write_features(pd.concat([table, table], ignore_index=True), data)
+    with pytest.raises(ValueError, match="no rows"):
+        write_features(table.iloc[:0], data)
+    assert not list(data.iterdir())
