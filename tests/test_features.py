@@ -76,12 +76,14 @@ def test_compute_features_on_three_codes():
     assert table["check_weight_max"].tolist() == [6, 4, 6]
     ints = ("n", "k", "d_upper", "n_ancilla", "n_total", "check_weight_min", "check_weight_max",
             *(f"qubit_degree_{s}_{t}" for s in ("min", "max") for t in ("x", "z")),
-            "girth_x", "girth_z", "cx_per_round", "cx_total", "circuit_ticks")
+            "girth_x", "girth_z", "n_components_x", "n_components_z",
+            "cx_per_round", "cx_total", "circuit_ticks")
     for name in ints:
         assert table[name].dtype == np.int32, name
     for name in ("cycle4_count_x", "cycle4_count_z", "cycle6_count_x", "cycle6_count_z"):
         assert table[name].dtype == np.int64, name
-    for name in ("phi_from_d_upper", "check_weight_mean", "qubit_degree_mean_x", "qubit_degree_mean_z"):
+    for name in ("phi_from_d_upper", "check_weight_mean", "qubit_degree_mean_x", "qubit_degree_mean_z",
+                 "lambda2_x", "lambda2_z"):
         assert table[name].dtype == np.float64, name
     assert FEATURE_SCHEMA.field("code_id").type == "string"
 
@@ -287,3 +289,44 @@ def test_feat03_circuit_features_match_the_built_circuit(code):
     cx = sum(len(op.targets_copy()) // 2 for op in circuit if op.name == "CX")
     assert cx == row["cx_total"]
     assert circuit.num_ticks == row["circuit_ticks"] + 1  # the tick after the noiseless data reset
+
+
+def test_feat04_lambda2_on_hand_graphs():
+    from qecscreen.features.tanner import graph_features
+
+    k32 = np.ones((2, 3), dtype=np.uint8)  # K_{3,2}: normalised spectrum 0, 1 (x3), 2
+    assert math.isclose(graph_features(k32)["lambda2"], 1.0, rel_tol=1e-12)
+    octagon = np.array([[1, 1, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1], [1, 0, 0, 1]], dtype=np.uint8)
+    assert math.isclose(graph_features(octagon)["lambda2"], 1 - math.cos(2 * math.pi / 8), rel_tol=1e-12)
+    assert graph_features(octagon)["n_components"] == 1
+
+
+def test_feat04_a_disconnected_graph_stores_lambda2_zero():
+    from qecscreen.features.tanner import graph_features
+
+    two_blocks = np.array([[1, 1, 0, 0], [0, 0, 1, 1]], dtype=np.uint8)
+    assert (graph_features(two_blocks)["lambda2"], graph_features(two_blocks)["n_components"]) == (0.0, 2)
+    isolated_qubit = np.array([[1, 1, 0]], dtype=np.uint8)  # degree 0: D^-1/2 undefined, never solved
+    assert (graph_features(isolated_qubit)["lambda2"], graph_features(isolated_qubit)["n_components"]) == (0.0, 2)
+
+
+def test_feat04_lambda2_equals_networkx_on_the_reference_code():
+    import networkx as nx
+
+    from qecscreen.features.tanner import tanner_graph
+
+    row = code_features(_record(*REFERENCE))
+    h_x, h_z = ids.regenerate(_record(*REFERENCE))
+    for t, h in (("x", h_x), ("z", h_z)):
+        laplacian = nx.normalized_laplacian_matrix(tanner_graph(h)).toarray()
+        expected = np.sort(np.linalg.eigvalsh(laplacian))[1]
+        assert row[f"n_components_{t}"] == 1
+        assert row[f"lambda2_{t}"] > 0
+        assert math.isclose(row[f"lambda2_{t}"], expected, rel_tol=1e-9)
+
+
+def test_feat04_a_disconnected_m0_code():
+    """[[36]] pair_2_2 at l=3, m=6, one of the 12 M0 codes whose Tanner graphs are disconnected."""
+    row = code_features(_record("bb_v1_pair_2_2", 3, 6, [(1, 0), (0, 2)], [(0, 1), (2, 0)]))
+    for t in ("x", "z"):
+        assert (row[f"n_components_{t}"], row[f"lambda2_{t}"]) == (3, 0.0)

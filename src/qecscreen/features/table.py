@@ -57,6 +57,8 @@ FEATURE_SCHEMA = pa.schema([
         ("cycle4_count", pa.int64()),
         ("cycle6_count", pa.int64()),
         ("girth", pa.int32()),  # null for a graph with no cycle
+        ("lambda2", pa.float64()),  # 0 for a disconnected graph
+        ("n_components", pa.int32()),
     ]),
     ("cx_per_round", pa.int32()),
     ("cx_total", pa.int32()),

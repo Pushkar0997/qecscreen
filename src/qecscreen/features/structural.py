@@ -29,6 +29,7 @@ __all__ = ["GRAPH_FEATURES", "structural_features"]
 GRAPH_FEATURES = (
     "qubit_degree_min", "qubit_degree_max", "qubit_degree_mean",
     "cycle4_count", "cycle6_count", "girth",
+    "lambda2", "n_components",
 )
 
 

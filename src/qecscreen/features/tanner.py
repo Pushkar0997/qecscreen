@@ -17,6 +17,13 @@ cycle has even length and alternates check, qubit. ``girth`` is the length of
 the shortest cycle; a graph with no cycle has no girth and stores null
 (CONTRACT: explicit nulls). No M0 code reaches that: a check of weight
 ``w >= 4`` on ``lm`` checks and ``2lm`` qubits gives more edges than vertices.
+
+Spectral (M0-FEAT-04): ``lambda2`` is the second-smallest eigenvalue of the
+normalised Laplacian ``I - D^-1/2 A D^-1/2``. It is 0 exactly when the graph
+is disconnected, and is then stored as 0 (owner, 2026-10-01) without an
+eigensolve, so a vertex of degree 0, where ``D^-1/2`` is undefined, never
+reaches one. ``n_components`` is the number of connected components; 12 of
+the 244 M0 codes have more than one.
 """
 
 from __future__ import annotations
@@ -89,6 +96,21 @@ def _cycles(h: np.ndarray) -> dict[str, Any]:
     return {"cycle4_count": four, "cycle6_count": six, "girth": girth}
 
 
+def _spectral(h: np.ndarray) -> dict[str, Any]:
+    graph = tanner_graph(h)
+    components = nx.number_connected_components(graph)
+    if components > 1:
+        return {"lambda2": 0.0, "n_components": components}
+    m, n = h.shape
+    adjacency = np.zeros((n + m, n + m))
+    adjacency[:n, n:] = h.T
+    adjacency[n:, :n] = h
+    inv_sqrt = 1.0 / np.sqrt(adjacency.sum(axis=1))
+    laplacian = np.eye(n + m) - inv_sqrt[:, None] * adjacency * inv_sqrt[None, :]
+    eigenvalues = np.linalg.eigvalsh(laplacian)  # ascending
+    return {"lambda2": float(eigenvalues[1]), "n_components": components}
+
+
 def graph_features(h: np.ndarray) -> dict[str, Any]:
     """Every Tanner-graph feature of ``h``, unsuffixed; the caller adds ``_x`` / ``_z``."""
-    return {**_qubit_degree(h), **_cycles(h)}
+    return {**_qubit_degree(h), **_cycles(h), **_spectral(h)}
