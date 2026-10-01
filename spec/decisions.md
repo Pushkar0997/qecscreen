@@ -705,6 +705,22 @@ D-033's "Revisit if" fired before the first session: Kaggle keeps at most 500 fi
 
 ---
 
+## D-035 — Censored rows rank by `true_ler_ub`, not as ties at the bottom
+
+**Status:** decided (owner, 2026-10-01). Changes `CONTRACT.md` INV-3's text only; the censoring rule itself (`< 100` failures, null `true_ler`, `true_ler_ub` stored) is unchanged. Answers the question M0-METRIC-01 was blocked on.
+**Decision:**
+- In ranking metrics, a censored row's ranking value is its `true_ler_ub`; a non-censored row's is its `true_ler`. The truth ranking is ascending in that value.
+- Every ranking metric also reports the number of censored rows in its input and a sensitivity value: the same metric with censored rows excluded.
+- Regression targets still exclude censored rows.
+
+**Rationale:** A code censored at `MAX_SHOTS` is one with the fewest failures, so it is likely among the best codes, not the worst (probe 1, D-034). Ranking it at the bottom would put the codes Recall@30-of-top-10 depends on where they are least likely to be. Its upper bound is the measured statement about it (INV-3), and ranking by it is conservative: a censored code ranks no better than its bound allows. The censored count and the censored-excluded value show how much the headline depends on the rows that are bounds rather than point estimates.
+**Rejected:**
+- *Ties at the bottom* (INV-3 as first written). Wrong direction for codes censored at the cap.
+- *Exclude censored rows from ranking metrics.* Drops the likely-best codes from the headline; kept only as the sensitivity value.
+**Revisit if:** codes censor for a reason other than the shot cap (a code that dies, a cap cut for cost), where a low `true_ler_ub` would no longer mean few failures in many shots.
+
+---
+
 ## Template
 
 ```

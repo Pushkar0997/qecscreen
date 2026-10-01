@@ -37,7 +37,7 @@ Columns carrying measurements are prefixed `true_`. Columns carrying predictions
 
 ### INV-3 — Every label carries its shot count and interval, and thin labels are censored not guessed
 
-**Rule:** A row is a valid point estimate only if it recorded **≥ 100 logical failures**. Below that it is written with `censored = True` and its `true_ler` is stored as an upper bound in `true_ler_ub`, with `true_ler` set to null. Censored rows are excluded from regression targets and included in ranking metrics only as ties at the bottom.
+**Rule:** A row is a valid point estimate only if it recorded **≥ 100 logical failures**. Below that it is written with `censored = True` and its `true_ler` is stored as an upper bound in `true_ler_ub`, with `true_ler` set to null. Censored rows are excluded from regression targets. In ranking metrics they rank by `true_ler_ub` (D-035), and every ranking metric also reports the number of censored rows and its value with censored rows excluded.
 
 **Why:** A code that failed 3 times in 200,000 shots has an LER consistent with a range spanning an order of magnitude. Treating that as a number, and then training on it, teaches the model noise and it will confidently rank good codes badly.
 
