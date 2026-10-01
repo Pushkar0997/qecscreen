@@ -276,3 +276,15 @@ def test_recall_is_undefined_below_k_rows():
     result = recall_at_k(_frame(n=35, censored=tuple(range(10))), "perfect")
     assert result.n_censored == 10 and result.value_censored_excluded is None
 
+
+def test_recall_plugs_into_bootstrap_compare():
+    """Perfect model, reversed Φ, 60 codes: recall 1 and 0 on every resample, so the difference is exactly 1."""
+    frame = with_model_score(_frame(n=60, censored=(4,)))
+    frame = frame.assign(phi_from_d_upper=frame["reversed"])
+    result = bootstrap_compare(frame, recall_at_k, seed=5, n_resamples=200)
+    assert (result.model.low, result.model.estimate, result.model.high) == pytest.approx((1, 1, 1))
+    assert (result.phi.low, result.phi.estimate, result.phi.high) == pytest.approx((0, 0, 0))
+    assert (result.difference.low, result.difference.estimate, result.difference.high) == pytest.approx((1, 1, 1))
+    assert result.model_metric.n_censored == 1
+    again = bootstrap_compare(frame, recall_at_k, seed=5, n_resamples=200)
+    assert again == result
