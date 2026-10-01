@@ -16,6 +16,7 @@ the table is computed and written with assembly.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -24,6 +25,7 @@ import pyarrow as pa
 
 from qecscreen.codes import ids
 from qecscreen.codes.distance import estimate_d_upper
+from qecscreen.features.circuit import circuit_features
 from qecscreen.features.structural import GRAPH_FEATURES, structural_features
 
 __all__ = ["FEATURE_COLUMNS", "FEATURE_SCHEMA", "IDENTITY_KEYS", "code_features", "compute_features"]
@@ -56,6 +58,9 @@ FEATURE_SCHEMA = pa.schema([
         ("cycle6_count", pa.int64()),
         ("girth", pa.int32()),  # null for a graph with no cycle
     ]),
+    ("cx_per_round", pa.int32()),
+    ("cx_total", pa.int32()),
+    ("circuit_ticks", pa.int32()),
 ])
 FEATURE_COLUMNS = tuple(FEATURE_SCHEMA.names)
 
@@ -65,7 +70,11 @@ def code_features(record: Mapping[str, Any]) -> dict[str, Any]:
     identity = {key: record[key] for key in IDENTITY_KEYS}
     h_x, h_z = ids.regenerate(identity)
     d_upper, _ = estimate_d_upper(h_x, h_z, seed=int(identity["seed"]))
-    row = {"code_id": identity["code_id"], **structural_features(h_x, h_z, d_upper)}
+    row = {
+        "code_id": identity["code_id"],
+        **structural_features(h_x, h_z, d_upper),
+        **circuit_features(json.loads(identity["params_json"]), d_upper),  # regenerate checked it
+    }
     assert tuple(row) == FEATURE_COLUMNS
     return row
 

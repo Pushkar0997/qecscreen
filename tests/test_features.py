@@ -76,7 +76,7 @@ def test_compute_features_on_three_codes():
     assert table["check_weight_max"].tolist() == [6, 4, 6]
     ints = ("n", "k", "d_upper", "n_ancilla", "n_total", "check_weight_min", "check_weight_max",
             *(f"qubit_degree_{s}_{t}" for s in ("min", "max") for t in ("x", "z")),
-            "girth_x", "girth_z")
+            "girth_x", "girth_z", "cx_per_round", "cx_total", "circuit_ticks")
     for name in ints:
         assert table[name].dtype == np.int32, name
     for name in ("cycle4_count_x", "cycle4_count_z", "cycle6_count_x", "cycle6_count_z"):
@@ -266,3 +266,24 @@ def test_feat02_reference_code_has_no_4_cycles_per_type():
         assert row[f"cycle4_count_{t}"] == 0
         assert row[f"cycle6_count_{t}"] > 0
         assert row[f"girth_{t}"] == 6
+
+
+@pytest.mark.parametrize("code", [REFERENCE, SMALL, LARGE_TRI], ids=["72_12_6", "12_2_3", "72_4_6"])
+def test_feat03_circuit_features_match_the_built_circuit(code):
+    """``cx_total`` is the CX count of the memory circuit at ``r = d_upper``; its ticks are ours plus one."""
+    import json
+
+    from qecscreen.circuits.build import build_memory_circuit
+
+    record = _record(*code)
+    row = code_features(record)
+    params = json.loads(record["params_json"])
+    weight = len(params["a_exps"]) + len(params["b_exps"])
+    assert row["cx_per_round"] == row["n"] * weight  # every data qubit, once per check it is in
+    assert row["cx_total"] == row["cx_per_round"] * row["d_upper"]
+    assert row["circuit_ticks"] == row["d_upper"] * (2 * weight + 2)
+
+    circuit = build_memory_circuit(params, 0.001, row["d_upper"]).flattened()
+    cx = sum(len(op.targets_copy()) // 2 for op in circuit if op.name == "CX")
+    assert cx == row["cx_total"]
+    assert circuit.num_ticks == row["circuit_ticks"] + 1  # the tick after the noiseless data reset
