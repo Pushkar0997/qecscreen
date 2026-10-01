@@ -6,6 +6,39 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-01 (zz) — Claude Opus 5.5 / Claude Code — D-035, FEAT-01..04, METRIC-01/02 partial; recall_at_k stopped on ties
+
+**Milestone:** M0, while the pilot runs at `1131f10`. Nothing on the pilot's path touched (`protocol.py`, `evaluate/`, `codes/`, `circuits/`); `features/circuit.py` imports `circuits.schedule` read-only.
+
+**Landed, one commit each:**
+- `f1d4044` D-035: CONTRACT INV-3 text only (owner-approved). Censored rows rank by `true_ler_ub`, and every ranking metric reports the censored count and a censored-excluded value.
+- `1eeef50` M0-FEAT-01: `qubit_degree_{min,max,mean}_{x,z}` on the separate `H_X` / `H_Z` Tanner graphs (`features/tanner.py`).
+- `a0e3ea3` M0-FEAT-02: `cycle4_count`, `cycle6_count` (simple, counted once), `girth`, per type. Both counts equal brute-force enumeration on two M0 [[12]] codes and three random matrices. Girth is null for a graph with no cycle; no M0 code has one.
+- `3654a9a` M0-FEAT-03: `cx_per_round`, `cx_total`, `circuit_ticks` from `bb_schedule`. `cx_total` equals the built circuit's CX count. Colouring number dropped (it equals the check weight); the reason is in tasks.md.
+- `7299b8b` M0-FEAT-04: `lambda2_{x,z}`, the normalised Laplacian's λ2, 0 when disconnected, plus `n_components_{x,z}`. 12/244 codes are disconnected.
+- `54840cb` feature file: `feature_set` = `m0_features_v1` on every row; `write_features(frame, data_dir)` writes `data/m0_features.parquet` and will not overwrite it. **Not run on the population.**
+- `403f833` M0-METRIC-01, **partial**: `spearman(frame, score_col)` → `RankingMetric(value, n_censored, value_censored_excluded)`; `ranking_value`, `with_model_score` (`pred_score` = −`pred_log10_ler`). INV-6 guard on every entry point, with a test that fails if a new public metric is not covered.
+- `8a11353` M0-METRIC-02, **partial**: `bootstrap_compare(frame, metric, seed=…)`, paired, 1,000 resamples, percentile 95% intervals for the model, Φ and model − Φ. Tested with `spearman`.
+
+**Stopped, owner decision needed: `recall_at_k` tie rule.** Φ has only 62 distinct values over the 244 codes. Every bootstrap resample duplicates codes, so the truth and score ranks always tie somewhere, and censored rows with the same failures, shots, r and k share one `true_ler_ub`. The choices:
+1. *Expected recall under uniformly random tie-breaking* (exact, fractional). Does not depend on row order or code_id. **Recommended.**
+2. *Break ties by `code_id`.* Deterministic, but arbitrary: Φ's recall then depends on hash prefixes.
+3. *Include every row tied at the cut-off.* A top-30 can hold more than 30 rows, which inflates recall for a tied scorer such as Φ.
+4. *Break ties against the scorer* (truly better rows last). Conservative for both, but it penalises Φ for being coarse rather than for being wrong.
+The model's continuous predictions rarely tie, so this choice mostly moves Φ, the baseline. That makes it material to the M0 answer. `bootstrap_compare` already takes any metric, so `recall_at_k` only needs to plug in.
+
+**Choices made, flag if wrong:** Spearman uses average ranks on both sides. The censored-excluded value is null when it is undefined (fewer than two rows, or a constant column). A bootstrap resample on which the metric is undefined raises. The percentile is `numpy.percentile` linear. `circuit_ticks` follows the owner's formula; stim's `num_ticks` is one more (the tick after the noiseless initial reset), which a test asserts.
+
+**Suite:** default only, **388 passed, 26 deselected**, 72 s. No mutation testing.
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. `assert_single_protocol` still accepts an all-null hash column (`protocol.py`, pilot path). `metrics._check_protocol` refuses null hashes before calling it, so every metric is covered.
+2. If a girth is ever null, `compute_features`' pandas output turns `girth_*` into float64 (pyarrow's int-with-null conversion). The Parquet keeps int32. This cannot happen in M0.
+3. `features/__init__.py` is still the placeholder.
+
+---
+
 ## 2026-09-30 (yy) — Claude Opus 5.5 / Claude Code — splits, EVAL-03, feature table; FEAT-02..04 stopped on unpinned definitions
 
 **Milestone:** M0, while the pilot runs at `1131f10`. Nothing on the pilot's path touched (`protocol.py`, `evaluate/`, `codes/`, `circuits/`).
