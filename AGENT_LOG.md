@@ -6,6 +6,35 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-01 (zz2) — Claude Opus 5.5 / Claude Code — METRIC-01/02 closed (recall_at_k); M0-RUN-04 code landed, not run
+
+**Milestone:** M0, while the pilot runs at `1131f10`. `protocol.py`, `evaluate/`, `codes/` and `circuits/` untouched; `verdict.py` only imports constants from `evaluate`.
+
+**Landed:**
+- `8b8c7d3` M0-METRIC-01: `recall_at_k(frame, score_col, k=30, top_n=10)`, the expected recall under uniformly random tie-breaking (owner's rule), returning a `RankingMetric`; in the guard test's `ENTRY_POINTS`. Tests: perfect 1, reversed 0 at n ≥ 40, a tie at each cut-off giving 5/6 (also equal to brute force over every tie-breaking order), row-order invariance.
+- `2a99f21` M0-METRIC-02: `recall_at_k` through `bootstrap_compare` (perfect vs reversed: difference exactly 1).
+- `993cddc` M0-RUN-04: `models/baseline.py` (pinned LightGBM, leave-one-program-out OOF, `data/m0_predictions.parquet`) and `qecscreen/verdict.py` `run_m0_evaluation`, which writes `m0_results.json` / `.txt` under `evidence/`. Tests `tests/test_verdict.py` on synthetic frames. **Not run on the 244 rows**; that is the owner's run.
+
+**Choices made, flag if wrong:**
+- `verdict.py` is top-level, not `evaluate/verdict.py`, because `evaluate/` is on the pilot's path.
+- `recall_at_k` raises on fewer than `max(k, top_n)` rows. Its censored-excluded value is null then.
+- `model_version` = `m0_lightgbm_v1`. `BOOTSTRAP_SEED` = 20261001.
+- The predictions go to the measurements' directory unless `data_dir=` is given.
+- Extra refusals: the files must agree on `n`, `k`, `d_upper`, `n_ancilla`, `n_total` and Φ (rel 1e-12). Existing outputs are never overwritten.
+- Size scaling: rows ordered by `d_upper`, with "no reading" below two distinct `d_upper` among non-censored rows. Otherwise it gives Spearman(d_upper, true_ler) as a description, with no pass/fail rule, because none is pinned. Reading it is the owner's.
+- Metric keys carry `_leave_one_program_out`, per CONTRACT's metric-name rule.
+
+**Windows crash, worked around (not in CI, Linux).** With pyarrow 18.1.0 loaded first, lightgbm 4.7.0's first fit dies with an access violation. pyarrow's wheel bundles its own `msvcp140.dll`. `baseline.py` and `verdict.py` now import lightgbm first, and `tests/conftest.py` does the same. **In a session that has already imported pandas or pyarrow, `run_m0_evaluation` will still crash.** The owner's run should be a fresh interpreter whose first import is `qecscreen.verdict`.
+
+**Suite:** default only, **418 passed, 26 deselected**, 72 s.
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. The pyarrow DLL clash above. Upgrading the local pyarrow may remove it; I have not tried.
+2. `assert_single_protocol`'s all-null case (carried); `verdict` checks nulls itself.
+
+---
+
 ## 2026-10-01 (zz) — Claude Opus 5.5 / Claude Code — D-035, FEAT-01..04, METRIC-01/02 partial; recall_at_k stopped on ties
 
 **Milestone:** M0, while the pilot runs at `1131f10`. Nothing on the pilot's path touched (`protocol.py`, `evaluate/`, `codes/`, `circuits/`); `features/circuit.py` imports `circuits.schedule` read-only.
