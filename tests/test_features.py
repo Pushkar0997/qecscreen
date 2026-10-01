@@ -75,9 +75,12 @@ def test_compute_features_on_three_codes():
     assert table[["n", "k", "d_upper"]].values.tolist() == [[72, 12, 6], [12, 2, 3], [72, 4, 6]]
     assert table["check_weight_max"].tolist() == [6, 4, 6]
     ints = ("n", "k", "d_upper", "n_ancilla", "n_total", "check_weight_min", "check_weight_max",
-            *(f"qubit_degree_{s}_{t}" for s in ("min", "max") for t in ("x", "z")))
+            *(f"qubit_degree_{s}_{t}" for s in ("min", "max") for t in ("x", "z")),
+            "girth_x", "girth_z")
     for name in ints:
         assert table[name].dtype == np.int32, name
+    for name in ("cycle4_count_x", "cycle4_count_z", "cycle6_count_x", "cycle6_count_z"):
+        assert table[name].dtype == np.int64, name
     for name in ("phi_from_d_upper", "check_weight_mean", "qubit_degree_mean_x", "qubit_degree_mean_z"):
         assert table[name].dtype == np.float64, name
     assert FEATURE_SCHEMA.field("code_id").type == "string"
@@ -169,3 +172,97 @@ def test_feat01_qubit_degree_on_bb_codes():
     row = code_features(quad)
     for t in ("x", "z"):
         assert (row[f"qubit_degree_min_{t}"], row[f"qubit_degree_max_{t}"], row[f"qubit_degree_mean_{t}"]) == (2, 4, 3.0)
+
+
+def _brute_force_cycles(h, length):
+    """Simple cycles of ``length`` in the Tanner graph of ``h``, each once, by enumeration.
+
+    Walks every path of distinct vertices from its smallest vertex, and keeps a
+    closed one when its second vertex is smaller than its last, so each cycle
+    is found from one start in one direction.
+    """
+    m, n = h.shape
+    adj = {v: set() for v in range(n + m)}
+    for c, q in zip(*np.nonzero(h)):
+        adj[int(q)].add(n + int(c))
+        adj[n + int(c)].add(int(q))
+    found = 0
+
+    def extend(path):
+        nonlocal found
+        if len(path) == length:
+            if path[0] in adj[path[-1]] and path[1] < path[-1]:
+                found += 1
+            return
+        for v in adj[path[-1]]:
+            if v > path[0] and v not in path:
+                extend(path + [v])
+
+    for start in adj:
+        extend([start])
+    return found
+
+
+def _small_matrices():
+    from qecscreen.codes.bb import generate
+
+    quad = generate(2, 3, [(1, 0), (0, 1), (2, 0), (0, 2)], [(1, 1), (2, 2)], seed=0)  # [[12]] in M0
+    pair = generate(2, 3, [(1, 0), (0, 2)], [(0, 1), (2, 0)], seed=0)  # SMALL, [[12,2,<=3]]
+    rng = np.random.default_rng(20261001)
+    random = [(rng.random((5, 9)) < p).astype(np.uint8) for p in (0.3, 0.45, 0.6)]
+    return {"quad_hx": quad[0], "quad_hz": quad[1], "pair_hx": pair[0], "pair_hz": pair[1],
+            **{f"random_{i}": r for i, r in enumerate(random)}}
+
+
+@pytest.mark.parametrize("name", list(_small_matrices()))
+def test_feat02_cycle_counts_equal_brute_force_enumeration(name):
+    from qecscreen.features.tanner import cycle_counts
+
+    h = _small_matrices()[name]
+    four, six = cycle_counts(h)
+    assert four == _brute_force_cycles(h, 4)
+    assert six == _brute_force_cycles(h, 6)
+
+
+def test_feat02_the_brute_force_cases_have_both_kinds_of_cycle():
+    """So the comparison above is not passing on zeros."""
+    from qecscreen.features.tanner import cycle_counts
+
+    counts = {name: cycle_counts(h) for name, h in _small_matrices().items()}
+    assert counts["quad_hx"] == counts["quad_hz"] == (39, 276)
+    assert counts["pair_hx"] == counts["pair_hz"] == (0, 8)
+    assert counts["random_1"] == (4, 14) and counts["random_2"] == (83, 545)
+
+
+def test_feat02_counts_on_hand_graphs():
+    from qecscreen.features.tanner import cycle_counts, graph_features
+
+    two_checks = np.array([[1, 1, 1, 0], [1, 1, 1, 1]], dtype=np.uint8)  # share 3 qubits: C(3,2) 4-cycles
+    assert cycle_counts(two_checks) == (3, 0)
+    hexagon = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]], dtype=np.uint8)  # one 6-cycle, nothing shorter
+    assert cycle_counts(hexagon) == (0, 1)
+    assert graph_features(hexagon)["girth"] == 6
+    octagon = np.array([[1, 1, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1], [1, 0, 0, 1]], dtype=np.uint8)
+    assert cycle_counts(octagon) == (0, 0)
+    assert graph_features(octagon)["girth"] == 8
+    tree = np.array([[1, 1, 0], [0, 1, 1]], dtype=np.uint8)
+    assert graph_features(tree)["girth"] is None
+
+
+@pytest.mark.parametrize("name", list(_small_matrices()))
+def test_feat02_girth_equals_networkx(name):
+    import networkx as nx
+
+    from qecscreen.features.tanner import graph_features, tanner_graph
+
+    h = _small_matrices()[name]
+    assert graph_features(h)["girth"] == nx.girth(tanner_graph(h))
+
+
+def test_feat02_reference_code_has_no_4_cycles_per_type():
+    """[[72,12,6]]: 0 four-cycles in H_X and in H_Z (AGENT_LOG 2026-09-30 (yy)), so girth >= 6."""
+    row = code_features(_record(*REFERENCE))
+    for t in ("x", "z"):
+        assert row[f"cycle4_count_{t}"] == 0
+        assert row[f"cycle6_count_{t}"] > 0
+        assert row[f"girth_{t}"] == 6

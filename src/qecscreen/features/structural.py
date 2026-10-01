@@ -26,7 +26,10 @@ from qecscreen.features.tanner import graph_features
 __all__ = ["GRAPH_FEATURES", "structural_features"]
 
 # Tanner-graph feature names, each stored per check type with suffix _x / _z.
-GRAPH_FEATURES = ("qubit_degree_min", "qubit_degree_max", "qubit_degree_mean")
+GRAPH_FEATURES = (
+    "qubit_degree_min", "qubit_degree_max", "qubit_degree_mean",
+    "cycle4_count", "cycle6_count", "girth",
+)
 
 
 def structural_features(h_x: np.ndarray, h_z: np.ndarray, d_upper: int) -> dict[str, Any]:

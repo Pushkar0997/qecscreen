@@ -52,6 +52,9 @@ FEATURE_SCHEMA = pa.schema([
         ("qubit_degree_min", pa.int32()),
         ("qubit_degree_max", pa.int32()),
         ("qubit_degree_mean", pa.float64()),
+        ("cycle4_count", pa.int64()),
+        ("cycle6_count", pa.int64()),
+        ("girth", pa.int32()),  # null for a graph with no cycle
     ]),
 ])
 FEATURE_COLUMNS = tuple(FEATURE_SCHEMA.names)
