@@ -1,4 +1,4 @@
-"""Ranking metrics over codes: Spearman (M0-METRIC-01) and bootstrap intervals (M0-METRIC-02).
+"""Ranking metrics over codes: Spearman and Recall@k (M0-METRIC-01), bootstrap intervals (M0-METRIC-02).
 
 **Orientation, pinned (owner, 2026-10-01).** Every score is "higher =
 predicted better". Φ (``phi_from_d_upper``) is used as it is. The model's
@@ -13,8 +13,9 @@ Every entry point first checks that its input has one ``protocol_hash`` and
 no null one (INV-6): rows measured under different protocols are never ranked
 together.
 
-``recall_at_k`` is not here yet: how ties at the top-n and top-k cut-offs
-count is not pinned (AGENT_LOG 2026-10-01 (zz)).
+``recall_at_k`` counts ties at its cut-offs by expectation under uniformly
+random tie-breaking (owner, 2026-10-01): Φ has few distinct values, and a
+bootstrap resample duplicates codes, so ties at a cut-off are the rule.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ __all__ = [
     "RankingMetric",
     "bootstrap_compare",
     "ranking_value",
+    "recall_at_k",
     "spearman",
     "with_model_score",
 ]
@@ -130,6 +132,59 @@ def spearman(frame: pd.DataFrame, score_col: str) -> RankingMetric:
         value=rho,
         n_censored=int((~kept).sum()),
         value_censored_excluded=_spearman_rho(truth[kept], score[kept]),
+    )
+
+
+def _top_m_probability(key: np.ndarray, m: int) -> np.ndarray:
+    """Each row's probability of being among the ``m`` smallest ``key`` values, ties broken uniformly at random.
+
+    A row strictly below the cut-off value is in with probability 1. A row in
+    the tie group at the cut-off is in with probability (slots left) / (group
+    size). Any other row is out. ``m`` must not exceed the row count.
+    """
+    cutoff = np.sort(key)[m - 1]
+    better = key < cutoff
+    tied = key == cutoff
+    return np.where(better, 1.0, np.where(tied, (m - better.sum()) / tied.sum(), 0.0))
+
+
+def _recall(truth: np.ndarray, score: np.ndarray, k: int, top_n: int) -> float | None:
+    """Expected |true top-``top_n`` ∩ score top-``k``| / ``top_n``; null if fewer than ``max(k, top_n)`` rows.
+
+    The two tie-breaks are independent, so the expectation is
+    Σ P(row in true top-n) × P(row in score top-k), divided by ``top_n``.
+    """
+    if len(truth) < max(k, top_n):
+        return None
+    p_true = _top_m_probability(truth, top_n)  # ranking value ascending = better
+    p_score = _top_m_probability(-score, k)  # score descending = better
+    return float((p_true * p_score).sum() / top_n)
+
+
+def recall_at_k(frame: pd.DataFrame, score_col: str, k: int = 30, top_n: int = 10) -> RankingMetric:
+    """Recall@``k``-of-top-``top_n``: the share of the true top-``top_n`` that ``score_col``'s top ``k`` holds.
+
+    The true top-``top_n`` is the ``top_n`` smallest ranking values
+    (``ranking_value``, censored rows by ``true_ler_ub``, D-035); the score's
+    top ``k`` is its ``k`` largest scores. Ties at either cut-off are broken
+    uniformly at random, independently on the two sides, and the result is
+    the expected recall (owner, 2026-10-01), so it does not depend on row
+    order or on ``code_id``. Raises if the frame has fewer than
+    ``max(k, top_n)`` rows; the censored-excluded value is null then.
+    """
+    _check_protocol(frame)
+    if k < 1 or top_n < 1:
+        raise ValueError(f"k and top_n must be >= 1; got k={k}, top_n={top_n}")
+    truth = ranking_value(frame).to_numpy()
+    score = _score(frame, score_col)
+    recall = _recall(truth, score, k, top_n)
+    if recall is None:
+        raise ValueError(f"Recall@{k}-of-top-{top_n} is undefined on {len(frame)} rows (fewer than {max(k, top_n)})")
+    kept = ~frame["censored"].to_numpy()
+    return RankingMetric(
+        value=recall,
+        n_censored=int((~kept).sum()),
+        value_censored_excluded=_recall(truth[kept], score[kept], k, top_n),
     )
 
 

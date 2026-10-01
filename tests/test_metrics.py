@@ -1,5 +1,6 @@
 """Ranking metrics on synthetic frames (M0-METRIC-01/02, D-035, INV-6)."""
 
+import itertools
 import math
 
 import numpy as np
@@ -7,7 +8,14 @@ import pandas as pd
 import pytest
 
 from qecscreen import metrics
-from qecscreen.metrics import MODEL_SCORE, bootstrap_compare, ranking_value, spearman, with_model_score
+from qecscreen.metrics import (
+    MODEL_SCORE,
+    bootstrap_compare,
+    ranking_value,
+    recall_at_k,
+    spearman,
+    with_model_score,
+)
 
 HASH = "a" * 64
 
@@ -115,6 +123,7 @@ def _null_hash(frame):
 
 ENTRY_POINTS = {
     "spearman": lambda f: spearman(f, "perfect"),
+    "recall_at_k": lambda f: recall_at_k(f, "perfect", k=5, top_n=2),
     "bootstrap_compare": lambda f: bootstrap_compare(
         f, spearman, seed=1, model_col="perfect", phi_col="reversed", n_resamples=5),
 }
@@ -180,3 +189,90 @@ def test_bootstrap_intervals_are_the_percentiles_of_resampled_codes():
     assert [result.model.low, result.model.high] == pytest.approx(list(np.percentile(model, [2.5, 97.5])))
     assert [result.difference.low, result.difference.high] == pytest.approx(
         list(np.percentile(model - phi, [2.5, 97.5])))
+
+
+# --- recall_at_k (expected recall under uniformly random tie-breaking, owner 2026-10-01) ---
+
+
+def test_recall_perfect_scorer_is_one():
+    frame = _frame(n=50, censored=(0, 3))
+    assert recall_at_k(frame, "perfect").value == 1.0
+    assert recall_at_k(with_model_score(frame), MODEL_SCORE).value == 1.0
+
+
+@pytest.mark.parametrize("n", [40, 41, 60])
+def test_recall_reversed_scorer_is_zero_when_n_is_at_least_40(n):
+    assert recall_at_k(_frame(n=n), "reversed").value == 0.0
+
+
+def test_recall_below_40_rows_the_reversed_top_30_reaches_the_true_top_10():
+    assert recall_at_k(_frame(n=39), "reversed").value == pytest.approx(0.1)
+
+
+def _tied_example():
+    """Truth [1, 2, 2, 3, 4] and score [10, 5, 5, 5, 1] for rows a..e, top_n = 2, k = 3.
+
+    True top-2: a surely, b and c each 1/2 (one slot, a tie of two). Score
+    top-3: a surely, b, c and d each 2/3 (two slots, a tie of three).
+    Expected recall = (1·1 + ½·⅔ + ½·⅔) / 2 = 5/6.
+    """
+    truth = [1e-4, 2e-4, 2e-4, 3e-4, 4e-4]
+    return pd.DataFrame({
+        "code_id": list("abcde"),
+        "protocol_hash": HASH,
+        "censored": False,
+        "true_ler": truth,
+        "true_ler_ub": [2 * t for t in truth],
+        "score": [10.0, 5.0, 5.0, 5.0, 1.0],
+    })
+
+
+def test_recall_with_a_tie_at_each_cut_off_is_the_known_fraction():
+    assert recall_at_k(_tied_example(), "score", k=3, top_n=2).value == pytest.approx(5 / 6, rel=1e-12)
+
+
+def test_recall_equals_the_average_over_every_tie_breaking_order():
+    """Brute force: average |top-2 ∩ top-3| / 2 over every strict order consistent with the ties."""
+    frame = _tied_example()
+    truth, score = frame["true_ler"].to_numpy(), frame["score"].to_numpy()
+    rows = range(len(frame))
+    total = count = 0
+    for t_perm in itertools.permutations(rows):
+        if any(truth[a] > truth[b] for a, b in zip(t_perm, t_perm[1:])):
+            continue
+        for s_perm in itertools.permutations(rows):
+            if any(score[a] < score[b] for a, b in zip(s_perm, s_perm[1:])):
+                continue
+            total += len(set(t_perm[:2]) & set(s_perm[:3])) / 2
+            count += 1
+    assert recall_at_k(frame, "score", k=3, top_n=2).value == pytest.approx(total / count, rel=1e-12)
+
+
+def test_recall_is_invariant_under_row_order():
+    frame = _frame(n=60, censored=(2, 9), seed=7)
+    coarse = np.round(frame["perfect"] * 300) + np.random.default_rng(1).integers(0, 2, len(frame))
+    frame = frame.assign(coarse=coarse)  # Φ-like: few distinct values, ties at both cut-offs
+    expected = recall_at_k(frame, "coarse")
+    for seed in range(5):
+        shuffled = frame.sample(frac=1, random_state=seed).reset_index(drop=True)
+        assert recall_at_k(shuffled, "coarse") == pytest.approx(expected)
+        assert recall_at_k(shuffled.set_index("code_id"), "coarse") == pytest.approx(expected)
+    assert 0 < expected.value < 1
+
+
+def test_recall_censored_count_and_the_censored_excluded_value():
+    frame = _frame(n=50, censored=(0, 1))
+    # Perfect on the non-censored rows; the two best (censored) codes ranked last.
+    wrong = frame["perfect"].where(~frame["censored"], frame["perfect"].min() - 1)
+    result = recall_at_k(frame.assign(wrong=wrong), "wrong")
+    assert result.n_censored == 2
+    assert result.value == pytest.approx(0.8)
+    assert result.value_censored_excluded == 1.0
+
+
+def test_recall_is_undefined_below_k_rows():
+    with pytest.raises(ValueError, match="undefined"):
+        recall_at_k(_frame(n=29), "perfect")
+    result = recall_at_k(_frame(n=35, censored=tuple(range(10))), "perfect")
+    assert result.n_censored == 10 and result.value_censored_excluded is None
+
