@@ -1,4 +1,4 @@
-"""Ranking metrics over codes: Spearman (M0-METRIC-01).
+"""Ranking metrics over codes: Spearman (M0-METRIC-01) and bootstrap intervals (M0-METRIC-02).
 
 **Orientation, pinned (owner, 2026-10-01).** Every score is "higher =
 predicted better". Φ (``phi_from_d_upper``) is used as it is. The model's
@@ -19,6 +19,7 @@ count is not pinned (AGENT_LOG 2026-10-01 (zz)).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -28,14 +29,19 @@ from scipy.stats import rankdata
 from qecscreen.protocol import assert_single_protocol
 
 __all__ = [
+    "BOOTSTRAP_RESAMPLES",
     "MODEL_SCORE",
     "PHI_SCORE",
+    "BootstrapComparison",
+    "Interval",
     "RankingMetric",
+    "bootstrap_compare",
     "ranking_value",
     "spearman",
     "with_model_score",
 ]
 
+BOOTSTRAP_RESAMPLES = 1_000  # tasks.md M0-METRIC-02
 MODEL_SCORE = "pred_score"  # -pred_log10_ler: a prediction, so pred_-prefixed (INV-1)
 PHI_SCORE = "phi_from_d_upper"
 
@@ -124,4 +130,76 @@ def spearman(frame: pd.DataFrame, score_col: str) -> RankingMetric:
         value=rho,
         n_censored=int((~kept).sum()),
         value_censored_excluded=_spearman_rho(truth[kept], score[kept]),
+    )
+
+
+@dataclass(frozen=True)
+class Interval:
+    """A point estimate on the full frame and its percentile bootstrap 95% interval."""
+
+    estimate: float
+    low: float
+    high: float
+
+
+@dataclass(frozen=True)
+class BootstrapComparison:
+    """The model, Φ, and the paired difference model − Φ, each with its interval.
+
+    ``model_metric`` and ``phi_metric`` are the full-frame metrics, with their
+    censored counts and censored-excluded values (D-035).
+    """
+
+    model: Interval
+    phi: Interval
+    difference: Interval
+    model_metric: RankingMetric
+    phi_metric: RankingMetric
+    n_resamples: int
+    seed: int
+
+
+def bootstrap_compare(
+    frame: pd.DataFrame,
+    metric: Callable[[pd.DataFrame, str], RankingMetric],
+    *,
+    seed: int,
+    model_col: str = MODEL_SCORE,
+    phi_col: str = PHI_SCORE,
+    n_resamples: int = BOOTSTRAP_RESAMPLES,
+) -> BootstrapComparison:
+    """Percentile bootstrap 95% intervals for ``metric`` of the model, of Φ, and of model − Φ.
+
+    Each resample draws ``len(frame)`` codes (rows) with replacement, from
+    ``numpy.random.default_rng(seed)``, and evaluates both scores on the same
+    draw, so the difference is paired: its interval is the M0 question. The
+    interval is the 2.5th and 97.5th percentiles of the resampled values
+    (``numpy.percentile``, linear). A resample on which the metric is
+    undefined raises rather than being dropped.
+    """
+    _check_protocol(frame)
+    if n_resamples < 1:
+        raise ValueError(f"n_resamples must be >= 1; got {n_resamples}")
+    model_metric, phi_metric = metric(frame, model_col), metric(frame, phi_col)
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(0, len(frame), size=(n_resamples, len(frame)))
+    model_values = np.empty(n_resamples)
+    phi_values = np.empty(n_resamples)
+    for i, rows in enumerate(draws):
+        sample = frame.iloc[rows]
+        model_values[i] = metric(sample, model_col).value
+        phi_values[i] = metric(sample, phi_col).value
+
+    def interval(estimate: float, values: np.ndarray) -> Interval:
+        low, high = np.percentile(values, [2.5, 97.5])
+        return Interval(estimate=estimate, low=float(low), high=float(high))
+
+    return BootstrapComparison(
+        model=interval(model_metric.value, model_values),
+        phi=interval(phi_metric.value, phi_values),
+        difference=interval(model_metric.value - phi_metric.value, model_values - phi_values),
+        model_metric=model_metric,
+        phi_metric=phi_metric,
+        n_resamples=n_resamples,
+        seed=seed,
     )

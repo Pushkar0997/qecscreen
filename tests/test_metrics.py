@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from qecscreen import metrics
-from qecscreen.metrics import MODEL_SCORE, ranking_value, spearman, with_model_score
+from qecscreen.metrics import MODEL_SCORE, bootstrap_compare, ranking_value, spearman, with_model_score
 
 HASH = "a" * 64
 
@@ -115,6 +115,8 @@ def _null_hash(frame):
 
 ENTRY_POINTS = {
     "spearman": lambda f: spearman(f, "perfect"),
+    "bootstrap_compare": lambda f: bootstrap_compare(
+        f, spearman, seed=1, model_col="perfect", phi_col="reversed", n_resamples=5),
 }
 
 
@@ -137,3 +139,44 @@ def test_every_public_ranking_function_is_a_guarded_entry_point():
     public = {name for name in metrics.__all__ if callable(getattr(metrics, name))
               and not isinstance(getattr(metrics, name), type)}
     assert public - helpers == set(ENTRY_POINTS)
+
+
+def test_bootstrap_defaults_to_1000_resamples_and_is_deterministic_in_its_seed():
+    frame = _frame(n=30, censored=(3,), seed=4)
+    noisy = frame["perfect"] + np.random.default_rng(9).normal(0, 2e-3, len(frame))
+    frame = frame.assign(noisy=noisy)
+    import inspect
+
+    assert inspect.signature(bootstrap_compare).parameters["n_resamples"].default == 1000
+    kw = dict(model_col="noisy", phi_col="reversed", n_resamples=200)
+    first = bootstrap_compare(frame, spearman, seed=20261001, **kw)
+    again = bootstrap_compare(frame, spearman, seed=20261001, **kw)
+    other = bootstrap_compare(frame, spearman, seed=20261002, **kw)
+    assert first.n_resamples == 200 and first.seed == 20261001
+    assert first == again
+    assert (other.model.low, other.model.high) != (first.model.low, first.model.high)
+    assert first.model.low <= first.model.estimate <= first.model.high
+
+
+def test_bootstrap_difference_is_paired_model_minus_phi():
+    """Perfect model, reversed Φ: rho is 1 and -1 on every resample, so the difference is exactly 2."""
+    frame = with_model_score(_frame(n=25, censored=(0, 7)))
+    result = bootstrap_compare(frame.assign(phi_from_d_upper=frame["reversed"]), spearman, seed=3, n_resamples=200)
+    assert (result.model.low, result.model.estimate, result.model.high) == pytest.approx((1, 1, 1))
+    assert (result.phi.low, result.phi.estimate, result.phi.high) == pytest.approx((-1, -1, -1))
+    assert (result.difference.low, result.difference.estimate, result.difference.high) == pytest.approx((2, 2, 2))
+    assert result.model_metric.n_censored == result.phi_metric.n_censored == 2
+    assert result.model_metric.value_censored_excluded == pytest.approx(1)
+
+
+def test_bootstrap_intervals_are_the_percentiles_of_resampled_codes():
+    """Recomputed by hand from the same generator: draws of row positions, 2.5th/97.5th percentiles."""
+    frame = _frame(n=15, seed=2)
+    frame = frame.assign(noisy=frame["perfect"] + np.random.default_rng(5).normal(0, 3e-3, len(frame)))
+    result = bootstrap_compare(frame, spearman, seed=11, model_col="noisy", phi_col="perfect", n_resamples=200)
+    draws = np.random.default_rng(11).integers(0, len(frame), size=(200, len(frame)))
+    model = np.array([spearman(frame.iloc[d], "noisy").value for d in draws])
+    phi = np.array([spearman(frame.iloc[d], "perfect").value for d in draws])
+    assert [result.model.low, result.model.high] == pytest.approx(list(np.percentile(model, [2.5, 97.5])))
+    assert [result.difference.low, result.difference.high] == pytest.approx(
+        list(np.percentile(model - phi, [2.5, 97.5])))
