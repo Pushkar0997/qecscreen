@@ -62,7 +62,9 @@ qecscreen/
 │   │                        because the whole pitch is that screening is cheap.
 │   ├── models/            ← baseline.py (LightGBM). gnn/ added at M3 and torch-only.
 │   ├── splits.py          ← Grouped splitters. The ONLY sanctioned way to split (INV-2).
-│   └── metrics.py         ← Recall@k, Spearman, bootstrap CIs.
+│   ├── metrics.py         ← Recall@k, Spearman, bootstrap CIs.
+│   └── verdict.py         ← run_m0_evaluation: the M0 numbers, written under
+│                            evidence/. Decides nothing (M0-RUN-04).
 ├── scripts/               ← Runnable entry points. Every one is resumable from disk,
 │                            because Kaggle sessions die at 12 hours.
 ├── tests/                 ← Mirrors src/. Invariant tests named test_inv_<n>_*.
@@ -72,6 +74,9 @@ qecscreen/
 │                            M0's features: data/m0_features.parquet, written only
 │                            by features.table.write_features, feature_set
 │                            "m0_features_v1" on every row.
+│                            M0's predictions: data/m0_predictions.parquet (D-009's
+│                            third file), written only by
+│                            models.baseline.write_predictions.
 ├── evidence/              ← Committed run outputs that are not dataset rows, e.g.
 │                            calibration/<date>-<sha>/ (D-029). Kept unmodified,
 │                            markers intact; refused by reject_calibration.
