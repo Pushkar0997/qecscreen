@@ -24,11 +24,18 @@ import pyarrow as pa
 
 from qecscreen.codes import ids
 from qecscreen.codes.distance import estimate_d_upper
-from qecscreen.features.structural import structural_features
+from qecscreen.features.structural import GRAPH_FEATURES, structural_features
 
 __all__ = ["FEATURE_COLUMNS", "FEATURE_SCHEMA", "IDENTITY_KEYS", "code_features", "compute_features"]
 
 IDENTITY_KEYS = ("code_id", "construction_program_id", "params_json", "seed")
+
+
+def _per_type(fields: list[tuple[str, pa.DataType]]) -> list[tuple[str, pa.DataType]]:
+    """Each graph feature as ``_x`` then ``_z`` (``structural.GRAPH_FEATURES`` order)."""
+    assert tuple(name for name, _ in fields) == GRAPH_FEATURES
+    return [(f"{name}_{t}", dtype) for name, dtype in fields for t in ("x", "z")]
+
 
 FEATURE_SCHEMA = pa.schema([
     ("code_id", pa.string()),
@@ -41,6 +48,11 @@ FEATURE_SCHEMA = pa.schema([
     ("check_weight_mean", pa.float64()),
     ("n_ancilla", pa.int32()),
     ("n_total", pa.int32()),
+    *_per_type([
+        ("qubit_degree_min", pa.int32()),
+        ("qubit_degree_max", pa.int32()),
+        ("qubit_degree_mean", pa.float64()),
+    ]),
 ])
 FEATURE_COLUMNS = tuple(FEATURE_SCHEMA.names)
 

@@ -74,9 +74,11 @@ def test_compute_features_on_three_codes():
     assert table["code_id"].tolist() == [r["code_id"] for r in records]
     assert table[["n", "k", "d_upper"]].values.tolist() == [[72, 12, 6], [12, 2, 3], [72, 4, 6]]
     assert table["check_weight_max"].tolist() == [6, 4, 6]
-    for name in ("n", "k", "d_upper", "n_ancilla", "n_total", "check_weight_min", "check_weight_max"):
+    ints = ("n", "k", "d_upper", "n_ancilla", "n_total", "check_weight_min", "check_weight_max",
+            *(f"qubit_degree_{s}_{t}" for s in ("min", "max") for t in ("x", "z")))
+    for name in ints:
         assert table[name].dtype == np.int32, name
-    for name in ("phi_from_d_upper", "check_weight_mean"):
+    for name in ("phi_from_d_upper", "check_weight_mean", "qubit_degree_mean_x", "qubit_degree_mean_z"):
         assert table[name].dtype == np.float64, name
     assert FEATURE_SCHEMA.field("code_id").type == "string"
 
@@ -140,3 +142,30 @@ def test_feat05_every_feature_under_one_second_per_code(code):
     code_features(record)
     elapsed = time.perf_counter() - start
     assert elapsed < 1.0, f"{record['code_id']}: features took {elapsed:.3f} s, over the 1 s bound"
+
+
+# A CSS code whose two Tanner graphs differ: H_X = [1111], H_Z = [1100] (n=4, k=2).
+# Every qubit is in the X check, only qubits 0 and 1 in the Z check.
+ASYM_HX = np.array([[1, 1, 1, 1]], dtype=np.uint8)
+ASYM_HZ = np.array([[1, 1, 0, 0]], dtype=np.uint8)
+
+
+def test_feat01_qubit_degree_is_per_check_type():
+    from qecscreen.features.structural import structural_features
+
+    row = structural_features(ASYM_HX, ASYM_HZ, d_upper=2)
+    assert (row["qubit_degree_min_x"], row["qubit_degree_max_x"], row["qubit_degree_mean_x"]) == (1, 1, 1.0)
+    assert (row["qubit_degree_min_z"], row["qubit_degree_max_z"], row["qubit_degree_mean_z"]) == (0, 1, 0.5)
+
+
+def test_feat01_qubit_degree_on_bb_codes():
+    """In a BB code a qubit of block A is in |A| checks of one type and |B| of the other."""
+    table = compute_features([_record(*REFERENCE), _record(*LARGE_TRI)])
+    for t in ("x", "z"):
+        assert table[f"qubit_degree_min_{t}"].tolist() == [3, 3]
+        assert table[f"qubit_degree_max_{t}"].tolist() == [3, 3]
+        assert table[f"qubit_degree_mean_{t}"].tolist() == [3.0, 3.0]
+    quad = _record("bb_v1_quad_4_2", 3, 3, [(1, 0), (0, 1), (2, 0), (0, 2)], [(1, 1), (2, 2)])
+    row = code_features(quad)
+    for t in ("x", "z"):
+        assert (row[f"qubit_degree_min_{t}"], row[f"qubit_degree_max_{t}"], row[f"qubit_degree_mean_{t}"]) == (2, 4, 3.0)
