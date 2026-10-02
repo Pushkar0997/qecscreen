@@ -6,6 +6,60 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-02 — Claude Opus 5.5 / Claude Code — M0-RUN-03 closeout under D-036; label-noise ceiling (M0-RUN-04)
+
+**Milestone:** M0. No Kaggle, no decoding. `circuits/`, `schedule.py`, `protocol.py` and the protocol hash untouched; the tar and sidecar untouched.
+
+**Input check.** `Downloads/qecscreen_kaggle_test/probe3/m0-pilot.tar`: sha256 `ccef076d…dbc511aa8`, equal to the sidecar and to the owner's value.
+
+**Item 1, reproduced** (scratch script, `population.parquet` read from the tar, `bb_schedule` on each code's exps):
+```
+population rows: 244; codes with result.parquet in tar: 242
+unfinished: ['bb_v1_mixed_3_5-41659195d87b', 'bb_v1_mixed_3_5-be2d62a58d7d']
+== bb_v1_mixed_3_5-be2d62a58d7d  n=56 k=6 d_upper=4
+   params_json: {"a_exps":[[4,0],[0,1],[1,3]],"b_exps":[[0,4],[1,0],[2,1],[3,0],[0,2]],"l":2,"m":14}
+   A exps [(4, 0), (0, 1), (1, 3)] -> mod (l=2, m=14) [(0, 0), (0, 1), (1, 3)]; repeated: none
+   B exps [(0, 4), (1, 0), (2, 1), (3, 0), (0, 2)] -> mod (l=2, m=14) [(0, 4), (1, 0), (0, 1), (1, 0), (0, 2)]; repeated: {(1, 0): 2}
+   bb_schedule: ValueError: X-phase layers do not reproduce H_X edge for edge; a polynomial likely repeats a monomial. This schedule cannot extract that code's checks (D-025).
+   H_X row weights after cancellation: [6]; nominal |A|+|B| = 8
+   other population codes with identical H_X: none
+   other population codes with identical H_Z: none
+== bb_v1_mixed_3_5-41659195d87b  n=28 k=6 d_upper=4
+   params_json: {"a_exps":[[4,0],[0,1],[1,3]],"b_exps":[[0,4],[1,0],[2,1],[3,0],[0,2]],"l":2,"m":7}
+   (A, B, repeated monomial, ValueError, weights and "none"/"none" exactly as above)
+```
+Both fail for the stated reason (x³ = x at l = 2, so B's (1, 0) appears twice and cancels); neither duplicates another population code's `H_X` (nor `H_Z`). "Identical" is exact matrix equality, not equality up to a qubit permutation.
+
+**Landed (one commit, M0-RUN-03 and M0-RUN-04 together, because the tasks.md and verdict.py changes serve both):**
+- D-036 in `spec/decisions.md`; CONTRACT's `P_PILOT` population comment (owner-authorised line).
+- `evaluate/pilot.py`: `EXCLUDED_CODES` (the two ids, reason), `DATASET_SIZE` = 242, `EXCLUDED_METADATA_KEY`. `_assemble` refuses an excluded code outside the population, an excluded code with a result, and any other unfinished code; builds rows for the rest; expects `POPULATION_SIZE - len(EXCLUDED_CODES)`; writes the excluded ids and reasons as JSON in the Parquet schema metadata. Columns unchanged.
+- `verdict.py`: `expected_rows` defaults to `DATASET_SIZE` (it assumed 244 through `POPULATION_SIZE`); `rounds` joined from the measurements; `label_noise_ceiling` with `LABEL_NOISE_SEED` 20261002, `LABEL_NOISE_DRAWS` 1,000, in `m0_results.json` (`label_noise_ceiling`) and one line of the `.txt` table.
+- Spec: plan (scope, deliverable, exit criterion amended to 242 of 244), architecture §2 runbook, tasks RUN-03/RUN-04, evals N-19 and the §7 session 3 entry. The M0 verdict section has a line saying the metrics cover 242 of 244 codes; no verdict recorded.
+
+**Assembly on the real tar, in a scratch `data/` (not the repository's):** 242 rows, 209 s, one protocol hash `6230a7a8…`, excluded metadata present. **1 censored: `bb_v1_pair_2_2-4faad046f1a9`, 93 failures** in 40,960 shots (the owner's "about 94"; 93 recorded).
+
+**Label-noise ceiling on those 242 rows (smoke check, labels only, no model):** mean 1.000, 5th–95th [1.000, 1.000]. Not degenerate: with k = 10 the same draws give mean 0.76 [0.6, 0.9], k = 20 0.99. The observed 30th-best LER (8.2e-4) is far above the 10th (3.4e-4) relative to the label noise, so the top 30 always holds every draw's top 10.
+
+**Choices made, flag if wrong:**
+- The Beta draw is of the shot failure fraction P_L, then turned into the INV-4 LER by `protocol.logical_error_rate` with the row's `rounds` and `k`. Ranking raw P_L would compare codes with different r·k on a different scale from `true_ler`.
+- The ceiling uses `metrics._recall` (private) so the tie rule is literally `recall_at_k`'s; no drawn value goes into a `true_` column.
+- Excluded ids go in Parquet schema metadata, not a column: `MEASUREMENT_COLUMNS` and the verdict's column check stay as they are.
+- `tests/test_pilot.py` and `tests/test_verdict.py` were edited (item 3/5 tests; `"expected 244"` → `"expected 242"`), outside the brief's file list, which names source and spec only.
+
+**Revert proofs:** 8 mutants on `pilot.py`/`verdict.py` (drop the unfinished refusal; count listed codes as unfinished; drop the listed-with-result refusal; rows for all codes; expect `POPULATION_SIZE`; `DATASET_SIZE` = 244; verdict default 244; no metadata). All caught. Two on the ceiling (no INV-4 conversion; Beta(f+1, n−f+1)), both caught.
+
+**Suite:** default only, **427 passed, 26 deselected**, 106 s. The slow population test was extended (the two ids are in the population and `bb_schedule` refuses them); it runs in CI only.
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. The BB enumeration admits polynomials whose monomials coincide modulo (l, m); `validate` passes them because the cancelled code is still a valid CSS code. D-036's "Revisit if" points at M1.
+2. `data/m0_measurements.parquet` in the repository is not written: that is the owner's `assemble_measurements` run (RUN-03 stays unticked until then). `compute_features` must be given the 242 measurement rows, not `m0_population()`: FEAT-03 calls `bb_schedule` and would raise on the two codes.
+3. `NARRATIVE.md`: the exit criterion changed (244 → 242), which AGENTS §5 says qualifies. It was not in this brief's file list, so no entry was written.
+4. `features/tanner.py` says "all 244 M0 codes" twice; those describe a property measured over the population, not the dataset, and were left.
+5. `assert_single_protocol`'s all-null case (carried).
+
+---
+
 ## 2026-10-01 (zz2) — Claude Opus 5.5 / Claude Code — METRIC-01/02 closed (recall_at_k); M0-RUN-04 code landed, not run
 
 **Milestone:** M0, while the pilot runs at `1131f10`. `protocol.py`, `evaluate/`, `codes/` and `circuits/` untouched; `verdict.py` only imports constants from `evaluate`.
