@@ -114,7 +114,7 @@ All sampling and decoding runs on Kaggle or Colab, in notebooks the owner runs. 
 
 **If a session dies** (no summary printed), its output still holds the last hourly `m0-pilot.tar`; attach that version as `PREVIOUS` as usual. The next session resumes from the snapshot with the same session number and loses at most the work since it. If the probe died, the next session is the probe again, with `COST_GATE = ""`.
 
-**When 244 are done.** Download the last output's `m0-pilot.tar` and its sidecar; locally, from the repository root, `assemble_measurements("<download>/m0-pilot.tar", "data")` writes `data/m0_measurements.parquet`, and refuses while any code is unfinished. `pilot_cost_report` and `assemble_measurements` also take an extracted pilot directory.
+**When 242 of 244 are done (D-036).** Download the last output's `m0-pilot.tar` and its sidecar; locally, from the repository root, `assemble_measurements("<download>/m0-pilot.tar", "data")` writes `data/m0_measurements.parquet`: one row per population code not in `evaluate.pilot.EXCLUDED_CODES`, 242 of 244, with the excluded ids and reasons as JSON under the Parquet schema metadata key `qecscreen.excluded_codes`. It refuses while any other code is unfinished, and if an excluded code has a result. `pilot_cost_report` and `assemble_measurements` also take an extracted pilot directory.
 
 Never change `QECSCREEN_SHA` mid-pilot, and never edit or re-pack `m0-pilot.tar` or its sidecar.
 

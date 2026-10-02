@@ -292,7 +292,10 @@ P_PILOT                 = 0.002        # M0 only. D-031, superseding D-016's
                                        # sub-threshold at 0.002 and mixed_3_5 is
                                        # above it. mixed_3_5 codes stay in the
                                        # population; that is a known property of
-                                       # the label set. Exported by protocol.py.
+                                       # the label set. Two mixed_3_5 codes are
+                                       # unbuildable under SCHEDULING and have no
+                                       # row: the dataset is 242 of the 244
+                                       # (D-036). Exported by protocol.py.
                                        # Not in the protocol tuple itself:
                                        # p is hashed per row.
 ```

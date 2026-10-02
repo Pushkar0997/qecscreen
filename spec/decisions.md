@@ -721,6 +721,24 @@ D-033's "Revisit if" fired before the first session: Kaggle keeps at most 500 fi
 
 ---
 
+## D-036 — Two M0 codes are unbuildable under the pinned schedule; the dataset is 242 of 244
+
+**Status:** decided (owner, 2026-10-02). Closes M0-RUN-03's sessions. The population, `POPULATION_SIZE` (244) and `POPULATION_SHA256` are unchanged; `circuits/`, `schedule.py`, `protocol.py` and `protocol_hash` are untouched.
+**Decision:**
+- `bb_v1_mixed_3_5-be2d62a58d7d` ([[56,6,≤4]], l = 2, m = 14) and `bb_v1_mixed_3_5-41659195d87b` ([[28,6,≤4]], l = 2, m = 7) are excluded from the M0 measurements as unbuildable under `bb_monomial_matching_xz_phased_v2`. In both, B = y⁴ + x + x²y + x³ + y², and at l = 2, x³ = x: the monomial (1, 0) appears twice and cancels over GF(2). `H_X` has weight-6 rows, not the |A| + |B| = 8 the schedule lays out, and `bb_schedule` raises `ValueError` ("a polynomial likely repeats a monomial"). Reproduced locally from the final tar's `population.parquet` (AGENT_LOG 2026-10-02). Neither code's cancelled `H_X` or `H_Z` equals any other population code's.
+- The error is deterministic and comes before any decoding, so **session 4 is not run**. This deviates from the retry-once rule (D-033 "Deaths", AGENTS §4): a retry would die the same way, at the cost of a session.
+- `evaluate/pilot.py` pins `EXCLUDED_CODES` (the two ids and the reason) and `DATASET_SIZE` = 242. `assemble_measurements` requires every population code to be finished or listed, refuses a listed code that has a result, writes 242 rows, and records the excluded ids and reasons in the Parquet schema metadata (`qecscreen.excluded_codes`). `verdict.run_m0_evaluation` expects 242 rows.
+- The M0 verdict is a claim about these 242 codes. The two codes are not in any metric.
+
+**Rationale:** The schedule is pinned and hashed. Building these two codes would need a schedule that drops cancelled terms: a change to `circuits/` and to the scheduling method in `protocol_hash` for every row, after 242 rows were measured under the current one. `bb_schedule` refusing them is the guard working: a schedule that measured something other than the checks would still give a plausible LER.
+**Rejected:**
+- *Run session 4 (the retry-once rule).* The failure is in `bb_schedule`, deterministic, before decoding; a retry cannot succeed.
+- *A cancellation-aware schedule for the two.* Changes the pinned scheduling method and the hash mid-pilot; the two rows would not be comparable with the other 242 (INV-6).
+- *Drop them from the population.* Changes `POPULATION_SIZE` and the pinned digest that every session checked; recording an exclusion keeps the population as run.
+**Revisit if:** M1 enumerates BB codes again. The enumeration admits polynomials whose monomials coincide modulo (l, m); at M1 they should be reduced or rejected before the population is pinned.
+
+---
+
 ## Template
 
 ```

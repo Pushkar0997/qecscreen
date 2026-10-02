@@ -1,7 +1,7 @@
 """M0-RUN-04 on synthetic measurement and feature frames: the baseline and ``run_m0_evaluation``.
 
-Nothing here is a real label. A few programs, tens of codes; the real 244-code
-run is the owner's.
+Nothing here is a real label. A few programs, tens of codes; the real run, on
+242 of the 244 codes (D-036), is the owner's.
 """
 
 import json
@@ -23,7 +23,17 @@ from qecscreen.models.baseline import (
     out_of_fold_predictions,
     write_predictions,
 )
-from qecscreen.verdict import BOOTSTRAP_SEED, GROUPING, RESULTS_FILE, TABLE_FILE, run_m0_evaluation
+from qecscreen.protocol import logical_error_rate
+from qecscreen.verdict import (
+    BOOTSTRAP_SEED,
+    GROUPING,
+    LABEL_NOISE_DRAWS,
+    LABEL_NOISE_SEED,
+    RESULTS_FILE,
+    TABLE_FILE,
+    label_noise_ceiling,
+    run_m0_evaluation,
+)
 
 HASH = "a" * 64
 PROGRAMS = ("bb_v1_alpha", "bb_v1_beta", "bb_v1_gamma", "bb_v1_delta", "bb_v1_eps")
@@ -268,6 +278,7 @@ def test_run_is_deterministic(tmp_path):
                                   pq.read_table(data2 / PREDICTIONS_FILE).to_pandas())
     assert first["metrics"] == second["metrics"]
     assert first["size_scaling"] == second["size_scaling"]
+    assert first["label_noise_ceiling"] == second["label_noise_ceiling"]
 
 
 def test_run_does_not_depend_on_input_row_order(tmp_path):
@@ -297,7 +308,7 @@ def test_run_refuses_mixed_hashes(tmp_path):
 def test_run_refuses_the_wrong_row_count(tmp_path):
     measurements, features = _frames()
     m_path, f_path = _write(tmp_path, measurements, features)
-    with pytest.raises(ValueError, match="expected 244"):
+    with pytest.raises(ValueError, match="expected 242"):
         run_m0_evaluation(m_path, f_path, tmp_path / "evidence" / "m0")
 
 
@@ -318,3 +329,51 @@ def test_run_refuses_an_out_dir_outside_evidence_and_an_existing_output(tmp_path
     run_m0_evaluation(m_path, f_path, tmp_path / "evidence" / "m0", expected_rows=N_ROWS, n_resamples=10)
     with pytest.raises(FileExistsError):
         run_m0_evaluation(m_path, f_path, tmp_path / "evidence" / "m0", expected_rows=N_ROWS, n_resamples=10)
+
+
+# --- the label-noise ceiling ----------------------------------------------------
+
+
+def _label_frame(failures, shots, rounds, k):
+    """Rows whose observed labels follow from their counts (INV-4), none censored."""
+    ler = [logical_error_rate(f / n, r, kk) for f, n, r, kk in zip(failures, shots, rounds, k)]
+    return pd.DataFrame({"protocol_hash": HASH, "failures": failures, "shots": shots, "rounds": rounds, "k": k,
+                         "censored": False, "true_ler": ler, "true_ler_ub": [x * 1.3 for x in ler]})
+
+
+def test_the_label_noise_ceiling_is_reported_and_decides_nothing(tmp_path):
+    results, _, out = _run(tmp_path)
+    c = results["label_noise_ceiling"]
+    assert c["seed"] == LABEL_NOISE_SEED == 20261002 and c["n_draws"] == LABEL_NOISE_DRAWS == 1_000
+    assert c["metric"] == "recall_at_30_of_top_10" and "decides nothing" in c["note"]
+    assert 0.0 <= c["p05"] <= c["p95"] <= 1.0 and c["p05"] - 1e-12 <= c["mean"] <= c["p95"] + 1e-12
+    assert "label_noise_ceiling" in (out / TABLE_FILE).read_text(encoding="utf-8")
+
+
+def test_the_label_noise_ceiling_draws_beta_jeffreys_per_code_with_the_pinned_seed():
+    """Two codes, top 1 of top 1: recall is 1 on a draw exactly when the observed-better code draws lower."""
+    frame = _label_frame([30, 40], [1_000, 1_000], [1, 1], [1, 1])  # observed: code 0 better
+    c = label_noise_ceiling(frame, k=1, top_n=1)
+    draws = np.random.default_rng(LABEL_NOISE_SEED).beta([30.5, 40.5], [970.5, 960.5], size=(LABEL_NOISE_DRAWS, 2))
+    hits = (draws[:, 0] < draws[:, 1]).astype(float)
+    assert c["mean"] == pytest.approx(hits.mean(), abs=1e-15)
+    assert 0.5 < c["mean"] < 1.0  # noisy enough to miss sometimes
+    assert c == label_noise_ceiling(frame, k=1, top_n=1)
+
+
+def test_the_label_noise_ceiling_ranks_by_ler_not_by_failure_fraction():
+    """P_L 0.1 over r * k = 1 is a worse LER than P_L 0.2 over r * k = 10 (INV-4)."""
+    frame = _label_frame([100_000, 200_000], [1_000_000, 1_000_000], [1, 5], [1, 2])
+    assert frame["true_ler"].iloc[1] < frame["true_ler"].iloc[0]
+    assert label_noise_ceiling(frame, k=1, top_n=1)["mean"] == 1.0
+
+
+def test_the_label_noise_ceiling_is_one_for_well_separated_labels_and_below_for_noisy_ones():
+    rng = np.random.default_rng(0)
+    n = 40
+    rounds, k = rng.integers(3, 8, n), rng.integers(1, 7, n)
+    separated = _label_frame((np.arange(n) + 1) * 10_000, [10**8] * n, rounds, k)
+    assert label_noise_ceiling(separated)["p05"] == 1.0
+    noisy = _label_frame([100 + i for i in range(n)], [40_960] * n, [1] * n, [1] * n)
+    c = label_noise_ceiling(noisy)
+    assert c["mean"] < 1.0 and c["p05"] < c["p95"]

@@ -14,13 +14,13 @@ The load-bearing assumption of this entire project is that cheap structural feat
 
 **Scope discipline:** one code family (BB), one physical qubit budget, one physical error rate. Everything else is deferred. Resisting the urge to "just also do GB while I'm here" is the single most valuable behaviour in this milestone.
 
-**M0's scope, exactly (D-031):** BB codes; the 11 polynomial templates of D-024; `d_upper >= 3`; `n <= 72`. That is 244 codes, and every one of them is labelled: the population is enumerated, not sampled. The protocol is the pinned BP+OSD at `P_PILOT = 0.002`, with `SHOT_BATCH = 256` and `MAX_SHOTS = 40,960` (D-034). The M0 verdict is a claim about this population only. **Larger n is M1's question.**
+**M0's scope, exactly (D-031):** BB codes; the 11 polynomial templates of D-024; `d_upper >= 3`; `n <= 72`. That is 244 codes, enumerated, not sampled; 242 of 244 are labelled (D-036: two mixed_3_5 codes are unbuildable under the pinned schedule and have no row). The protocol is the pinned BP+OSD at `P_PILOT = 0.002`, with `SHOT_BATCH = 256` and `MAX_SHOTS = 40,960` (D-034). The M0 verdict is a claim about this population only. **Larger n is M1's question.**
 
 **Deliverables**
 - Working BB code generator, validated against the published `[[72,12,6]]` reference
 - Stim circuit builder with X-then-Z monomial-matching syndrome extraction, Z-basis memory (D-025)
 - BP+OSD evaluation loop with the censoring rule and resume-from-disk
-- The 244 admissible BB codes at `n <= 72`, each labelled at `P_PILOT = 0.002` (D-031)
+- The 244 admissible BB codes at `n <= 72`, 242 of 244 (D-036) labelled at `P_PILOT = 0.002` (D-031)
 - ~20 cheap structural features per code
 - LightGBM ranking baseline, grouped splits
 - Recall@30-of-top-10 and Spearman, for Φ and for the model, with bootstrap confidence intervals
@@ -30,7 +30,7 @@ The load-bearing assumption of this entire project is that cheap structural feat
 - [ ] `pytest` passes, including every invariant test in `spec/evals.md §3`
 - [ ] BB generator reproduces `n=72, k=12, d_upper=6` for the reference parameters
 - [x] Measured per-shot decode cost recorded, and `spec/architecture.md §6` updated with the real number — the Kaggle calibration's BP+OSD costs, with the budget-72 re-projection (M0-EVAL-05, D-031)
-- [ ] One row for each of the 244 codes in the M0 population (D-031), each with shots, failures, Wilson interval and `protocol_hash`. This replaces "≥250 rows": the enumerated population has 244 codes
+- [ ] One row for each of the 244 codes in the M0 population (D-031), each with shots, failures, Wilson interval and `protocol_hash`. This replaces "≥250 rows": the enumerated population has 244 codes. **Amended by D-036 (2026-10-02): 242 of 244**, the two codes `bb_schedule` cannot build excluded and recorded in the measurements file
 - [ ] Censoring rate reported; if >40% of rows are censored, the chosen `p` was wrong and the pilot is re-run at a higher `p` before proceeding
 - [ ] A results table exists showing Recall@30 and Spearman for Φ vs LightGBM, on a construction-program-grouped split, with bootstrap CIs
 - [ ] A verdict — proceed or kill — is recorded in `spec/evals.md §7` with evidence per criterion

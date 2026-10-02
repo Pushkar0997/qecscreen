@@ -11,7 +11,10 @@ of fold (``models.baseline``), writes ``data/m0_predictions.parquet``
   (``metrics.bootstrap_compare``, ``BOOTSTRAP_SEED``, recorded);
 - each metric's censored count and censored-excluded value (D-035);
 - the D-031 size-scaling diagnostic per template (``spec/evals.md §7``,
-  "M0 verdict").
+  "M0 verdict");
+- the label-noise ceiling: how well the observed labels' own ranking recovers
+  labels redrawn from their binomial noise (``label_noise_ceiling``),
+  reported only.
 
 The results go to ``<out_dir>/m0_results.json`` and ``m0_results.txt``, under
 ``evidence/``, never ``data/``. Nothing here says proceed or kill: the owner
@@ -51,7 +54,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from qecscreen import provenance
-from qecscreen.evaluate.pilot import POPULATION_SIZE
+from qecscreen.evaluate.pilot import DATASET_SIZE
 from qecscreen.evaluate.rows import MEASUREMENT_COLUMNS
 from qecscreen.features.table import FEATURE_COLUMNS, FEATURE_SET
 from qecscreen.metrics import (
@@ -60,23 +63,30 @@ from qecscreen.metrics import (
     PHI_SCORE,
     BootstrapComparison,
     RankingMetric,
+    _recall,
     bootstrap_compare,
+    ranking_value,
     recall_at_k,
     spearman,
     with_model_score,
 )
-from qecscreen.protocol import assert_single_protocol
+from qecscreen.protocol import assert_single_protocol, logical_error_rate
 
 __all__ = [
     "BOOTSTRAP_SEED",
     "GROUPING",
+    "LABEL_NOISE_DRAWS",
+    "LABEL_NOISE_SEED",
     "RESULTS_FILE",
     "TABLE_FILE",
     "format_results",
+    "label_noise_ceiling",
     "run_m0_evaluation",
 ]
 
 BOOTSTRAP_SEED = 20261001  # pinned; recorded in the results
+LABEL_NOISE_SEED = 20261002  # owner, 2026-10-02; recorded in the results
+LABEL_NOISE_DRAWS = 1_000  # owner, 2026-10-02
 GROUPING = "leave_one_program_out"
 GROUPING_NOTE = (
     "M0 has one family (BB), so there is no family-holdout split: the headline here is "
@@ -93,8 +103,8 @@ _METRICS = {
     f"spearman_{GROUPING}": spearman,
 }
 _SHARED = ("n", "k", "d_upper", "n_ancilla", "n_total")  # in both files; must agree
-_FROM_MEASUREMENTS = ("code_id", "construction_program_id", "family", "protocol_hash", "shots", "failures",
-                      "censored", "true_ler", "true_ler_ub", "true_ler_ci_low", "true_ler_ci_high")
+_FROM_MEASUREMENTS = ("code_id", "construction_program_id", "family", "protocol_hash", "rounds", "shots",
+                      "failures", "censored", "true_ler", "true_ler_ub", "true_ler_ci_low", "true_ler_ci_high")
 
 
 def _sha256(path: Path) -> str:
@@ -194,6 +204,50 @@ def size_scaling(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return out
 
 
+def label_noise_ceiling(frame: pd.DataFrame, *, seed: int = LABEL_NOISE_SEED,
+                        n_draws: int = LABEL_NOISE_DRAWS, k: int = 30, top_n: int = 10) -> dict[str, Any]:
+    """Recall@``k``-of-top-``top_n`` of the observed labels against labels redrawn from their noise. Decides nothing.
+
+    Per code, in ``frame``'s row order, the shot failure fraction is drawn from
+    Beta(failures + 1/2, shots - failures + 1/2), censored rows included, and
+    turned into an LER by ``protocol.logical_error_rate`` with the row's
+    ``rounds`` and ``k`` (INV-4). Each draw's top ``top_n`` is the truth; the
+    scorer is the observed ranking (``true_ler``, or ``true_ler_ub`` if
+    censored, D-035), with ``recall_at_k``'s tie rule. Reported: the mean and
+    the 5th and 95th percentiles over ``n_draws`` draws (``numpy.percentile``,
+    linear). How far a perfect ranking of these labels can be from a ranking
+    of the true LERs, given only the shots taken.
+    """
+    observed = ranking_value(frame).to_numpy()
+    failures = frame["failures"].to_numpy(dtype="int64")
+    shots = frame["shots"].to_numpy(dtype="int64")
+    rounds = frame["rounds"].to_numpy(dtype="int64")
+    k_logical = frame["k"].to_numpy(dtype="int64")
+    rng = np.random.default_rng(seed)
+    draws = rng.beta(failures + 0.5, shots - failures + 0.5, size=(n_draws, len(frame)))
+    values = []
+    for draw in draws:
+        ler = np.array([logical_error_rate(float(p), int(r), int(kl)) for p, r, kl in zip(draw, rounds, k_logical)])
+        recall = _recall(ler, -observed, k, top_n)
+        if recall is None:
+            raise ValueError(f"Recall@{k}-of-top-{top_n} is undefined on {len(frame)} rows")
+        values.append(recall)
+    values = np.asarray(values)
+    return {
+        "metric": f"recall_at_{k}_of_top_{top_n}",
+        "note": "Reported only; decides nothing.",
+        "draw": "per code, P_L ~ Beta(failures + 0.5, shots - failures + 0.5), censored rows included; "
+                "LER = logical_error_rate(P_L, rounds, k)",
+        "truth": f"each draw's top {top_n} by drawn LER",
+        "scorer": "the observed ranking: true_ler, or true_ler_ub if censored (D-035); same tie rule",
+        "seed": seed,
+        "n_draws": n_draws,
+        "mean": float(values.mean()),
+        "p05": float(np.percentile(values, 5)),
+        "p95": float(np.percentile(values, 95)),
+    }
+
+
 def _check_out_dir(out_dir: Path) -> Path:
     parts = out_dir.resolve().parts
     if "evidence" not in parts or "data" in parts:
@@ -210,7 +264,7 @@ def run_m0_evaluation(
     out_dir: str | os.PathLike[str],
     *,
     data_dir: str | os.PathLike[str] | None = None,
-    expected_rows: int = POPULATION_SIZE,
+    expected_rows: int = DATASET_SIZE,
     n_resamples: int = BOOTSTRAP_RESAMPLES,
 ) -> dict[str, Any]:
     """Fit out of fold, write the predictions and the results, print the table; return the results.
@@ -218,7 +272,7 @@ def run_m0_evaluation(
     ``data_dir`` (default: the measurements' directory) receives
     ``m0_predictions.parquet``; ``out_dir`` must lie under ``evidence/``.
     Refuses before writing anything if: either input does not have
-    ``expected_rows`` rows (244, the M0 population), a ``code_id`` is
+    ``expected_rows`` rows (242 of 244, D-036), a ``code_id`` is
     repeated, the two ``code_id`` sets differ, the measurements carry more
     than one ``protocol_hash`` or a null one (INV-6), the feature set is not
     ``FEATURE_SET``, the files disagree on ``n``, ``k``, ``d_upper``,
@@ -266,6 +320,7 @@ def run_m0_evaluation(
         "recall_ties": "expected recall under uniformly random tie-breaking at both cut-offs",
         "metrics": metrics,
         "size_scaling": size_scaling(frame),
+        "label_noise_ceiling": label_noise_ceiling(frame),
         "provenance": provenance.record(),
     }
     table = format_results(results)
@@ -300,6 +355,10 @@ def format_results(results: Mapping[str, Any]) -> str:
                          f"{s['n_censored']:>9} {_f(s['value_censored_excluded']):>15}")
         d = m["model_minus_phi"]
         lines.append(f"{name:<52} {'model - phi':<14} {_f(d['estimate']):>9} {_f(d['low']):>9} {_f(d['high']):>9}")
+    c = results["label_noise_ceiling"]
+    lines.append(f"{c['metric'] + '_label_noise_ceiling':<52} {'observed':<14} {_f(c['mean']):>9} "
+                 f"{_f(c['p05']):>9} {_f(c['p95']):>9}   mean [5th, 95th] over {c['n_draws']} draws, "
+                 f"seed {c['seed']}; {c['note']}")
     lines += ["", "Size scaling per template (D-031): non-censored true_ler [95%]; censored rows as <= ub"]
     for t in results["size_scaling"]:
         lines.append(f"{t['construction_program_id']}: {t['n_codes']} codes, {t['n_censored']} censored, "

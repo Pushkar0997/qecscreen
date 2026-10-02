@@ -14,9 +14,11 @@ them on every leg; the default local run does not (AGENTS §5).
 from __future__ import annotations
 
 import functools
+import inspect
 import json
 import math
 import multiprocessing
+import shutil
 import time
 from pathlib import Path
 
@@ -28,12 +30,14 @@ import qecscreen.evaluate.pilot as pilot
 import qecscreen.protocol as protocol_mod
 import qecscreen.provenance as prov_mod
 from qecscreen.circuits.build import build_memory_circuit
+from qecscreen.circuits.schedule import bb_schedule
 from qecscreen.codes import ids
 from qecscreen.evaluate.checkpoint import RESULT_FILE
 from qecscreen.evaluate.pilot import PilotConfig, PilotRefusal, assemble_measurements, run_session
 from qecscreen.evaluate.rows import build_row
 from qecscreen.evaluate.run import sample_and_decode
 from qecscreen.protocol import P_PILOT, Protocol, installed_decoder_version, protocol_hash, sampling_seed
+from qecscreen.verdict import run_m0_evaluation
 
 POP = (  # n * d_upper = 48, 36, 36: quad first, then pair and sq by code_id
     {"construction_program_id": "bb_v1_quad_4_2", "l": 2, "m": 3,
@@ -458,6 +462,74 @@ def test_assembly_refuses_outside_data_and_on_the_real_pins(tmp_path, monkeypatc
     assert not (tmp_path / "data").exists()
 
 
+# --- D-036: codes excluded from the measurements ----------------------------------
+
+
+@pytest.fixture(scope="module")
+def _finished_pilot(tmp_path_factory):
+    """A pilot directory with all three codes finished, built in this process (no workers)."""
+    pilot_dir = tmp_path_factory.mktemp("d036") / "pilot"
+    with pytest.MonkeyPatch.context() as mp:
+        _parent(mp)
+        h = protocol_hash(Protocol(p=P_PILOT, decoder_version=installed_decoder_version()))
+        records = [pilot._record(c) for c in POP]
+        pilot._check_manifest(pilot_dir, {"protocol_hash": h, "population_sha256": pilot.population_digest(records),
+                                          "p": P_PILOT, "batch_size": BATCH, "max_shots": MAX}, records)
+        for i, cid in enumerate(IDS):
+            code = _code(i)
+            sample_and_decode(build_memory_circuit(code, P_PILOT, code["d_upper"]), seed=sampling_seed(cid, h),
+                              batch_size=BATCH, max_shots=MAX, checkpoint_dir=pilot_dir / cid)
+    return pilot_dir
+
+
+def _excluding(tmp_path, monkeypatch, source, excluded, *, drop=()):
+    """A copy of ``source`` without the checkpoint directories in ``drop``; pins at POP, ``excluded`` listed."""
+    copy = tmp_path / "pilot"
+    shutil.copytree(source, copy)
+    for cid in drop:
+        shutil.rmtree(copy / cid)
+    _pin_to_pop(monkeypatch)
+    monkeypatch.setattr(pilot, "EXCLUDED_CODES", {cid: "test" for cid in excluded})
+    return copy
+
+
+def test_assembly_refuses_an_unfinished_code_that_is_not_excluded(tmp_path, monkeypatch, _finished_pilot):
+    pilot_dir = _excluding(tmp_path, monkeypatch, _finished_pilot, [IDS[2]], drop=[IDS[1], IDS[2]])
+    with pytest.raises(PilotRefusal, match=rf"1 codes are unfinished, e\.g\. \['{IDS[1]}'\]"):
+        assemble_measurements(pilot_dir, tmp_path / "data")
+    assert not (tmp_path / "data").exists()
+
+
+def test_assembly_accepts_exactly_the_excluded_codes_missing(tmp_path, monkeypatch, _finished_pilot):
+    pilot_dir = _excluding(tmp_path, monkeypatch, _finished_pilot, [IDS[2]], drop=[IDS[2]])
+    out = assemble_measurements(pilot_dir, tmp_path / "data")
+    table = pq.read_table(out)
+    assert table.num_rows == pilot.POPULATION_SIZE - 1 == 2
+    assert sorted(table.column("code_id").to_pylist()) == sorted(IDS[:2])
+    assert json.loads(table.schema.metadata[pilot.EXCLUDED_METADATA_KEY]) == {IDS[2]: "test"}
+
+
+def test_assembly_refuses_an_excluded_code_that_has_a_result(tmp_path, monkeypatch, _finished_pilot):
+    pilot_dir = _excluding(tmp_path, monkeypatch, _finished_pilot, [IDS[2]])
+    with pytest.raises(PilotRefusal, match="excluded codes have a result"):
+        assemble_measurements(pilot_dir, tmp_path / "data")
+    assert not (tmp_path / "data").exists()
+
+
+def test_assembly_refuses_an_excluded_code_outside_the_population(tmp_path, monkeypatch, _finished_pilot):
+    pilot_dir = _excluding(tmp_path, monkeypatch, _finished_pilot, ["bb_v1_pair_2_2-000000000000"])
+    with pytest.raises(PilotRefusal, match="not in the population"):
+        assemble_measurements(pilot_dir, tmp_path / "data")
+
+
+def test_the_m0_dataset_is_242_rows_of_the_244_codes():
+    """D-036: the two codes bb_schedule cannot build are excluded; the population stays 244."""
+    assert set(pilot.EXCLUDED_CODES) == {"bb_v1_mixed_3_5-be2d62a58d7d", "bb_v1_mixed_3_5-41659195d87b"}
+    assert pilot.POPULATION_SIZE == 244
+    assert pilot.DATASET_SIZE == pilot.POPULATION_SIZE - len(pilot.EXCLUDED_CODES) == 242
+    assert inspect.signature(run_m0_evaluation).parameters["expected_rows"].default == 242
+
+
 # --- the pinned population --------------------------------------------------------
 
 
@@ -472,6 +544,12 @@ def test_the_m0_population_is_the_pinned_244_and_the_d031_draw():
     drawn = sample_bb_params(244, 72, seed=CALIBRATION_CODE_SEED)
     assert {pilot._record(p)["code_id"] for p in drawn} == {r["code_id"] for r in pop}
     assert min(r["d_upper"] for r in pop) == 3 and max(r["n"] for r in pop) == 72
+    assert set(pilot.EXCLUDED_CODES) <= set(by_id := {r["code_id"]: r for r in pop})  # D-036
+    for cid in pilot.EXCLUDED_CODES:  # unbuildable under the pinned schedule
+        params = json.loads(by_id[cid]["params_json"])
+        with pytest.raises(ValueError, match="repeats a monomial"):
+            bb_schedule(params["l"], params["m"], [tuple(e) for e in params["a_exps"]],
+                        [tuple(e) for e in params["b_exps"]])
     probe = pilot.probe_codes(pop)
     by_id = {r["code_id"]: r for r in pop}
     assert len(set(probe)) == 12 and by_id[probe[0]]["n_d_upper"] == max(r["n_d_upper"] for r in pop)

@@ -58,9 +58,11 @@ unless ``cost_gate`` names the ``spec/evals.md §7`` entry that approved the
 probe's cost report (``pilot_cost_report``, run locally on the downloaded
 probe), and records it in the manifest.
 
-**Final assembly** (``assemble_measurements``) builds every row, checks one
-protocol and all 244 rows, and writes ``data/m0_measurements.parquet``. It
-refuses while any code is unfinished.
+**Final assembly** (``assemble_measurements``) builds a row for every code
+not in ``EXCLUDED_CODES``, checks one protocol and 242 of 244 rows (D-036),
+and writes ``data/m0_measurements.parquet`` with the excluded codes in its
+metadata. It refuses while any other code is unfinished, and if an excluded
+code has a result.
 """
 
 from __future__ import annotations
@@ -81,6 +83,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Any
 
 import pyarrow as pa
@@ -115,6 +118,9 @@ from qecscreen.protocol import (
 __all__ = [
     "ARCHIVE_FILE",
     "BUDGET",
+    "DATASET_SIZE",
+    "EXCLUDED_CODES",
+    "EXCLUDED_METADATA_KEY",
     "EXIT_STALE",
     "MANIFEST_KEYS",
     "MEASUREMENTS_FILE",
@@ -144,6 +150,19 @@ POPULATION_SIZE = 244
 # population_digest(m0_population()). Pinned so that any change to the
 # templates, the (l, m) grid, validate or estimate_d_upper fails loudly here.
 POPULATION_SHA256 = "5008e14eb8292df8549aa5fddada442938ce52f91950e4612dfbb85dc6e3d94f"
+
+# D-036 (owner, 2026-10-02): population codes left out of the M0 measurements,
+# with the reason. The population, its size and digest are unchanged; the
+# dataset is the population minus these. Assembly refuses if a listed code has
+# a result, or if any other code is unfinished.
+_UNBUILDABLE = ("unbuildable under bb_monomial_matching_xz_phased_v2: B repeats a monomial "
+                "(x^3 = x at l = 2), so bb_schedule raises ValueError before decoding (D-036)")
+EXCLUDED_CODES: Mapping[str, str] = MappingProxyType({
+    "bb_v1_mixed_3_5-be2d62a58d7d": _UNBUILDABLE,
+    "bb_v1_mixed_3_5-41659195d87b": _UNBUILDABLE,
+})
+DATASET_SIZE = POPULATION_SIZE - len(EXCLUDED_CODES)  # 242 rows of 244 (D-036)
+EXCLUDED_METADATA_KEY = b"qecscreen.excluded_codes"  # the measurements Parquet's schema metadata
 
 PROCESSES = 4  # Kaggle's 4 cores, one code per process (D-026)
 SESSION_WALL_HOURS = 10.5  # owner, 2026-09-28 (D-033): under Kaggle's 12 h, with margin
@@ -778,10 +797,14 @@ def assemble_measurements(pilot_dir: str | os.PathLike[str], data_dir: str | os.
     ``pilot_dir`` is a pilot directory or an ``m0-pilot.tar`` (checked against
     its sidecar's sha256, and against its inventory once extracted).
     ``data_dir`` must be a directory named ``data`` (architecture §2), and the
-    file must not exist yet. Refuses while any code is unfinished, if the
-    population is not the pinned M0 population, if the rows do not share one
-    protocol hash (INV-6) equal to the manifest's, or if there are not
-    ``POPULATION_SIZE`` of them.
+    file must not exist yet. Writes one row per population code not in
+    ``EXCLUDED_CODES`` (D-036: ``DATASET_SIZE``, 242 of 244), and records the
+    excluded codes and their reasons as JSON under ``EXCLUDED_METADATA_KEY`` in
+    the Parquet schema metadata. Refuses if any code that is not excluded is
+    unfinished, if an excluded code has a result or is not in the population,
+    if the population is not the pinned M0 population, if the rows do not share
+    one protocol hash (INV-6) equal to the manifest's, or if there are not
+    ``POPULATION_SIZE - len(EXCLUDED_CODES)`` of them.
     """
     data = Path(data_dir)
     if data.name != "data":
@@ -802,15 +825,27 @@ def _assemble(pilot: Path, data: Path, target: Path) -> Path:
         raise PilotRefusal("the pilot's population is not the pinned M0 population")
     if (manifest["batch_size"], manifest["max_shots"], manifest["p"]) != (SHOT_BATCH, MAX_SHOTS, P_PILOT):
         raise PilotRefusal("the pilot did not run at CONTRACT's SHOT_BATCH, MAX_SHOTS and P_PILOT")
-    unfinished = [r["code_id"] for r in population if not (pilot / r["code_id"] / RESULT_FILE).exists()]
+    excluded = dict(EXCLUDED_CODES)
+    not_in_population = sorted(set(excluded) - {r["code_id"] for r in population})
+    if not_in_population:
+        raise PilotRefusal(f"excluded codes not in the population (D-036): {not_in_population}")
+    finished = {r["code_id"] for r in population if (pilot / r["code_id"] / RESULT_FILE).exists()}
+    excluded_finished = sorted(set(excluded) & finished)
+    if excluded_finished:
+        raise PilotRefusal(f"excluded codes have a result (D-036): {excluded_finished}; "
+                           "an excluded code must not have been measured")
+    unfinished = [r["code_id"] for r in population if r["code_id"] not in finished | set(excluded)]
     if unfinished:
         raise PilotRefusal(f"{len(unfinished)} codes are unfinished, e.g. {unfinished[:5]}")
     rows = [build_row(_code(r), pilot / r["code_id"], p=manifest["p"], batch_size=manifest["batch_size"],
-                      max_shots=manifest["max_shots"]) for r in population]
+                      max_shots=manifest["max_shots"]) for r in population if r["code_id"] not in excluded]
     table = rows_table(rows)
     h = assert_single_protocol(table.to_pandas()["protocol_hash"])
-    if h != manifest["protocol_hash"] or table.num_rows != POPULATION_SIZE:
-        raise PilotRefusal(f"{table.num_rows} rows under {h}; expected {POPULATION_SIZE} under the manifest's")
+    expected = POPULATION_SIZE - len(excluded)
+    if h != manifest["protocol_hash"] or table.num_rows != expected:
+        raise PilotRefusal(f"{table.num_rows} rows under {h}; expected {expected} under the manifest's")
+    table = table.replace_schema_metadata({**(table.schema.metadata or {}), EXCLUDED_METADATA_KEY:
+                                           json.dumps(excluded, sort_keys=True).encode()})
     data.mkdir(exist_ok=True)
     tmp = target.with_name(target.name + ".tmp")
     pq.write_table(table, tmp)
