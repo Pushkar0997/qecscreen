@@ -6,6 +6,16 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-02 (b) — Claude Opus 5.5 / Claude Code — correction: CI red on 9f61452, two slow pilot tests
+
+**Milestone:** M0, M0-RUN-03 (D-036) follow-up. CI run 37036011351 on `9f61452` failed on every leg. Cause, mine: `_pin_to_pop` (and the dies-twice test's inline pins) point assembly at the three-code test population but kept the real `EXCLUDED_CODES`, so the new "excluded codes not in the population" refusal fired in `test_a_three_session_chain_equals_one_uninterrupted_run` and `test_a_worker_that_dies_twice_fails_its_code`. Both are `slow`, so the default local run in the entry below did not see them. Fix: those pins also set `EXCLUDED_CODES` to `{}`. Test-only; `pilot.py` unchanged.
+
+**Suite:** locally, those two, the 5 D-036 tests, `test_assembly_refuses_outside_data_and_on_the_real_pins` and the slow population test, with `-m "slow or not slow"`: all pass. CI: reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:** nothing new. The previous entry's list stands.
+
+---
+
 ## 2026-10-02 — Claude Opus 5.5 / Claude Code — M0-RUN-03 closeout under D-036; label-noise ceiling (M0-RUN-04)
 
 **Milestone:** M0. No Kaggle, no decoding. `circuits/`, `schedule.py`, `protocol.py` and the protocol hash untouched; the tar and sidecar untouched.

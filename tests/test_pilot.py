@@ -122,6 +122,7 @@ def _pin_to_pop(monkeypatch):
     monkeypatch.setattr(pilot, "POPULATION_SIZE", 3)
     monkeypatch.setattr(pilot, "SHOT_BATCH", BATCH)
     monkeypatch.setattr(pilot, "MAX_SHOTS", MAX)
+    monkeypatch.setattr(pilot, "EXCLUDED_CODES", {})  # D-036's two ids are not in this population
 
 
 @pytest.mark.slow
@@ -447,6 +448,7 @@ def test_a_worker_that_dies_twice_fails_its_code(tmp_path, monkeypatch):
     monkeypatch.setattr(pilot, "POPULATION_SIZE", 3)
     monkeypatch.setattr(pilot, "SHOT_BATCH", BATCH)
     monkeypatch.setattr(pilot, "MAX_SHOTS", MAX)
+    monkeypatch.setattr(pilot, "EXCLUDED_CODES", {})
     with pytest.raises(PilotRefusal, match="1 codes are unfinished"):
         assemble_measurements(tmp_path / "k3" / "pilot", tmp_path / "data")
 
