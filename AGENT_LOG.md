@@ -6,6 +6,22 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-03 (c) — Claude Opus 5.5 / Claude Code — M0-RUN-06: draft write-up `docs/m0-writeup.md`
+
+**Milestone:** M0, M0-RUN-06. Draft for the owner's review; **not published, no URL recorded**. `src/`, `tests/`, `CONTRACT.md` and `spec/` untouched; `spec/tasks.md` not ticked (the task closes when the write-up is public, INV-10; due **2026-10-10**).
+
+**Sources.** Every number comes from `spec/evals.md §7` (the M0 verdict), D-031..D-036, `m0_results.json`, the two input Parquet files, or the item-2 script. The decode core-hours (76.30) were checked as the sum of `decode_seconds` in `data/m0_measurements.parquet`.
+
+**Item 2, exploratory and post hoc (in the write-up only, not in `spec/evals.md`).** Spearman against the truth ranking by `metrics.spearman` (D-035 rule), on the 242 rows of `m0_measurements` joined to `m0_features` on `code_id`; point values only. Orientation: higher = predicted better. `-check_weight_mean` **0.7190**, `d_upper` **0.3101**, `k` **-0.0260** (oriented as Φ treats k, higher k better; the reverse is +0.0260). Check: the same script gives Φ 0.2419, equal to `m0_results.json`. Censored-excluded values were 0.7161, 0.3027, -0.0190. `check_weight_mean` has 5 distinct values, so ties are heavy. The scratch script is in the session scratchpad, not in the repository.
+
+**Choices made, flag if wrong:** the write-up uses `d_upper` rather than "d", with "≤" where it names the bound (INV-5). The size-scaling readings are the owner's, as recorded in §7. The reproduction recipe names the public functions (`assemble_measurements`, `compute_features`/`write_features`, `run_m0_evaluation`) from their docstrings; I did not rerun it end to end.
+
+**Suite:** default only, reported in the session reply. **CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:** nothing new. The 2026-10-03 (b) list stands, including the unmeasured refit variance, which the write-up states as a limitation.
+
+---
+
 ## 2026-10-03 (b) — Claude Opus 5.5 / Claude Code — correction: `m0_results.json` is CRLF too
 
 **Milestone:** M0, M0-RUN-05 follow-up. The entry below says "`m0_results.json` has no CR". **That is wrong.** The check was `grep -c $'\r'`, and Git Bash's grep strips CRs, so it counted 0. `od -c` shows CRLF line ends (4,514 CRs). Under `core.autocrlf=true` the committed blob is therefore LF, like the `.txt`'s. Found after the push of `ba19e50`: `git show HEAD:…/m0_results.json | sha256sum` gave `01c4fd04…`, not `4145cfe4…`.
