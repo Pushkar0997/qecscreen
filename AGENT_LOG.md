@@ -6,6 +6,27 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-03 (d) — Claude Opus 5.5 / Claude Code — M0-RUN-06: write-up published; M0 closed
+
+**Milestone:** M0, M0-RUN-06. Two commits, as the owner's brief ordered: the write-up alone, then the spec changes that cite its SHA. `src/`, `tests/`, `CONTRACT.md` untouched. `spec/plan.md`'s "Currently active" line is unchanged; starting M1 is the owner's call.
+
+**Commit 1, `8d19b89588427f4503d5ef45b3c075447c2ba67d`** (`docs(writeup): M0-RUN-06 publish the M0 write-up`). The owner approved the draft; only these four changes were made:
+- Reproducibility: the evaluation ran from a local editable install of the working tree at `345c174`, whose source equals `17263bf` (`git diff 17263bf 345c174 -- src tests pyproject.toml requirements.txt` is empty; CI-verified), which is why `commit_sha` is null in `m0_results.json`. The rerun recipe now installs at `17263bf` or later, not `1131f10`, where assembly refuses the two D-036 codes and the label-noise ceiling does not exist.
+- The three Parquet sha256 values in full, copied from `m0_results.json` and checked equal to `sha256sum` of the files on disk. The measurements hash had been mistyped as `5c644c28…`; it is `5c644c02…`.
+- One sentence in Setup, a lookup on `data/m0_measurements.parquet`, not a metric: the ten best codes (ranking value `true_ler`, or `true_ler_ub` if censored, D-035) took 24,320 to 40,960 shots each (40,960 is the cap, reached by the censored code), against a median of 1,024 over all 242.
+- The "Draft for owner review. Not published." line removed.
+The URL https://github.com/Pushkar0997/qecscreen/blob/main/docs/m0-writeup.md returns 200, and the file at `8d19b89` has no draft line.
+
+**Commit 2 (this one).** `spec/evals.md §7`: publication row PENDING → PASS with the URL and `8d19b89…`; "Closes?" → yes, M0 closed, with the verdict restated as unchanged (PROCEED, headline criterion FAIL). `spec/plan.md`: write-up criterion ticked. `spec/tasks.md`: M0-RUN-06 ticked.
+
+**Choices made, flag if wrong:** the "Closes?" line says every criterion in its table is PASS (true: the table holds the plan's exit criteria) and repeats that the headline FAILED, so nobody reads "closed" as "passed". `spec/smoke.md §6` is a generic checklist and was not ticked.
+
+**Suite:** default only, **427 passed, 26 deselected**, before commit 1 (spec/docs only since). **CI:** reported in the session reply for both pushed SHAs.
+
+**Noticed, did not fix:** the 2026-10-03 list stands (refit variance unmeasured; `.txt`/`.json` CRLF vs autocrlf; `features/tanner.py` "all 244" wording; `assert_single_protocol` all-null case). INV-10 for M0 is now discharged; M1's own published output is a DOI.
+
+---
+
 ## 2026-10-03 (c) — Claude Opus 5.5 / Claude Code — M0-RUN-06: draft write-up `docs/m0-writeup.md`
 
 **Milestone:** M0, M0-RUN-06. Draft for the owner's review; **not published, no URL recorded**. `src/`, `tests/`, `CONTRACT.md` and `spec/` untouched; `spec/tasks.md` not ticked (the task closes when the write-up is public, INV-10; due **2026-10-10**).

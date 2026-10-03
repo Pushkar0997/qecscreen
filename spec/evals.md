@@ -515,9 +515,9 @@ The failing templates are reported here, not dropped. They are in every metric a
 | Censoring rate reported; re-run if > 40% | PASS | 1 of 242 censored, 0.4% (`bb_v1_pair_2_2-4faad046f1a9`, 93 failures in 40,960 shots); `m0_results.json` `n_censored` 1, `censoring_rate` 0.00413 |
 | Results table: Recall@30 and Spearman, Φ vs LightGBM, construction-program-grouped split, bootstrap CIs | PASS | `m0_results.txt` / `.json`, leave-one-program-out over 11 programs (M0 has one family, so there is no family holdout; the note is in the files) |
 | Verdict, proceed or kill, recorded here with evidence per criterion | PASS | This entry |
-| Write-up published within 7 days of the verdict (INV-10) | **PENDING** | No URL yet. Due by **2026-10-10**. PASS only with a URL in this column (INV-10, `spec/smoke.md §6`) |
+| Write-up published within 7 days of the verdict (INV-10) | PASS | https://github.com/Pushkar0997/qecscreen/blob/main/docs/m0-writeup.md, published 2026-10-03 in commit `8d19b89588427f4503d5ef45b3c075447c2ba67d`, the same day as the verdict (INV-10, `spec/smoke.md §6`) |
 
-**Closes?** **No.** M0 closes when the write-up is public and its URL is in the last row (M0-RUN-06). Until then M1 may not start (INV-10).
+**Closes?** **Yes, M0 closed** (2026-10-03). Every criterion in this table is PASS, and the write-up's URL is in the last row (M0-RUN-06). The verdict above is unchanged: PROCEED, headline criterion FAIL. Starting M1 is the owner's call.
 
 **Caveats carried forward:**
 - **242 of 244 codes (D-036).** Two mixed_3_5 codes cannot be built under the pinned schedule and are in no metric.

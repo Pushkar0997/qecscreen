@@ -34,7 +34,7 @@ The load-bearing assumption of this entire project is that cheap structural feat
 - [x] Censoring rate reported; if >40% of rows are censored, the chosen `p` was wrong and the pilot is re-run at a higher `p` before proceeding
 - [x] A results table exists showing Recall@30 and Spearman for Φ vs LightGBM, on a construction-program-grouped split, with bootstrap CIs
 - [x] A verdict — proceed or kill — is recorded in `spec/evals.md §7` with evidence per criterion — 2026-10-03: PROCEED, headline criterion FAIL
-- [ ] The write-up is published within 7 days of the verdict (INV-10)
+- [x] The write-up is published within 7 days of the verdict (INV-10) — 2026-10-03, https://github.com/Pushkar0997/qecscreen/blob/main/docs/m0-writeup.md (commit `8d19b89`)
 
 **Risk:** the decode cost was measured at 1.1–2.3 s/shot on [[42]]–[[72]], not the 5 ms planned (`spec/architecture.md §6`). The pilot's probe measured 3.69 core-hours for 12 evenly ranked codes, so the pilot is ~110 core-hours at `MAX_SHOTS = 40,960` (D-034, `spec/architecture.md §6`), under the 158 ceiling, or about three Kaggle sessions after a new probe. Mitigation, if the new probe's per-code costs run far past that: stop and report (AGENTS §7), then shrink the population to a smaller n or reduce `osd_order`, recording the protocol change as a new `protocol_hash`. BP+LSD is not a mitigation, because it re-ranks codes (D-031). Do not solve it by reducing shots below the censoring rule — that trades a compute problem for a correctness problem.
 
