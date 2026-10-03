@@ -6,6 +6,32 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-03 (f) — Claude Opus 5.5 / Claude Code — README-01 items 2–3: README rewritten; CITATION.cff checked
+
+**Milestone:** M0 closed; M1 not started. Second README-01 commit, pushed after CI on item 1's `f5e36a84b0575b291cf58ebb0d901f2958408f33` completed **success** (run 37107615312). `src/`, `tests/`, `CONTRACT.md`, the write-up and the §7 verdict text untouched.
+
+**`README.md`, rewritten** in the brief's section order. Every number is from `spec/evals.md §7`, `docs/m0-writeup.md`, `m0_results.txt`, `CONTRACT.md` or the snapshot. The usage commands, and whether each was run:
+- (a) load and rank, and (b) scoring a column (`-n`) with `recall_at_k`, `spearman`, `bootstrap_compare(model_col=…)` and the INV-6 guard: **run in this session** against the committed snapshot, with the venv's installed package. The README holds each script verbatim (checked by substring) and (b)'s output as printed. Φ reproduces 0.000 recall and 0.242 / 0.243 Spearman. The brief's open question: yes, the metrics score a user-added column on the measurements frame with no other setup. All three functions are tested in `tests/test_metrics.py`. I added `bootstrap_compare` beyond the brief's two because the first draft said intervals were model-vs-Φ only, which its `model_col` argument shows is false.
+- Install block: the commands CI runs (`pip install -r requirements.txt`, `pip install .`, `selfcheck`, pytest), plus `git clone`.
+- (c) reproduction: **not run**. It cites the owner's run. The import paths were checked; `compute_features` takes the 242 measurement rows (the population includes the D-036 codes).
+- (d) Kaggle pilot: a summary of the architecture §2 runbook. It says the runner refuses any population other than the pinned M0 one.
+- (e) unsupported: from the capability register and the tasks backlog.
+
+**Wording checks:** `grep "d="` on README.md finds nothing (the bootstrap call is written `seed = 20261001` for that reason, and (b) prints formatted lines rather than `RankingMetric(... value_censored_excluded=…)`). No random-split number, no "outperforms"/"state of the art"/"breakthrough". Every distance is d_upper or "≤". CONTRACT anchors are GitHub's slugs for the INV headings; not clicked.
+
+**`CITATION.cff`: unchanged.** `version: 0.0.1` equals `qecscreen.__version__`, no release has happened since, `date-released` belongs to that version, and the title is still accurate. Nothing is wrong, so per the brief it is left alone.
+
+**`spec/tasks.md`:** README-01 added under "Post-M0 documentation", ticked.
+
+**Suite:** default, **427 passed, 26 deselected**, after the README edit. No test reads README.md (grep of `tests/`). **CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+- `CITATION.cff`'s abstract says the model is "intended to replace the kd^2/n code-level proxy". That states the intent and is not a result, but after a failed headline the owner may want to reword it. Outside the brief's version/date/title check.
+- NOTICE licenses "datasets released as part of this project" under CC-BY-4.0, but `data/LICENSE` does not exist yet (M1). Whether the D-037 snapshot counts as released, and needs that licence file beside it, is the owner's call. The README restates NOTICE and says nothing more.
+- `spec/plan.md` "Currently active: M0" (see (e)).
+
+---
+
 ## 2026-10-03 (e) — Claude Opus 5.5 / Claude Code — README-01 item 1: D-037, the M0 dataset snapshot committed
 
 **Milestone:** M0 closed; M1 not started. README-01 is post-M0 documentation. This commit is item 1 only (decision, spec and snapshot together, as the brief ordered); the README and CITATION check follow in a second commit. `src/`, `tests/`, `CONTRACT.md`, the write-up and the §7 verdict text untouched.

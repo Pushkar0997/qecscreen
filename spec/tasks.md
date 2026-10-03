@@ -75,6 +75,10 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 - [x] **M0-RUN-05** Record the M0 verdict in `spec/evals.md §7` with evidence per exit criterion. **Do not round up a PARTIAL** — recorded 2026-10-03 (owner's decision): **PROCEED, headline criterion FAIL.** Recall@30-of-top-10 model − Φ 0.200 [0.000, 0.600] includes 0; the kill condition is not met (Φ's Spearman 0.242, model − Φ 0.629 [0.521, 0.750]). Publication criterion PENDING, due 2026-10-10 (M0-RUN-06)
 - [x] **M0-RUN-06** Write and publish the M0 write-up within 7 days of the verdict (INV-10) — published 2026-10-03 at https://github.com/Pushkar0997/qecscreen/blob/main/docs/m0-writeup.md, commit `8d19b89`. M0 closed (`spec/evals.md §7`)
 
+### Post-M0 documentation
+
+- [x] **README-01** Rewrite `README.md` for M0 closed and published, for an outside researcher — done 2026-10-03 in two commits: `f5e36a8` (D-037: the three M0 Parquet files committed byte-for-byte under `evidence/m0-verdict/2026-10-03-1131f10/data/`, hashes equal to §7, stored `-text`), then the README. Its usage examples (a) load and rank, (b) score a column with `metrics.recall_at_k`, `spearman`, `bootstrap_compare` and the INV-6 guard, were run against the snapshot; (c) the reproduction recipe was not run (the owner's run is cited). `CITATION.cff` checked and left unchanged
+
 ---
 
 ## Backlog — unscheduled, do not start
