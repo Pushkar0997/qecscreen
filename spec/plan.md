@@ -4,7 +4,7 @@ Sequential. Do not start M(n+1) before M(n)'s exit criteria are met and a verdic
 
 Sized for **10 hours a week**, deliberately below the stated 10–20, because that is the number that gets hit in a bad month and a plan that only works in good months is a wish.
 
-**Currently active: M0.**
+**Currently active: none.** M0 closed 2026-10-03; M1 not started (owner's call).
 
 ---
 

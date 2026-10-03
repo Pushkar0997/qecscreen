@@ -1,0 +1,15 @@
+qecscreen-bench M0 snapshot
+
+Copyright 2026 Pushkar Kumar
+
+The files in this directory (m0_measurements.parquet, m0_features.parquet,
+m0_predictions.parquet) are licensed under the Creative Commons Attribution 4.0
+International licence (CC BY 4.0).
+
+  Summary:    https://creativecommons.org/licenses/by/4.0/
+  Legal code: https://creativecommons.org/licenses/by/4.0/legalcode
+
+Attribution: cite per CITATION.cff in the root of this repository.
+
+The source code of qecscreen is licensed separately under the Apache License 2.0
+(see LICENSE and NOTICE in the repository root).

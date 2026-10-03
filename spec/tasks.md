@@ -78,6 +78,7 @@ Only M0 is decomposed. M1+ gets decomposed when M0 closes — decomposing furthe
 ### Post-M0 documentation
 
 - [x] **README-01** Rewrite `README.md` for M0 closed and published, for an outside researcher — done 2026-10-03 in two commits: `f5e36a8` (D-037: the three M0 Parquet files committed byte-for-byte under `evidence/m0-verdict/2026-10-03-1131f10/data/`, hashes equal to §7, stored `-text`), then the README. Its usage examples (a) load and rank, (b) score a column with `metrics.recall_at_k`, `spearman`, `bootstrap_compare` and the INV-6 guard, were run against the snapshot; (c) the reproduction recipe was not run (the owner's run is cited). `CITATION.cff` checked and left unchanged
+- [x] **README-02** Fixes to README-01 and three owner decisions — done 2026-10-03: README (`rerun_m0.py` imports `qecscreen.verdict` first; the "Φ rewards k" claim states what was checked; outside-reader voice; licence bullet), CC BY 4.0 `LICENSE` beside the M0 snapshot (D-037 addendum), `CITATION.cff` abstract describes what exists, `spec/plan.md` "Currently active: none"
 
 ---
 

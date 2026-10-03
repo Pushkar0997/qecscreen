@@ -66,8 +66,8 @@ from 0.200 to 0.100 when the one censored code (the second-best by its upper
 bound) is dropped. It is not label noise: the ceiling is 1.000.
 
 **Φ rewards k.** Every top-10 code has k = 2 and Φ ≤ 1.64. For each of them at
-least 70 codes with higher k, and so higher Φ, rank above it in Φ's order. Φ's
-Recall@30-of-top-10 is therefore exactly zero.
+least 70 codes with both higher k and higher Φ rank above it in Φ's order.
+Φ's Recall@30-of-top-10 is therefore exactly zero.
 
 **Check weight alone reaches 0.719 (exploratory, post hoc).** After the verdict,
 single-feature scores were ranked against the same truth: minus the mean check
@@ -186,8 +186,6 @@ package.
 
 ### a. Load the labels and rank the codes
 
-Run in this session against the committed snapshot:
-
 ```python
 import pandas as pd
 
@@ -203,8 +201,8 @@ print(len(m), "rows;", m["censored"].sum(), "censored;",
       m["protocol_hash"].nunique(), "protocol_hash")
 ```
 
-It prints ten `bb_v1_pair_2_2` codes, all k = 2, the censored one second, and
-ends `242 rows; 1 censored; 1 protocol_hash`.
+Output from the committed snapshot: ten `bb_v1_pair_2_2` codes, all k = 2, the
+censored one second, ending `242 rows; 1 censored; 1 protocol_hash`.
 
 ### b. Score your own ranking against the M0 labels
 
@@ -215,8 +213,7 @@ carries `protocol_hash`, `censored`, `true_ler` and `true_ler_ub`. Each returns
 the value, the number of censored rows, and the value with them excluded.
 `qecscreen.metrics.bootstrap_compare` gives the paired interval against Φ, the
 same bootstrap as the table above, with your column as `model_col`. All three
-are covered by `tests/test_metrics.py`. Run in this session, with a trivial
-score:
+are covered by `tests/test_metrics.py`. With a trivial score:
 
 ```python
 import pandas as pd
@@ -247,7 +244,7 @@ except ValueError as e:
     print("refused:", str(e)[:44], "...")
 ```
 
-Output:
+Output from the committed snapshot:
 
 ```
 Recall@30-of-top-10  my_score           0.000  censored 1, without them  0.000
@@ -265,9 +262,8 @@ evaluate it out of fold with folds grouped by `construction_program_id`
 
 ### c. Reproduce the M0 numbers
 
-Not run in this session. The owner ran this pipeline and recorded the results
-in `spec/evals.md §7`; the input files it wrote have the sha256 values in the
-table above.
+Run once by the maintainer; results and input hashes in `spec/evals.md §7`.
+Not re-run for this README.
 
 Install at commit `17263bf` or later (a clone of `main` qualifies), **not** at
 `1131f10`. `1131f10` is the commit that ran the pilot and that every row
@@ -278,10 +274,11 @@ label-noise ceiling does not exist. The evaluation ran from source equal to
 Save this as `rerun_m0.py` in the repository root:
 
 ```python
+# lightgbm must load before pyarrow (Windows DLL clash, AGENT_LOG 2026-10-01).
+from qecscreen.verdict import run_m0_evaluation
 import pandas as pd
 from qecscreen.evaluate.pilot import assemble_measurements
 from qecscreen.features.table import compute_features, write_features
-from qecscreen.verdict import run_m0_evaluation
 
 # Checks the tar against its sidecar sha256, writes data/m0_measurements.parquet (242 rows).
 assemble_measurements("evidence/pilot/final-1131f10/m0-pilot.tar", "data")
@@ -399,7 +396,10 @@ These are plans, not results (`spec/plan.md`). M1 has not started.
 - **Citation:** use [CITATION.cff](CITATION.cff) (GitHub's "Cite this
   repository" reads it).
 - **Licence:** source under the **Apache License 2.0** ([LICENSE](LICENSE),
-  [NOTICE](NOTICE)). Datasets released by this project are licensed separately
-  under CC-BY-4.0, as NOTICE states. Copyright 2026 Pushkar Kumar.
+  [NOTICE](NOTICE)). The M0 dataset snapshot in
+  [`evidence/m0-verdict/2026-10-03-1131f10/data/`](evidence/m0-verdict/2026-10-03-1131f10/data/)
+  is licensed under CC-BY-4.0
+  ([its LICENSE](evidence/m0-verdict/2026-10-03-1131f10/data/LICENSE)); the
+  source stays Apache-2.0. Copyright 2026 Pushkar Kumar.
 - **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md). Every commit needs a
   DCO sign-off (`git commit -s`).

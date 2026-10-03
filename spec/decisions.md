@@ -754,6 +754,7 @@ D-033's "Revisit if" fired before the first session: Kaggle keeps at most 500 fi
 - *Un-ignore `data/`.* `data/` is where the pipeline writes and refuses to overwrite; tracking it would mix working output with the published record.
 - *Git LFS.* Not needed at this size, and an LFS fetch is another thing a stranger's clone can get wrong.
 **Revisit if:** a committed snapshot would exceed a few MB, or M1's Zenodo release supersedes it as the citable copy (the snapshot stays; the README points at the DOI).
+**Addendum (owner, 2026-10-03):** the snapshot is licensed CC BY 4.0, stated in `evidence/m0-verdict/2026-10-03-1131f10/data/LICENSE` (attribution per `CITATION.cff`); the source stays Apache-2.0.
 
 ---
 

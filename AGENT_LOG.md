@@ -6,6 +6,26 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-03 (g) — Claude Opus 5.5 / Claude Code — README-02: README fixes, snapshot licence, CITATION abstract, plan status
+
+**Milestone:** none active (M0 closed 2026-10-03; M1 not started). One commit, as the owner's brief ordered. `src/`, `tests/`, `CONTRACT.md` untouched; no number in the README changed.
+
+**Changed:**
+- `README.md`: (a) `rerun_m0.py` now imports `qecscreen.verdict` first, with a comment pointing at the lightgbm/pyarrow DLL clash (AGENT_LOG 2026-10-01 (zz2)); the other lines are unchanged apart from moving. (b) "higher k, and so higher Φ" → "both higher k and higher Φ", which is what the M0-RUN-05 lookup checked. (c) Session/owner voice removed: section c opens "Run once by the maintainer; results and input hashes in `spec/evals.md §7`. Not re-run for this README." In (a) and (b) the "Run in this session" lines became "Output from the committed snapshot", placed where the output is described (the sentence after (a)'s script, and (b)'s "Output:" label) rather than above the code, so it reads correctly. A grep for "this session", "the owner", "the brief" now finds nothing. (d) Licence bullet: the M0 snapshot is CC-BY-4.0 with a link to its `LICENSE`; source stays Apache-2.0.
+- `evidence/m0-verdict/2026-10-03-1131f10/data/LICENSE` (new): qecscreen-bench M0 snapshot, Copyright 2026 Pushkar Kumar, CC BY 4.0 with the summary and legalcode URLs, attribution per `CITATION.cff`. `git check-ignore` exits 1 (not ignored); the `.gitignore` negation covers only `*.parquet`, and only `*.parquet` is ignored, so no change was needed.
+- `spec/decisions.md` D-037: one addendum line recording the licence (owner, 2026-10-03).
+- `CITATION.cff`: abstract now describes measured circuit-level LERs for BB codes at n ≤ 72 and a baseline for evaluating cheap scores such as Φ = kd^2/n against them. No CFF validator available offline (no `cffconvert`); PyYAML installed into the session scratchpad only (not the venv) parsed it: same 11 top-level keys in the same order as HEAD, only `abstract` differs.
+- `spec/plan.md`: "Currently active: none. M0 closed 2026-10-03; M1 not started (owner's call)."
+- `spec/tasks.md`: README-02 added and ticked.
+
+**Not run:** README examples (a), (b) and (c); (a)/(b) were only reworded around the code, not changed, and (c)'s script changed only in import order.
+
+**Suite:** default, **427 passed, 26 deselected** (exit 0). **CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:** NOTICE still says datasets released "as part of this project" are CC-BY-4.0 in general terms; it does not name the snapshot. Consistent with the new LICENSE, so left alone. `CITATION.cff` `keywords` still lists "surrogate model"; accurate for the LightGBM baseline, outside the brief.
+
+---
+
 ## 2026-10-03 (f) — Claude Opus 5.5 / Claude Code — README-01 items 2–3: README rewritten; CITATION.cff checked
 
 **Milestone:** M0 closed; M1 not started. Second README-01 commit, pushed after CI on item 1's `f5e36a84b0575b291cf58ebb0d901f2958408f33` completed **success** (run 37107615312). `src/`, `tests/`, `CONTRACT.md`, the write-up and the §7 verdict text untouched.

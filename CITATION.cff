@@ -23,9 +23,10 @@ keywords:
   - benchmark
   - surrogate model
 abstract: >-
-  A labelled dataset and ranking model for screening candidate quantum LDPC
-  codes by predicted circuit-level logical error rate, intended to replace the
-  kd^2/n code-level proxy used in automated code-discovery loops.
+  Measured circuit-level logical error rates for bivariate bicycle (BB)
+  quantum LDPC codes with n <= 72 (Stim circuits decoded with BP+OSD under one
+  pinned protocol), and a baseline for evaluating cheap screening scores, such
+  as the code-level proxy Φ = kd^2/n, against them.
 
 # Once a Zenodo DOI exists (M1), add:
 # doi: "10.5281/zenodo.XXXXXXX"
