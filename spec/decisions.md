@@ -739,6 +739,24 @@ D-033's "Revisit if" fired before the first session: Kaggle keeps at most 500 fi
 
 ---
 
+## D-037 — Commit the M0 dataset as a snapshot under the verdict's evidence
+
+**Status:** decided (owner, 2026-10-03). M0 is closed; this changes no label, protocol or metric. `src/`, `tests/`, `CONTRACT.md` and the verdict text in `spec/evals.md §7` are untouched.
+**Decision:**
+- `data/m0_measurements.parquet`, `data/m0_features.parquet` and `data/m0_predictions.parquet` are copied byte-for-byte to `evidence/m0-verdict/2026-10-03-1131f10/data/` and committed. Each copy's sha256 equals the value in the M0 verdict (`spec/evals.md §7`): measurements `5c644c028ff81803e904bda86a2714f4f8169aa8de717462a735f603d650d696`, features `49e28025ca8bbddf376613ed72382536ef569e94ebef1dfc154789c63b0632a6`, predictions `ba6f75f41c3fbd0e858c7bb6dbe7f3e6facbabc7d1594a408f5564a5f3e5e5ea`. Checked before the commit with `sha256sum` and `cmp` against `data/`.
+- Git stores them as binary (`git ls-files --eol`: `-text`), so `core.autocrlf` does not touch them and a checkout on any platform has the hashes above.
+- `.gitignore` keeps `data/*` and `*.parquet` ignored and re-includes only these three paths.
+- The snapshot is evidence, not a release. It is never edited or regenerated in place; a later dataset goes in a new directory or, from M1, a Zenodo version. `data/` stays the working location the pipeline writes (architecture §2).
+
+**Rationale:** Until now the published M0 result rested on three files that existed only on the owner's disk; the write-up gave their hashes but nobody could check them or reuse the labels. The three files are ~69 KB together, so committing them costs nothing and lets an outside reader load the 242 labels and score a ranking against them without rerunning 76 core-hours of decoding.
+**Rejected:**
+- *Wait for M1's Zenodo release.* M1 has not started, and its dataset is a different, larger population; the M0 labels would stay unverifiable until then.
+- *Un-ignore `data/`.* `data/` is where the pipeline writes and refuses to overwrite; tracking it would mix working output with the published record.
+- *Git LFS.* Not needed at this size, and an LFS fetch is another thing a stranger's clone can get wrong.
+**Revisit if:** a committed snapshot would exceed a few MB, or M1's Zenodo release supersedes it as the citable copy (the snapshot stays; the README points at the DOI).
+
+---
+
 ## Template
 
 ```

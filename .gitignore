@@ -8,6 +8,8 @@ data/*
 !data/LICENSE
 
 *.parquet
+# Except the M0 dataset snapshot, committed byte-for-byte as evidence (D-037).
+!evidence/m0-verdict/2026-10-03-1131f10/data/*.parquet
 
 # Python and notebook scratch.
 __pycache__/

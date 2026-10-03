@@ -6,6 +6,22 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-03 (e) — Claude Opus 5.5 / Claude Code — README-01 item 1: D-037, the M0 dataset snapshot committed
+
+**Milestone:** M0 closed; M1 not started. README-01 is post-M0 documentation. This commit is item 1 only (decision, spec and snapshot together, as the brief ordered); the README and CITATION check follow in a second commit. `src/`, `tests/`, `CONTRACT.md`, the write-up and the §7 verdict text untouched.
+
+**Changed:**
+- `evidence/m0-verdict/2026-10-03-1131f10/data/`: the three M0 Parquet files, copied with `cp -p` from `data/`. Before staging, `sha256sum` of each copy equalled the §7 value (measurements `5c644c02…d650d696`, features `49e28025…0632a6`, predictions `ba6f75f4…e5e5ea`) and `cmp` against `data/` found no difference. After staging, `git show :<path> | sha256sum` gave the same three values, and `git ls-files --eol` shows `i/-text w/-text` for all three: git detected them as binary, so autocrlf cannot change them. No `.gitattributes` rule was needed or added.
+- `.gitignore`: `*.parquet` stays ignored repository-wide; one negation re-includes the three snapshot paths. `git check-ignore` still ignores `data/m0_features.parquet`.
+- `spec/decisions.md`: D-037 (owner's decision).
+- `spec/architecture.md §2`: the `data/` note points at the snapshot.
+
+**Suite:** default, **427 passed, 26 deselected**. **CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:** `spec/plan.md` still reads "Currently active: M0." although M0 is closed; which milestone is active is the owner's call (M1 has not started), so it is left as is.
+
+---
+
 ## 2026-10-03 (d) — Claude Opus 5.5 / Claude Code — M0-RUN-06: write-up published; M0 closed
 
 **Milestone:** M0, M0-RUN-06. Two commits, as the owner's brief ordered: the write-up alone, then the spec changes that cite its SHA. `src/`, `tests/`, `CONTRACT.md` untouched. `spec/plan.md`'s "Currently active" line is unchanged; starting M1 is the owner's call.

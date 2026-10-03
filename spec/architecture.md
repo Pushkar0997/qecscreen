@@ -77,6 +77,9 @@ qecscreen/
 │                            M0's predictions: data/m0_predictions.parquet (D-009's
 │                            third file), written only by
 │                            models.baseline.write_predictions.
+│                            The three M0 files are also committed, byte-for-byte,
+│                            as evidence/m0-verdict/2026-10-03-1131f10/data/ (D-037);
+│                            that snapshot is the copy to read, never to write.
 ├── evidence/              ← Committed run outputs that are not dataset rows, e.g.
 │                            calibration/<date>-<sha>/ (D-029). Kept unmodified,
 │                            markers intact; refused by reject_calibration.
