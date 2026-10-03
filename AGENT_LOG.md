@@ -6,6 +6,36 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-03 — Claude Opus 5.5 / Claude Code — M0-RUN-05: the M0 verdict recorded (owner's decision); RUN-03/04 ticked
+
+**Milestone:** M0. Records the owner's verdict. No metric computed, no rerun, no ablation. `CONTRACT.md`, `src/` and `tests/` untouched.
+
+**Inputs checked before writing.** Every number in the owner's brief equals `m0_results.json`: recall model 0.2 [0.0, 0.6], Φ 0.0 [0.0, 0.0], model − Φ 0.2 [0.0, 0.6], censored-excluded 0.1 / 0.0; Spearman model 0.8712 [0.8376, 0.8940], Φ 0.2419 [0.1177, 0.3545], model − Φ 0.6293 [0.5206, 0.7496]; label-noise ceiling 1.0 [1.0, 1.0]; size scaling pair_2_2 −0.922, sq_4_2 −0.197, tri_3_3 +0.316, mixed_3_5 0.0. The three Parquet sha256 values on disk equal those the JSON records. The brief's top-10 claim was checked as a lookup on the two Parquet files: the ten lowest ranking values are all pair_2_2 with k = 2, Φ max 1.636, and each has 70 to 94 codes with higher Φ and higher k above it. The censored code is the #2 of the ten.
+
+**Landed (one commit, M0-RUN-05 with the RUN-03/RUN-04 ticks):**
+- `evidence/m0-verdict/2026-10-03-1131f10/` committed as produced. sha256 `m0_results.json` `4145cfe4…`, `m0_results.txt` `b182c70b…` (CRLF, as produced).
+- `spec/evals.md §7`: the M0 verdict entry. It answers No first, then the kill condition (not met), PROCEED / headline FAIL, why recall did not separate, the hashes, size scaling as the owner read it, the per-criterion table and the caveats. The pre-registered question text is kept below it.
+- `spec/plan.md`: six M0 exit criteria ticked; the write-up is not.
+- `spec/tasks.md`: RUN-03, RUN-04 and RUN-05 ticked, each with a note.
+- `NARRATIVE.md`: 244 → 242 (D-036), and the verdict in plain words.
+- `.gitattributes`: `*.sha256 text eol=lf`. The three tracked `.sha256` files were already LF in index and working tree, so no stored bytes change.
+
+**Choices made, flag if wrong:**
+- **CRLF in `m0_results.txt`.** Git here runs with `core.autocrlf=true` (system gitconfig), so the stored blob is LF and differs from the produced file. The verdict records both: `b182c70b…` as produced, and `88b7db51…` with the CRs removed, which is what a Linux checkout gives. A `-text` rule for `evidence/m0-verdict/` would keep the bytes exact, but it was outside item 5's single line. `m0_results.json` has no CR.
+- The pytest criterion's evidence is CI run 37092886336 (full suite, green) on `345c174`. This commit changes no source or test file, so that run covers the code the verdict rests on.
+- In the size-scaling list, the values the brief did not quote (quad_4_2, bb288, sym, rare_*, diag, mod) are copied from `m0_results.json`.
+
+**Suite:** default only, **427 passed, 26 deselected**, 79 s.
+**CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:**
+1. INV-10 clock: the write-up (M0-RUN-06) is due by **2026-10-10**. M0 is not closed, and M1 may not start, until its URL is in the verdict table.
+2. The bootstrap does not measure refit variance. With one fold deciding the top 10, refit variance is probably the bigger uncertainty. Recorded as a caveat; not measured (no new computation).
+3. The `.txt` CRLF / autocrlf point above.
+4. Carried: `features/tanner.py` "all 244 M0 codes" wording; `assert_single_protocol`'s all-null case.
+
+---
+
 ## 2026-10-02 (b) — Claude Opus 5.5 / Claude Code — correction: CI red on 9f61452, two slow pilot tests
 
 **Milestone:** M0, M0-RUN-03 (D-036) follow-up. CI run 37036011351 on `9f61452` failed on every leg. Cause, mine: `_pin_to_pop` (and the dies-twice test's inline pins) point assembly at the three-code test population but kept the real `EXCLUDED_CODES`, so the new "excluded codes not in the population" refusal fired in `test_a_three_session_chain_equals_one_uninterrupted_run` and `test_a_worker_that_dies_twice_fails_its_code`. Both are `slow`, so the default local run in the entry below did not see them. Fix: those pins also set `EXCLUDED_CODES` to `{}`. Test-only; `pilot.py` unchanged.

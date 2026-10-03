@@ -27,13 +27,13 @@ The load-bearing assumption of this entire project is that cheap structural feat
 - A short public write-up of the result, whichever way it goes
 
 **Exit criteria**
-- [ ] `pytest` passes, including every invariant test in `spec/evals.md §3`
-- [ ] BB generator reproduces `n=72, k=12, d_upper=6` for the reference parameters
+- [x] `pytest` passes, including every invariant test in `spec/evals.md §3` — evidence in the M0 verdict, `spec/evals.md §7`
+- [x] BB generator reproduces `n=72, k=12, d_upper=6` for the reference parameters
 - [x] Measured per-shot decode cost recorded, and `spec/architecture.md §6` updated with the real number — the Kaggle calibration's BP+OSD costs, with the budget-72 re-projection (M0-EVAL-05, D-031)
-- [ ] One row for each of the 244 codes in the M0 population (D-031), each with shots, failures, Wilson interval and `protocol_hash`. This replaces "≥250 rows": the enumerated population has 244 codes. **Amended by D-036 (2026-10-02): 242 of 244**, the two codes `bb_schedule` cannot build excluded and recorded in the measurements file
-- [ ] Censoring rate reported; if >40% of rows are censored, the chosen `p` was wrong and the pilot is re-run at a higher `p` before proceeding
-- [ ] A results table exists showing Recall@30 and Spearman for Φ vs LightGBM, on a construction-program-grouped split, with bootstrap CIs
-- [ ] A verdict — proceed or kill — is recorded in `spec/evals.md §7` with evidence per criterion
+- [x] One row for each of the 244 codes in the M0 population (D-031), each with shots, failures, Wilson interval and `protocol_hash`. This replaces "≥250 rows": the enumerated population has 244 codes. **Amended by D-036 (2026-10-02): 242 of 244**, the two codes `bb_schedule` cannot build excluded and recorded in the measurements file
+- [x] Censoring rate reported; if >40% of rows are censored, the chosen `p` was wrong and the pilot is re-run at a higher `p` before proceeding
+- [x] A results table exists showing Recall@30 and Spearman for Φ vs LightGBM, on a construction-program-grouped split, with bootstrap CIs
+- [x] A verdict — proceed or kill — is recorded in `spec/evals.md §7` with evidence per criterion — 2026-10-03: PROCEED, headline criterion FAIL
 - [ ] The write-up is published within 7 days of the verdict (INV-10)
 
 **Risk:** the decode cost was measured at 1.1–2.3 s/shot on [[42]]–[[72]], not the 5 ms planned (`spec/architecture.md §6`). The pilot's probe measured 3.69 core-hours for 12 evenly ranked codes, so the pilot is ~110 core-hours at `MAX_SHOTS = 40,960` (D-034, `spec/architecture.md §6`), under the 158 ceiling, or about three Kaggle sessions after a new probe. Mitigation, if the new probe's per-code costs run far past that: stop and report (AGENTS §7), then shrink the population to a smaller n or reduce `osd_order`, recording the protocol change as a new `protocol_hash`. BP+LSD is not a mitigation, because it re-ranks codes (D-031). Do not solve it by reducing shots below the censoring rule — that trades a compute problem for a correctness problem.

@@ -482,7 +482,50 @@ censored at MAX_SHOTS: overall 0/244 (+0 unknown); top third by d_upper 0/82 (+0
 
 ### M0 verdict
 
-*Not yet run.*
+#### 2026-10-03 — M0 verdict (owner's decision)
+
+**No.** At Recall@30-of-top-10, leave-one-program-out, the model scores **0.200 [0.000, 0.600]** and Φ **0.000 [0.000, 0.000]**; model − Φ is **0.200 [0.000, 0.600]**, and the interval includes 0. With the censored code excluded: model 0.100, Φ 0.000.
+
+**Kill condition (`spec/plan.md` M0, `spec/product.md §7`): not met.** It needs both "Φ's Spearman is already high" and "the model's advantage does not survive resampling". Φ's Spearman is **0.242 [0.118, 0.354]**, which is not high. The model's Spearman is **0.871 [0.838, 0.894]**, and model − Φ is **0.629 [0.521, 0.750]**, which excludes 0.
+
+**Verdict: PROCEED, headline criterion FAIL.** The model ranks the whole population far better than Φ, but it does not find the top 10 better than Φ by a margin that survives resampling. This is not rounded up to a pass.
+
+**Why recall did not separate.** All ten true top-10 codes are `bb_v1_pair_2_2`. Under leave-one-program-out, the fold that holds out pair_2_2 produces every one of their predictions, so one fold decides the headline metric, and each bootstrap resample of codes reuses that fold's predictions. The top 10 itself is not noise: the label-noise ceiling (recall of the observed ranking against Beta-redrawn labels) is **1.000 [1.000, 1.000]**. Φ scores 0 because every top-10 code has k = 2 and Φ ≤ 1.64. Each of them sits below more than 30 higher-k codes in Φ's order (at least 70 for every one; checked against `data/m0_measurements.parquet` and `data/m0_features.parquet`, a lookup, not a new metric).
+
+**Evidence.** `evidence/m0-verdict/2026-10-03-1131f10/`, committed as produced by `qecscreen.verdict.run_m0_evaluation`, run by the owner:
+- `m0_results.json`, sha256 `4145cfe4c981f81180e1176950bd3f57898d0a69df757eeb670e4b2da83cb067`.
+- `m0_results.txt`, sha256 `b182c70beada75f3456636c7654089a94a9ea978f439708c78de02502cf1d44b` as produced (CRLF line ends). This repository's git runs with `core.autocrlf=true`, so the stored blob has LF line ends: sha256 `88b7db51b43f516da13710011a5d764b4f9429c9ca79e41907403b3c31e043a9` with the CRs removed.
+- Inputs, gitignored, hashes only (each equal to the hash `m0_results.json` records): `data/m0_measurements.parquet` `5c644c028ff81803e904bda86a2714f4f8169aa8de717462a735f603d650d696`, `data/m0_features.parquet` `49e28025ca8bbddf376613ed72382536ef569e94ebef1dfc154789c63b0632a6`, `data/m0_predictions.parquet` `ba6f75f41c3fbd0e858c7bb6dbe7f3e6facbabc7d1594a408f5564a5f3e5e5ea`.
+- Protocol hash `6230a7a8a31d8b202e5454c49cf7823b77f95d8452a7d27e273ce9a89fcb32fe`; model `m0_lightgbm_v1`; bootstrap 1,000 resamples, seed 20261001; label-noise ceiling 1,000 draws, seed 20261002. Pilot archive `evidence/pilot/final-1131f10/`.
+
+**Size scaling (D-031), the owner's reading.** Spearman of `d_upper` against `true_ler` within each template, from `m0_results.json` (rows with intervals in `m0_results.txt`):
+- **Clear:** pair_2_2 (−0.92), quad_4_2 (−0.67), bb288_3_3 (−0.79), sym_3_3 (−0.79), rare_2_3 (−1.00, 2 codes), rare_3_4 (−1.00, 3 codes).
+- **Weak:** diag_3_3 (−0.56), mod_2_3 (−0.52), sq_4_2 (−0.20).
+- **Fails:** tri_3_3 (+0.32); mixed_3_5 (0.00), which is above threshold at `P_PILOT`, as the calibration predicted.
+
+The failing templates are reported here, not dropped. They are in every metric above.
+
+| Criterion (`spec/plan.md` M0) | Verdict | Evidence |
+|---|---|---|
+| `pytest` passes, including every invariant test in §3 | PASS | The full suite (`-m "slow or not slow"`) is green on every leg of CI run 37092886336 on `345c174`. That commit carries every source and test file this verdict rests on; this commit changes neither. The default suite also passes locally for this commit, and CI for the pushed SHA is in `AGENT_LOG.md` |
+| BB generator reproduces `n=72, k=12, d_upper=6` for the reference parameters | PASS | `tests/test_bb_reference.py` (n, k, weights) and `tests/test_distance.py::test_reference_code_hits_published_distance` (`d_upper == 6`), in the same CI run |
+| Measured per-shot decode cost recorded, `spec/architecture.md §6` updated | PASS | Already ticked: M0-EVAL-05, the Kaggle calibration (§7 above) |
+| One row for each of 242 of 244 codes (D-036), each with shots, failures, Wilson interval and `protocol_hash` | PASS | `data/m0_measurements.parquet` (sha256 above): 242 rows, 242 distinct `code_id`, one `protocol_hash`, no null in `shots`, `failures`, `true_ler_ci_low`, `true_ler_ci_high` or `protocol_hash`. The two excluded ids are recorded in its schema metadata (D-036) |
+| Censoring rate reported; re-run if > 40% | PASS | 1 of 242 censored, 0.4% (`bb_v1_pair_2_2-4faad046f1a9`, 93 failures in 40,960 shots); `m0_results.json` `n_censored` 1, `censoring_rate` 0.00413 |
+| Results table: Recall@30 and Spearman, Φ vs LightGBM, construction-program-grouped split, bootstrap CIs | PASS | `m0_results.txt` / `.json`, leave-one-program-out over 11 programs (M0 has one family, so there is no family holdout; the note is in the files) |
+| Verdict, proceed or kill, recorded here with evidence per criterion | PASS | This entry |
+| Write-up published within 7 days of the verdict (INV-10) | **PENDING** | No URL yet. Due by **2026-10-10**. PASS only with a URL in this column (INV-10, `spec/smoke.md §6`) |
+
+**Closes?** **No.** M0 closes when the write-up is public and its URL is in the last row (M0-RUN-06). Until then M1 may not start (INV-10).
+
+**Caveats carried forward:**
+- **242 of 244 codes (D-036).** Two mixed_3_5 codes cannot be built under the pinned schedule and are in no metric.
+- **1 censored code (0.4%).** It is the #2 code by ranking value (its `true_ler_ub`, D-035), which is why the model's recall drops from 0.200 to 0.100 with it excluded.
+- **The bootstrap resamples codes with the out-of-fold predictions fixed.** It measures sampling variance over codes, not the variance of refitting the model. With one fold deciding the top 10, refit variance is likely the larger of the two, and it is not measured.
+- **`d_upper` is an upper bound**, so Φ is `phi_from_d_upper` (INV-5).
+- **Scope:** BB only, n ≤ 72, p = 0.002, Z-basis memory, the pinned BP+OSD and schedule. The verdict is a claim about this population only. Larger n, other families and other p are M1's questions.
+
+**The question this section was set to answer** (written before the run):
 
 The M0 verdict must answer one question explicitly, in a sentence, at the top:
 

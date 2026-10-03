@@ -19,6 +19,42 @@ Reverse chronological — newest first.
 
 ---
 
+## 2026-10-03 — The M0 verdict: the model ranks better, but it does not find the best codes better
+
+M0 asked one question: does a model trained on cheap structural features find the best
+codes better than Φ = kd²/n, the number people already use? The answer recorded today is
+**no**, and the project proceeds anyway. Both halves need explaining.
+
+First, the dataset is 242 codes, not the 244 planned. Two of the enumerated codes died on
+Kaggle before a single shot was decoded. In both, one of the two polynomials that define
+the code names the same term twice once the arithmetic wraps around (x³ is x when l = 2),
+and over GF(2) the two copies cancel. What is left is still a valid code, so every check
+passed it. But the circuit layout assumes every term is present, and it refused to build
+a circuit that would have measured the wrong checks. Re-running could not help, so the
+owner excluded the two and recorded why (D-036) rather than changing the pinned layout
+after 242 codes had been measured with it. The enumeration that let them in is a thing
+to fix before the next population is pinned.
+
+The headline metric asks how many of the 10 truly best codes appear in a method's top 30.
+The model gets 2 of 10, Φ gets 0. Across resamples the model's advantage ranges from 0 to
+6, so it could be zero, and the headline criterion fails. The reason is structural, not
+noise. All ten of the best codes come from one construction program, and the evaluation
+holds out one program at a time, so a single held-out training run decides the whole
+metric. The labels themselves are not the problem: redrawing them within their
+measurement uncertainty leaves the top 10 exactly where it is. Φ scores zero because the
+best codes all encode only 2 logical qubits, and Φ rewards encoding more, so it ranks
+dozens of worse codes above every one of them.
+
+The kill condition did not fire, because it needs Φ to be good already, and it is not.
+Over the whole population Φ's rank correlation with the measured error rate is 0.24; the
+model's is 0.87, and that gap holds under every resample. Cheap features do carry signal
+that Φ misses, which is the premise the project rests on. What M0 has not shown is that
+this signal finds the very best codes in a family the model has never seen. The verdict
+says exactly that, PROCEED with the headline FAIL, and does not round it up. M0 is not
+closed until the write-up is public.
+
+---
+
 ## 2026-09-29 — The first real session, and why the best codes were the ones going unmeasured
 
 Before spending a week of compute on the pilot, the first Kaggle session ran only 12 of the
