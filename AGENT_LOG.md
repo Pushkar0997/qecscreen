@@ -6,6 +6,18 @@ Every session writes an entry, including failed sessions. "Noticed, did not fix"
 
 ---
 
+## 2026-10-03 (b) — Claude Opus 5.5 / Claude Code — correction: `m0_results.json` is CRLF too
+
+**Milestone:** M0, M0-RUN-05 follow-up. The entry below says "`m0_results.json` has no CR". **That is wrong.** The check was `grep -c $'\r'`, and Git Bash's grep strips CRs, so it counted 0. `od -c` shows CRLF line ends (4,514 CRs). Under `core.autocrlf=true` the committed blob is therefore LF, like the `.txt`'s. Found after the push of `ba19e50`: `git show HEAD:…/m0_results.json | sha256sum` gave `01c4fd04…`, not `4145cfe4…`.
+
+**Fixed:** the verdict's evidence lines in `spec/evals.md §7` now record both hashes for both files, as produced (CRLF) and as stored (LF): json `4145cfe4…` / `01c4fd04…`, txt `b182c70b…` / `88b7db51…`. Each stored value was checked against `git show HEAD:<path> | sha256sum`. No number in the verdict changes.
+
+**Suite:** spec text only; default suite as below. **CI:** reported in the session reply for the pushed SHA.
+
+**Noticed, did not fix:** a `-text` (or `eol=crlf`) rule for `evidence/m0-verdict/` would make the stored bytes equal to the produced ones. It is the owner's call, and the brief's `.gitattributes` item was a single line.
+
+---
+
 ## 2026-10-03 — Claude Opus 5.5 / Claude Code — M0-RUN-05: the M0 verdict recorded (owner's decision); RUN-03/04 ticked
 
 **Milestone:** M0. Records the owner's verdict. No metric computed, no rerun, no ablation. `CONTRACT.md`, `src/` and `tests/` untouched.
