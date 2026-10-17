@@ -727,7 +727,7 @@ No decoding was run. `DECODER_PARAMS`, `P_PILOT`, `SHOT_BATCH`, `MAX_SHOTS`, `co
   - 4 of 4 mutants caught: returning the URL, ignoring vcs_info, dropping the hex check, adding a url field to `record()`.
   - D-028 recorded, and architecture §7 no longer says "Secrets: none exist".
 - `a85b676` **M0-SETUP-04** `pyproject.toml`: setuptools backend (build-time only, not a runtime dependency), src-layout, dependencies read dynamically from `requirements.txt`. `.gitignore` gains `build/`, `dist/` and `*.egg-info/`.
-  - **Clean-venv verification:** fresh Python 3.13.7 venv, `pip install git+file:///D:/Coding_Work/qecscreen/qecscreen@a85b676936f0f51355b6a18f9466b4ddbde18681`.
+  - **Clean-venv verification:** fresh Python 3.13.7 venv, `pip install git+file:///D:/Coding_Work/Quantum_Computing/Quantum_Error_Correction/qecscreen/qecscreen@a85b676936f0f51355b6a18f9466b4ddbde18681`.
     - Install exited 0 and `pip check` is clean. The wheel metadata lists all 11 requirements.
     - `qecscreen` imported from site-packages, not `src/`.
     - `record()` = `{commit_sha: a85b676936f0f51355b6a18f9466b4ddbde18681, stim_version: 1.16.0, cpu_class: x86_64/sse2, decoder_version: 2.4.1, python_version: 3.13.7}`.
