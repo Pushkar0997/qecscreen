@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Screening Quantum Error-Correcting Codes Without Simulating Every Candidate — qecscreen</title>
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --paper: #ffffff;
+      --ink: #18181b;
+      --muted: #52525b;
+      --faint: #a1a1aa;
+      --border: #e4e0d8;
+      --accent: #1d4ed8;
+      --accent-soft: #eff6ff;
+      --error: #c2410c;
+      --error-soft: #fff7ed;
+      --ok: #15803d;
+      --ok-soft: #f0fdf4;
+      --warn: #b45309;
+      --warn-soft: #fefce8;
+      --purple: #6d28d9;
+      --purple-soft: #f5f3ff;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.72;
+      font-size: 16.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+    a:hover { color: #1e40af; }
+
+    .article {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 3rem 1.25rem 5rem;
+    }
+
+    .kicker {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4.5vw, 2.85rem);
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    .deck {
+      font-size: 1.14rem;
+      color: var(--muted);
+      line-height: 1.58;
+      margin-bottom: 1.5rem;
+    }
+
+    .byline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.4rem;
+      font-size: 0.88rem;
+      color: var(--muted);
+      padding: 0.9rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.65rem;
+    }
+
+    .toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem 0.65rem;
+      margin-bottom: 2.25rem;
+    }
+    .toc a {
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      text-decoration: none;
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--paper);
+      color: var(--muted);
+      transition: all 0.12s;
+    }
+    .toc a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    h2 {
+      font-family: var(--serif);
+      font-size: 1.6rem;
+      margin: 2.9rem 0 0.75rem;
+      line-height: 1.25;
+      scroll-margin-top: 1.25rem;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 1.5rem 0 0.45rem;
+    }
+
+    p { margin-bottom: 1.1rem; }
+
+    ul, ol { padding-left: 1.35rem; margin-bottom: 1.15rem; }
+    li { margin-bottom: 0.45rem; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: #f1efe9;
+      padding: 0.12rem 0.35rem;
+      border-radius: 4px;
+    }
+
+    /* Notation & Stat Cards */
+    .notation-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 0.85rem;
+      margin: 1.25rem 0 1.85rem;
+    }
+    .notation-card {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+    }
+    .notation-card .sym {
+      font-family: var(--mono);
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .notation-card .sym.rust { color: var(--error); }
+    .notation-card .sym.green { color: var(--ok); }
+    .notation-card .desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.28rem;
+      line-height: 1.45;
+    }
+
+    /* Verdict Banner */
+    .verdict-box {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--warn);
+      border-radius: 8px;
+      padding: 1.1rem 1.25rem;
+      margin: 1.5rem 0 2rem;
+    }
+    .verdict-head {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--warn);
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+    .verdict-box p { margin-bottom: 0.55rem; font-size: 0.95rem; }
+    .verdict-box p:last-child { margin-bottom: 0; }
+
+    /* Interactive Figures */
+    .figure {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.4rem;
+      margin: 1.5rem 0 2.2rem;
+      box-shadow: 0 2px 10px rgba(24, 24, 27, 0.04);
+    }
+    .figure-title {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+    .figure-caption {
+      font-size: 0.91rem;
+      color: var(--muted);
+      margin-bottom: 1.05rem;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    button {
+      font-family: var(--sans);
+      font-size: 0.84rem;
+      font-weight: 600;
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--ink);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover { background: #1e40af; color: #fff; }
+
+    .callout {
+      background: #f8f7f3;
+      border-left: 3px solid var(--accent);
+      padding: 0.85rem 1rem;
+      font-size: 0.91rem;
+      border-radius: 0 6px 6px 0;
+      margin-top: 0.9rem;
+    }
+    .callout.warn { border-left-color: var(--error); background: var(--error-soft); }
+    .callout.ok { border-left-color: var(--ok); background: var(--ok-soft); }
+
+    /* Two-column utility */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* Sliders */
+    .control-stack { display: flex; flex-direction: column; gap: 0.75rem; }
+    .slider-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.84rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .slider-group label span.val {
+      font-family: var(--mono);
+      color: var(--accent);
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+    }
+    .metric-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.7rem 0.85rem;
+      background: var(--bg);
+    }
+    .metric-box .lbl {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric-box .num {
+      font-family: var(--mono);
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-top: 0.15rem;
+    }
+    .metric-box .sub {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+      line-height: 1.35;
+    }
+
+    /* SVG wrapper & legend */
+    .svg-wrap {
+      background: #fcfbf9;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.55rem;
+    }
+    .swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    /* Circuit tick strip */
+    .tick-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 0.65rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+    }
+    .tick {
+      padding: 0.22rem 0.45rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+    }
+    .tick.cx { background: var(--accent-soft); border-color: #93c5fd; color: var(--accent); font-weight: 700; }
+    .tick.meas { background: var(--error-soft); border-color: #fdba74; color: var(--error); font-weight: 700; }
+
+    /* Adaptive sampling progress */
+    .bar-wrap { margin: 0.65rem 0; }
+    .bar-head {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      margin-bottom: 0.25rem;
+    }
+    .bar-track {
+      height: 12px;
+      background: #e4e4e7;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+    .bar-fill.ok { background: var(--ok); }
+    .bar-fill.warn { background: var(--error); }
+
+    /* Program fold tiles (Lab 5) */
+    .fold-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.55rem;
+      margin-bottom: 0.9rem;
+    }
+    .fold-card {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+      background: var(--bg);
+      cursor: pointer;
+      transition: all 0.12s;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+    }
+    .fold-card:hover { border-color: var(--accent); }
+    .fold-card.heldout {
+      background: var(--error-soft);
+      border-color: var(--error);
+    }
+    .fold-card.train {
+      background: var(--accent-soft);
+      border-color: #93c5fd;
+    }
+    .fold-card .fname { font-weight: 700; color: var(--ink); font-size: 0.78rem; }
+    .fold-card .fmeta { color: var(--muted); margin-top: 0.15rem; font-size: 0.7rem; }
+    .fold-card .top-pill {
+      display: inline-block;
+      margin-top: 0.25rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: #fef3c7;
+      color: var(--warn);
+      font-weight: 700;
+      font-size: 0.67rem;
+    }
+
+    /* Size-scaling bars */
+    .scale-list { display: flex; flex-direction: column; gap: 0.45rem; }
+    .scale-row {
+      display: grid;
+      grid-template-columns: 112px 58px 1fr 110px;
+      align-items: center;
+      gap: 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.76rem;
+    }
+    @media (max-width: 600px) {
+      .scale-row { grid-template-columns: 95px 50px 1fr; }
+      .scale-row .s-tag { display: none; }
+    }
+    .scale-track {
+      position: relative;
+      height: 10px;
+      background: #f1efe9;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .scale-zero {
+      position: absolute;
+      left: 72%;
+      top: 0;
+      bottom: 0;
+      width: 1.5px;
+      background: #a1a1aa;
+    }
+    .scale-bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border-radius: 99px;
+    }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.6rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-family: var(--mono);
+      font-size: 0.73rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    td.num, th.num { text-align: right; font-family: var(--mono); white-space: nowrap; }
+
+    /* Invariant cards */
+    .inv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 0.85rem;
+      margin: 1.25rem 0 1.75rem;
+    }
+    .inv-card {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+    }
+    .inv-card .inv-id {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .inv-card h4 { font-size: 0.94rem; margin: 0.2rem 0 0.3rem; }
+    .inv-card p { font-size: 0.84rem; color: var(--muted); margin: 0; line-height: 1.48; }
+
+    /* Scatter tooltip */
+    .inspect-panel {
+      margin-top: 0.75rem;
+      padding: 0.75rem 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      font-family: var(--mono);
+      font-size: 0.79rem;
+      line-height: 1.55;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.86rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+  </style>
+</head>
+<body>
+  <article class="article">
+    <div class="kicker">Interactive Explainer · Quantum Error Correction &amp; ML Screening</div>
+    <h1>Why Φ = kd²/n Picks the Wrong Quantum Codes — and What Works Better</h1>
+    <p class="deck">
+      Automated quantum code searches generate thousands of candidate quantum LDPC codes, then filter them with a cheap math shortcut.
+      <code>qecscreen</code> measures real circuit-level logical error rates to test whether cheap structural features can screen candidates more reliably — explained visually from first principles.
+    </p>
+
+    <div class="byline">
+      <span><strong>Author:</strong> Pushkar Kumar</span>
+      <span><strong>Status:</strong> M0 Closed (2026-10-03) · Verdict: PROCEED, Headline FAIL</span>
+      <span><a href="https://github.com/Pushkar0997/qecscreen" target="_blank" rel="noopener">GitHub Repo</a></span>
+      <span><a href="https://github.com/Pushkar0997/qecscreen/blob/main/docs/m0-writeup.md" target="_blank" rel="noopener">M0 Write-up</a></span>
+      <span><a href="https://github.com/Pushkar0997/qecscreen/tree/main/evidence/m0-verdict/2026-10-03-1131f10/data" target="_blank" rel="noopener">M0 Dataset (CC BY 4.0)</a></span>
+    </div>
+
+    <nav class="toc" aria-label="Section navigation">
+      <a href="#sec-problem">1. The Screening Bottleneck</a>
+      <a href="#sec-tanner">2. Tanner Graphs &amp; Circuits</a>
+      <a href="#sec-sampling">3. Shots, LER &amp; Censoring</a>
+      <a href="#sec-m0-data">4. Real M0 Data Explorer</a>
+      <a href="#sec-splits">5. Why Recall@30 Failed</a>
+      <a href="#sec-rules">6. Guardrails &amp; M1 Roadmap</a>
+    </nav>
+
+    <div class="verdict-box">
+      <div class="verdict-head">M0 Pre-Registered Verdict · 242 Bivariate Bicycle (BB) Codes · n ≤ 72 · p = 0.002</div>
+      <p>
+        <strong>Did LightGBM beat Φ = kd²/n at catching the top 10 codes inside its top 30 picks?</strong>
+        <strong>No.</strong> Model Recall@30-of-top-10 was <code>0.200 [0.000, 0.600]</code> vs. Φ's <code>0.000 [0.000, 0.000]</code>; because the bootstrap interval for <code>Model − Φ</code> touches zero, the headline criterion <strong>FAILS</strong>.
+      </p>
+      <p>
+        <strong>Why does the project proceed anyway?</strong> Across all 242 codes, Φ's overall rank correlation (Spearman) with true circuit-level error rate is only <code>0.242 [0.118, 0.354]</code>, while LightGBM hits <code>0.871 [0.838, 0.894]</code> (lead <code>+0.629 [0.521, 0.750]</code>). Cheap structural features clearly carry real signal that Φ misses — and M0 uncovered why one template controlled the top 10.
+      </p>
+    </div>
+
+    <!-- SECTION 1 -->
+    <h2 id="sec-problem">1. The Screening Bottleneck: Cheap Shortcut vs. Noisy Reality</h2>
+    <p>
+      Physical qubits in quantum computers make errors constantly. To protect useful quantum information, a <strong>quantum error-correcting (QEC) code</strong> spreads a smaller number of reliable <em>logical qubits</em> across many noisy <em>physical data qubits</em>, surrounded by helper <em>ancilla (check) qubits</em> that repeatedly check for errors without reading the stored data.
+    </p>
+    <p>
+      Today, researchers and AI-driven discovery loops can propose thousands of candidate <strong>quantum LDPC (Low-Density Parity-Check) codes</strong> in hours. The catch is testing them: running a realistic <strong>circuit-level Monte Carlo simulation</strong> (building the noisy gate circuit in <code>Stim</code> and running a classical <code>BP+OSD</code> decoder on tens of thousands of noisy runs) is slow. Measuring just 242 small codes in M0 took <strong>76.3 CPU core-hours</strong>.
+    </p>
+    <p>
+      So search loops <strong>screen</strong> candidates first using a fast algebraic shortcut — <code>Φ = k · d² / n</code> — and only simulate the highest-<code>Φ</code> picks. The problem? <code>Φ</code> ignores how messy the error-checking circuit is to run on noisy gates and how hard it is to decode.
+    </p>
+
+    <div class="notation-grid">
+      <div class="notation-card">
+        <div class="sym">n</div>
+        <div class="desc"><strong>Physical Data Qubits.</strong> Hardware cost of storing the code (M0 covers <code>n ≤ 72</code>).</div>
+      </div>
+      <div class="notation-card">
+        <div class="sym">k</div>
+        <div class="desc"><strong>Logical Qubits.</strong> How many protected qubits you get out (exact GF(2) matrix rank).</div>
+      </div>
+      <div class="notation-card">
+        <div class="sym">d_upper</div>
+        <div class="desc"><strong>Distance Upper Bound.</strong> Minimum errors to fool the code is <code>≤ d_upper</code> (exact distance is NP-hard; <code>INV-5</code>).</div>
+      </div>
+      <div class="notation-card">
+        <div class="sym rust">Φ = kd²/n</div>
+        <div class="desc"><strong>Incumbent Proxy.</strong> Fast static score used in code search. Rewards high <code>k</code>, ignores check weight &amp; circuit noise.</div>
+      </div>
+      <div class="notation-card">
+        <div class="sym green">true_ler</div>
+        <div class="desc"><strong>Circuit-Level LER.</strong> Measured logical failure rate per round, per logical qubit under noisy gates. <em>Lower is better.</em></div>
+      </div>
+    </div>
+
+    <!-- LAB 1 -->
+    <div class="figure">
+      <div class="figure-title">Interactive Lab 1 · The Φ = kd²/n Trap (Static Math vs. Circuit Reality)</div>
+      <p class="figure-caption">
+        Load a <strong>real M0 code preset</strong> or drag the sliders below. Notice how boosting <code>k</code> or check weight <code>w</code> can make <code>Φ</code> look impressive while piling noisy two-qubit CX gates onto every syndrome-extraction round.
+      </p>
+
+      <div class="btn-row" id="lab1Presets">
+        <button class="active" data-preset="best">Real M0 #1: pair_2_2 [[72,2,≤7]]</button>
+        <button data-preset="ref">Real M0 Ref: bb288 [[72,12,≤6]]</button>
+        <button data-preset="trap">Real M0 Trap: mixed_3_5 [[56,6,≤8]]</button>
+        <button data-preset="small">Real M0 Tiny: pair_2_2 [[12,2,≤3]]</button>
+      </div>
+
+      <div class="two-col">
+        <div class="control-stack">
+          <div class="slider-group">
+            <label>Physical data qubits (<code>n</code>) <span class="val" id="l1NVal">72</span></label>
+            <input type="range" id="l1N" min="12" max="72" step="2" value="72" />
+          </div>
+          <div class="slider-group">
+            <label>Logical qubits (<code>k</code>) <span class="val" id="l1KVal">2</span></label>
+            <input type="range" id="l1K" min="2" max="12" step="2" value="2" />
+          </div>
+          <div class="slider-group">
+            <label>Distance upper bound (<code>d_upper</code>) <span class="val" id="l1DVal">7</span></label>
+            <input type="range" id="l1D" min="3" max="9" step="1" value="7" />
+          </div>
+          <div class="slider-group">
+            <label>Check weight (<code>w = |A| + |B|</code>, qubits per check) <span class="val" id="l1WVal">4</span></label>
+            <input type="range" id="l1W" min="4" max="8" step="1" value="4" />
+          </div>
+        </div>
+
+        <div>
+          <div class="metric-grid">
+            <div class="metric-box">
+              <div class="lbl">Static Proxy Φ</div>
+              <div class="num" id="l1Phi" style="color:var(--accent);">1.36</div>
+              <div class="sub"><code>k · d_upper² / n</code> (higher = Φ prefers)</div>
+            </div>
+            <div class="metric-box">
+              <div class="lbl">CX Gates / Round</div>
+              <div class="num" id="l1Cx" style="color:var(--error);">288</div>
+              <div class="sub"><code>n · w</code> noisy 2-qubit gates every round</div>
+            </div>
+            <div class="metric-box">
+              <div class="lbl">Round Depth</div>
+              <div class="num" id="l1Ticks">10 ticks</div>
+              <div class="sub"><code>2w + 2</code> ticks (more ticks = more idle noise)</div>
+            </div>
+            <div class="metric-box">
+              <div class="lbl">M0 Measured LER</div>
+              <div class="num" id="l1RealLer" style="color:var(--ok);">1.80e-4</div>
+              <div class="sub" id="l1RealSub">Actual measured rate at p = 0.002</div>
+            </div>
+          </div>
+          <div class="callout" id="l1Note"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2 -->
+    <h2 id="sec-tanner">2. Inside a Code: Tanner Graphs &amp; Syndrome-Extraction Circuits</h2>
+    <p>
+      Every CSS quantum LDPC code is defined by two sparse binary parity-check matrices, <code>H_X</code> (catches phase-flip Z errors) and <code>H_Z</code> (catches bit-flip X errors). Instead of reading grids of 0s and 1s, researchers represent each matrix as a <strong>Tanner graph</strong>: a two-sided network connecting <em>data qubits</em> (circles) to <em>parity checks</em> (squares).
+    </p>
+    <p>
+      Why does <code>qecscreen</code> extract 28 graph and circuit features instead of relying only on <code>n</code>, <code>k</code>, and <code>d_upper</code>? Because <strong>how the Tanner graph is wired directly controls hardware noise and decoder difficulty</strong>:
+    </p>
+    <ul>
+      <li><strong>Check weight (<code>check_weight_mean</code>):</strong> A weight-8 check needs twice as many sequential two-qubit CX gates per round as a weight-4 check, leaving data qubits sitting idle longer and amplifying hook errors.</li>
+      <li><strong>Short cycles (<code>cycle4_count</code>, <code>cycle6_count</code>, <code>girth</code>):</strong> Closed 4-step loops in the Tanner graph bounce Belief Propagation messages back onto themselves, making the decoder stall and fall back to slow OSD search.</li>
+      <li><strong>Connectivity (<code>lambda2</code>, <code>n_components</code>):</strong> Spectral expansion measures how well error clues spread across the graph.</li>
+    </ul>
+
+    <!-- LAB 2 -->
+    <div class="figure">
+      <div class="figure-title">Interactive Lab 2 · Clickable Tanner Graph, 4-Cycles &amp; Circuit Tick Depth</div>
+      <p class="figure-caption">
+        Click any <strong>blue data qubit</strong> to inject/remove a bit-flip error and see which parity checks fire. Switch between a <strong>Light Check (w = 4)</strong> and <strong>Heavy Check (w = 6)</strong> layout — or highlight a <strong>4-cycle loop</strong> that confuses Belief Propagation.
+      </p>
+
+      <div class="btn-row">
+        <button class="active" id="l2Light">Light Checks (w = 4, pair_2_2-style)</button>
+        <button id="l2Heavy">Heavy Checks (w = 6, denser graph)</button>
+        <button id="l2Cycle">Highlight a 4-Cycle Loop</button>
+        <button id="l2Clear">Clear Faults</button>
+      </div>
+
+      <div class="two-col">
+        <div class="svg-wrap">
+          <svg id="tannerSvg" viewBox="0 0 420 225" width="100%" aria-label="Interactive bipartite Tanner graph of data qubits and parity checks"></svg>
+          <div class="legend">
+            <span><span class="swatch" style="background:#1d4ed8;"></span>Data Qubit (click)</span>
+            <span><span class="swatch" style="background:#c2410c;"></span>Fault / Fired Check</span>
+            <span><span class="swatch" style="background:#6d28d9;"></span>Highlighted 4-Cycle</span>
+            <span><span class="swatch" style="background:#d4d4d8;"></span>Quiet Check</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="metric-grid">
+            <div class="metric-box">
+              <div class="lbl">Check Weight (w)</div>
+              <div class="num" id="l2Weight">4.0</div>
+              <div class="sub">Data qubits per check</div>
+            </div>
+            <div class="metric-box">
+              <div class="lbl">4-Cycles Found</div>
+              <div class="num" id="l2Cycles" style="color:var(--purple);">3</div>
+              <div class="sub">Short loops in graph</div>
+            </div>
+            <div class="metric-box">
+              <div class="lbl">Fired Checks</div>
+              <div class="num" id="l2Fired" style="color:var(--error);">0 / 4</div>
+              <div class="sub">Odd parity alarms</div>
+            </div>
+            <div class="metric-box">
+              <div class="lbl">Round Depth</div>
+              <div class="num" id="l2Depth">10 ticks</div>
+              <div class="sub">X-phase then Z-phase</div>
+            </div>
+          </div>
+
+          <h3 style="margin-top:0.95rem; font-size:0.86rem; color:var(--muted);">One Syndrome-Extraction Round (Pinned Schedule):</h3>
+          <div class="tick-strip" id="l2TickStrip"></div>
+          <div class="callout" id="l2Note"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3 -->
+    <h2 id="sec-sampling">3. Measuring Ground Truth: Adaptive Shots, LER Normalization &amp; Censoring</h2>
+    <p>
+      To build trustworthy labels without wasting CPU hours on bad codes, <code>qecscreen</code> simulates every code under one pinned protocol (<code>protocol_hash</code> <code>6230a7a8…</code>: uniform depolarizing noise at <code>p = 0.002</code>, Z-basis memory for <code>r = d_upper</code> rounds, <code>Stim 1.16.0</code> + <code>ldpc 2.4.1</code> BP+OSD order 10).
+    </p>
+    <p>
+      Each code runs in batches of <strong>256 shots</strong> until it accumulates at least <strong>100 logical failures</strong>, stopping at a hard cap of <strong>40,960 shots</strong>. Why? Because the codes we most want to find — the ones with ultra-low error rates — take <strong>20× to 40× more shots</strong> to reach 100 failures than an average code!
+    </p>
+    <p>
+      If a code hits 40,960 shots with fewer than 100 failures, we refuse to guess a noisy point estimate (<code>INV-3</code>). Instead, we mark it <strong>censored</strong> (<code>true_ler = null</code>), exclude it from regression training, and rank it conservatively by its 95% Wilson upper bound (<code>true_ler_ub</code>). Every non-censored rate is normalized to one fair per-round, per-logical-qubit scale (<code>INV-4</code>):
+      <code>true_ler = 1 − (1 − P_L)<sup>1 / (r · k)</sup></code>.
+    </p>
+
+    <!-- LAB 3 -->
+    <div class="figure">
+      <div class="figure-title">Interactive Lab 3 · Adaptive 256-Shot Sampler &amp; Censoring Simulator</div>
+      <p class="figure-caption">
+        Pick a real M0 code tier below and click <strong>Run Adaptive Sampling</strong> to watch why weak codes finish in ~1,024 shots while the #2 best code hits the 40,960-shot censoring cap (93 failures).
+      </p>
+
+      <div class="btn-row" id="l3Presets">
+        <button class="active" data-code="weak">Weak: mixed_3_5 (LER 2.04e-2)</button>
+        <button data-code="median">Median: quad_4_2 (LER 1.13e-2)</button>
+        <button data-code="top1">Top #1: pair_2_2 (LER 1.80e-4)</button>
+        <button data-code="censored">Top #2 (Censored): pair_2_2 (≤ 1.99e-4)</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" id="l3Run">Run Adaptive Sampling</button>
+        <button id="l3Step">+1 Batch (256 shots)</button>
+        <button id="l3Reset">Reset</button>
+      </div>
+
+      <div class="bar-wrap">
+        <div class="bar-head">
+          <span>Observed Logical Failures (target: 100)</span>
+          <span id="l3FailText">0 / 100</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill ok" id="l3FailBar" style="width:0%"></div></div>
+      </div>
+
+      <div class="bar-wrap">
+        <div class="bar-head">
+          <span>Simulated Shots (cap: 40,960 = 160 batches)</span>
+          <span id="l3ShotText">0 / 40,960</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" id="l3ShotBar" style="width:0%"></div></div>
+      </div>
+
+      <div class="metric-grid" style="margin-top:0.9rem;">
+        <div class="metric-box">
+          <div class="lbl">Normalized LER (INV-4)</div>
+          <div class="num" id="l3Ler">—</div>
+          <div class="sub" id="l3Ci">Waiting for batches…</div>
+        </div>
+        <div class="metric-box">
+          <div class="lbl">Row Status (INV-3)</div>
+          <div class="num" id="l3Status" style="font-size:1.05rem;">READY</div>
+          <div class="sub" id="l3Cost">M0 median: 1,024 shots · Top 10: 24k–41k shots</div>
+        </div>
+      </div>
+      <div class="callout" id="l3Note">
+        Select a code preset and click <strong>Run Adaptive Sampling</strong> to simulate the batch-by-batch measurement loop.
+      </div>
+    </div>
+
+    <!-- SECTION 4 -->
+    <h2 id="sec-m0-data">4. Explore Real M0 Measurements: Φ vs. Check Weight vs. Distance</h2>
+    <p>
+      In M0, we exhaustively enumerated every admissible bivariate bicycle (BB) code with <code>n ≤ 72</code> and <code>d_upper ≥ 3</code> across 11 polynomial templates (244 codes; 2 <code>mixed_3_5</code> codes with <code>l = 2</code> had cancelling monomials <code>x³ = x</code> and were excluded under <code>D-036</code>, leaving <strong>242 measured codes</strong>).
+    </p>
+    <p>
+      Play with the interactive scatter plot below, built from <strong>40 real measured M0 codes</strong> copied straight from <code>evidence/m0-verdict/2026-10-03-1131f10/m0_results.json</code> — including <strong>all 10 true top-10 codes</strong> (starred) and codes spanning all 11 templates. Switch the screening score on the horizontal axis and watch what happens to the top 10!
+    </p>
+
+    <!-- LAB 4 -->
+    <div class="figure">
+      <div class="figure-title">Interactive Lab 4 · Real M0 Code Explorer (40 Measured Codes Across All 11 Templates)</div>
+      <p class="figure-caption">
+        Vertical axis = <strong>measured circuit-level LER (log scale, lower is better!)</strong>. Switch the horizontal axis between cheap screening scores and click any point to inspect its real M0 measurement. Note how <code>Φ</code> pushes every starred top-10 code to the left!
+      </p>
+
+      <div class="btn-row" id="l4AxisBtns">
+        <button class="active" data-axis="phi">X = Φ = k·d_upper²/n (Spearman 0.242)</button>
+        <button data-axis="negw">X = −Check Weight (Exploratory 0.719)</button>
+        <button data-axis="d">X = d_upper alone (Exploratory 0.310)</button>
+        <button data-axis="k">X = k alone (Exploratory −0.026)</button>
+      </div>
+
+      <div class="svg-wrap">
+        <svg id="scatterSvg" viewBox="0 0 760 320" width="100%" aria-label="Interactive scatter plot of real M0 measured codes"></svg>
+        <div class="legend">
+          <span><span class="swatch" style="background:#15803d;"></span>★ True Top-10 (all pair_2_2, w=4, k=2)</span>
+          <span><span class="swatch" style="background:#1d4ed8;"></span>Lighter templates (w=4–5)</span>
+          <span><span class="swatch" style="background:#b45309;"></span>Medium templates (w=6–7)</span>
+          <span><span class="swatch" style="background:#c2410c;"></span>Heavy template (mixed_3_5, w=8, above threshold)</span>
+        </div>
+      </div>
+
+      <div class="inspect-panel" id="l4Inspect">
+        Click any dot on the chart to inspect its real M0 <code>code_id</code>, parameters, <code>Φ</code>, and measured <code>true_ler</code> (or <code>true_ler_ub</code> if censored).
+      </div>
+    </div>
+
+    <h3>Official M0 Scoreboard (All 242 Codes, Leave-One-Program-Out)</h3>
+    <p>
+      The numbers below are the exact recorded M0 verdict metrics from <code>spec/evals.md §7</code> and <code>m0_results.txt</code> (1,000 paired bootstrap resamples over codes, seed <code>20261001</code>; label-noise ceiling over 1,000 Beta draws, seed <code>20261002</code>):
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Metric (242 codes, leave-one-program-out)</th>
+            <th class="num">LightGBM Model</th>
+            <th class="num">Φ (from d_upper)</th>
+            <th class="num">Model − Φ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Recall@30-of-top-10</strong> <em>(pre-registered headline)</em></td>
+            <td class="num"><strong>0.200</strong> [0.000, 0.600]</td>
+            <td class="num">0.000 [0.000, 0.000]</td>
+            <td class="num" style="color:var(--error);"><strong>0.200 [0.000, 0.600]</strong></td>
+          </tr>
+          <tr>
+            <td>Recall@30-of-top-10 (censored code excluded)</td>
+            <td class="num">0.100</td>
+            <td class="num">0.000</td>
+            <td class="num">—</td>
+          </tr>
+          <tr>
+            <td><strong>Spearman rank correlation</strong> <em>(global ordering)</em></td>
+            <td class="num" style="color:var(--ok);"><strong>0.871</strong> [0.838, 0.894]</td>
+            <td class="num">0.242 [0.118, 0.354]</td>
+            <td class="num" style="color:var(--ok);"><strong>+0.629 [0.521, 0.750]</strong></td>
+          </tr>
+          <tr>
+            <td>Spearman (censored code excluded)</td>
+            <td class="num">0.870</td>
+            <td class="num">0.243</td>
+            <td class="num">—</td>
+          </tr>
+          <tr>
+            <td><strong>Label-noise ceiling</strong> (Recall@30-of-top-10)</td>
+            <td class="num">1.000 [1.000, 1.000]</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 5 -->
+    <h2 id="sec-splits">5. Why Recall@30 Failed While Spearman Hit 0.871</h2>
+    <p>
+      How can a model track the global ordering of 242 codes at <strong>0.871 Spearman</strong>, yet catch only <strong>2 of the top 10</strong>? Two subtle effects — one about ML evaluation hygiene, one about QEC thresholds — explain the whole story.
+    </p>
+    <p>
+      First, <strong>random train/test splits are banned (<code>INV-2</code>)</strong> because codes from the same polynomial template are near-duplicates. Instead, M0 holds out one entire construction program (template) at a time. In M0, <strong>all 10 of the genuinely best codes belong to one single template, <code>pair_2_2</code></strong> — meaning one held-out fold had to extrapolate to all 10 winners without ever seeing a <code>pair_2_2</code> example during training!
+    </p>
+
+    <!-- LAB 5 -->
+    <div class="figure">
+      <div class="figure-title">Interactive Lab 5 · Leave-One-Program-Out Fold Explorer &amp; Sub-Threshold Scaling</div>
+      <p class="figure-caption">
+        Click any of the <strong>11 M0 construction programs</strong> below to hold it out as the test fold (red) while LightGBM trains on the remaining 10 (blue). Notice that <code>bb_v1_pair_2_2</code> alone contains <strong>10 of 10</strong> true top-10 codes!
+      </p>
+
+      <div class="fold-grid" id="l5FoldGrid"></div>
+      <div class="callout" id="l5FoldNote"></div>
+
+      <h3 style="margin-top:1.35rem;">Per-Template Size Scaling Diagnostic (<code>ρ(d_upper, true_ler)</code>)</h3>
+      <p style="font-size:0.88rem; color:var(--muted); margin-bottom:0.75rem;">
+        Below threshold, larger <code>d_upper</code> should drive <code>true_ler</code> down (strongly negative Spearman, green bars to the left). Above threshold (like <code>mixed_3_5</code> at <code>p = 0.002</code>), bigger codes fail to improve or get worse (red/amber). All failing templates remain in every M0 metric.
+      </p>
+      <div class="scale-list" id="l5ScaleList"></div>
+    </div>
+
+    <!-- SECTION 6 -->
+    <h2 id="sec-rules">6. Scientific Guardrails &amp; What Comes Next (M1–M4)</h2>
+    <p>
+      ML-for-science benchmarks are easy to break accidentally with data leakage, inconsistent units, or cherry-picked baselines. <code>qecscreen</code> enforces six core invariants in <a href="https://github.com/Pushkar0997/qecscreen/blob/main/CONTRACT.md" target="_blank" rel="noopener"><code>CONTRACT.md</code></a> with automated <code>pytest</code> guards (427 default tests passing):
+    </p>
+
+    <div class="inv-grid">
+      <div class="inv-card">
+        <div class="inv-id">INV-1 · Truth vs. Surrogate</div>
+        <h4>Predictions never mix with labels</h4>
+        <p><code>true_*</code> measurements and <code>pred_*</code> model outputs live in separate Parquet files. A model guess is never reported as a code's error rate.</p>
+      </div>
+      <div class="inv-card">
+        <div class="inv-id">INV-2 · Leakage Guard</div>
+        <h4>Grouped splits only</h4>
+        <p><code>train_test_split</code> on code rows is banned by source-grep tests. Splits group by <code>construction_program_id</code> (and by code family from M2).</p>
+      </div>
+      <div class="inv-card">
+        <div class="inv-id">INV-3 · Censoring</div>
+        <h4>Thin labels are bounds, not guesses</h4>
+        <p>Fewer than 100 failures means <code>censored = True</code> and <code>true_ler = null</code>; excluded from regression fits and ranked by <code>true_ler_ub</code>.</p>
+      </div>
+      <div class="inv-card">
+        <div class="inv-id">INV-4 · Normalization</div>
+        <h4>One LER formula everywhere</h4>
+        <p><code>1 − (1 − P_L)^(1/(r·k))</code> lives exclusively in <code>protocol.py</code>, enforced by a self-tested source-grep guard.</p>
+      </div>
+      <div class="inv-card">
+        <div class="inv-id">INV-5 · Distance Honesty</div>
+        <h4>Bounds never called exact</h4>
+        <p>Randomized search yields <code>d_upper</code> (<code>d ≤ d_upper</code>). <code>d_exact</code> stays null unless proven exact; proxy is named <code>phi_from_d_upper</code>.</p>
+      </div>
+      <div class="inv-card">
+        <div class="inv-id">INV-6 · Protocol Hash</div>
+        <h4>Never compare mixed protocols</h4>
+        <p>Every row stores a SHA-256 <code>protocol_hash</code>. Metric and training entry points raise <code>ValueError</code> if two protocols are mixed.</p>
+      </div>
+    </div>
+
+    <h3>Roadmap (Plans, Not Results — M1 Has Not Started)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Milestone</th>
+            <th>Planned Scope</th>
+            <th>How It Addresses M0 Findings</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>M1 · Dataset v0.1</strong> <em>(Next)</em></td>
+            <td>Add Generalized Bicycle (GB) and Hypergraph Product (HGP) codes, 3 qubit budgets, 3 values of <code>p</code>, ~2,000 rows, Zenodo DOI.</td>
+            <td>Breaks the single-template top-10 bottleneck; rejects colliding monomials before pinning; measures decode cost per new regime.</td>
+          </tr>
+          <tr>
+            <td><strong>M2 · Benchmark &amp; Baselines</strong></td>
+            <td>Frozen cross-family splits, scoring CLI, research preprint.</td>
+            <td>Tests true <strong>held-out code family</strong> generalization and explicitly measures model refit variance.</td>
+          </tr>
+          <tr>
+            <td><strong>M3 · GNN Surrogate</strong></td>
+            <td>Tanner-graph Graph Neural Network compared against LightGBM and Φ.</td>
+            <td>Tests whether message-passing directly over the parity-check graph beats tabular summary features.</td>
+          </tr>
+          <tr>
+            <td><strong>M4 · Package &amp; Outreach</strong></td>
+            <td>Pip-installable <code>score(code)</code> API and worked search-loop example.</td>
+            <td>Makes circuit-aware screening drop-in ready for automated QEC code-discovery loops.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer>
+      <span>Pushkar Kumar · MIT ADT University · Source Apache-2.0 · M0 Data CC BY 4.0</span>
+      <span>
+        <a href="https://github.com/Pushkar0997/qecscreen" target="_blank" rel="noopener">Repository</a> ·
+        <a href="https://github.com/Pushkar0997/qecscreen/blob/main/docs/explainer.md" target="_blank" rel="noopener">Markdown Guide</a> ·
+        <a href="https://github.com/Pushkar0997/qecscreen/blob/main/docs/m0-writeup.md" target="_blank" rel="noopener">M0 Write-up</a> ·
+        <a href="https://github.com/Pushkar0997/qecscreen/blob/main/NARRATIVE.md" target="_blank" rel="noopener">Narrative</a>
+      </span>
+    </footer>
+  </article>
+
+  <script>
+    // =========================================================================
+    // LAB 1: Interactive Φ vs. Circuit Noise Calculator
+    // =========================================================================
+    const L1_PRESETS = {
+      best: {
+        n: 72, k: 2, d: 7, w: 4,
+        realLer: "1.80e-4",
+        realSub: "bb_v1_pair_2_2-5045b2a64d2f (#1 best in M0!)",
+        noteClass: "ok",
+        note: "<strong>M0's #1 best code:</strong> Low check weight (w = 4) keeps circuits shallow (10 ticks/round) and gate noise low. Yet because <code>k = 2</code>, its static proxy is only <strong>Φ = 1.36</strong> — so Φ buries it behind 70+ worse codes!"
+      },
+      ref: {
+        n: 72, k: 12, d: 6, w: 6,
+        realLer: "2.14e-3",
+        realSub: "bb_v1_bb288_3_3-9ec57044ada0 (12× worse LER than #1)",
+        noteClass: "",
+        note: "<strong>High-rate reference-style code:</strong> Packing <code>k = 12</code> logical qubits shoots <strong>Φ up to 6.00</strong> (4.4× higher than M0's #1 code), but weight-6 checks add 50% more CX gates and deeper circuits, yielding a <strong>12× higher</strong> per-round LER at p = 0.002."
+      },
+      trap: {
+        n: 56, k: 6, d: 8, w: 8,
+        realLer: "2.02e-2",
+        realSub: "bb_v1_mixed_3_5-84e479f0ae32 (112× worse LER than #1!)",
+        noteClass: "warn",
+        note: "<strong>The Φ trap in action:</strong> High <code>k = 6</code> and <code>d_upper = 8</code> give a huge <strong>Φ = 6.86</strong>. Under circuit noise, however, weight-8 checks push this template <em>above threshold</em> at p = 0.002 — its measured LER is <strong>112× worse</strong> than M0's #1 code!"
+      },
+      small: {
+        n: 12, k: 2, d: 3, w: 4,
+        realLer: "2.47e-3",
+        realSub: "bb_v1_pair_2_2-fc3f55993ab1 (tiny 12-qubit code)",
+        noteClass: "",
+        note: "<strong>Tiny low-weight code:</strong> With only 12 data qubits and <code>d_upper = 3</code>, its Φ (<code>1.50</code>) is actually <em>higher</em> than M0's #1 72-qubit code (<code>1.36</code>), even though its error rate is 13.7× higher."
+      }
+    };
+
+    const l1N = document.getElementById("l1N");
+    const l1K = document.getElementById("l1K");
+    const l1D = document.getElementById("l1D");
+    const l1W = document.getElementById("l1W");
+    let activePresetKey = "best";
+
+    function renderLab1(isCustom) {
+      const n = Number(l1N.value);
+      const k = Number(l1K.value);
+      const d = Number(l1D.value);
+      const w = Number(l1W.value);
+      document.getElementById("l1NVal").textContent = n;
+      document.getElementById("l1KVal").textContent = k;
+      document.getElementById("l1DVal").textContent = d;
+      document.getElementById("l1WVal").textContent = w;
+
+      const phi = (k * d * d) / n;
+      const cxRound = n * w;
+      const ticks = 2 * w + 2;
+
+      document.getElementById("l1Phi").textContent = phi.toFixed(2);
+      document.getElementById("l1Cx").textContent = cxRound;
+      document.getElementById("l1Ticks").textContent = `${ticks} ticks`;
+
+      const noteEl = document.getElementById("l1Note");
+      if (!isCustom && activePresetKey && L1_PRESETS[activePresetKey]) {
+        const p = L1_PRESETS[activePresetKey];
+        document.getElementById("l1RealLer").textContent = p.realLer;
+        document.getElementById("l1RealSub").textContent = p.realSub;
+        noteEl.className = "callout" + (p.noteClass ? " " + p.noteClass : "");
+        noteEl.innerHTML = p.note;
+      } else {
+        document.getElementById("l1RealLer").textContent = "Unmeasured";
+        document.getElementById("l1RealSub").textContent = "Custom parameters (not simulated)";
+        noteEl.className = "callout" + (w >= 7 ? " warn" : w <= 4 ? " ok" : "");
+        noteEl.innerHTML =
+          `<strong>Custom comparison:</strong> Static <code>Φ = ${phi.toFixed(2)}</code> does not change at all when you drag check weight <code>w</code> from 4 to 8 — even though CX gates per round jump to <strong>${cxRound}</strong> and round depth grows to <strong>${ticks} ticks</strong>!`;
+      }
+    }
+
+    [l1N, l1K, l1D, l1W].forEach((el) => {
+      el.addEventListener("input", () => {
+        activePresetKey = null;
+        document.querySelectorAll("#lab1Presets button").forEach((b) => b.classList.remove("active"));
+        renderLab1(true);
+      });
+    });
+
+    document.getElementById("lab1Presets").addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      activePresetKey = btn.dataset.preset;
+      const p = L1_PRESETS[activePresetKey];
+      l1N.value = p.n;
+      l1K.value = p.k;
+      l1D.value = p.d;
+      l1W.value = p.w;
+      document.querySelectorAll("#lab1Presets button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderLab1(false);
+    });
+
+    // =========================================================================
+    // LAB 2: Interactive Tanner Graph & Syndrome-Extraction Circuit Strip
+    // =========================================================================
+    const TANNER_DATA = [
+      { id: 0, x: 45, y: 48 }, { id: 1, x: 105, y: 48 }, { id: 2, x: 165, y: 48 },
+      { id: 3, x: 225, y: 48 }, { id: 4, x: 285, y: 48 }, { id: 5, x: 345, y: 48 },
+      { id: 6, x: 135, y: 112 }, { id: 7, x: 255, y: 112 }
+    ];
+    const TANNER_CHECKS = [
+      { id: 0, x: 75, y: 182 }, { id: 1, x: 165, y: 182 },
+      { id: 2, x: 255, y: 182 }, { id: 3, x: 345, y: 182 }
+    ];
+    const TANNER_MODES = {
+      light: {
+        weight: 4,
+        edges: [
+          [0, 0], [0, 1], [0, 2], [0, 6],
+          [1, 1], [1, 2], [1, 3], [1, 6],
+          [2, 2], [2, 3], [2, 4], [2, 7],
+          [3, 3], [3, 4], [3, 5], [3, 7]
+        ],
+        cycles4: 4,
+        highlightEdges: [[0, 1], [0, 2], [1, 1], [1, 2]]
+      },
+      heavy: {
+        weight: 6,
+        edges: [
+          [0, 0], [0, 1], [0, 2], [0, 3], [0, 6], [0, 7],
+          [1, 0], [1, 1], [1, 2], [1, 4], [1, 6], [1, 7],
+          [2, 1], [2, 2], [2, 3], [2, 5], [2, 6], [2, 7],
+          [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7]
+        ],
+        cycles4: 18,
+        highlightEdges: [[0, 1], [0, 2], [1, 1], [1, 2]]
+      }
+    };
+
+    let l2Mode = "light";
+    let l2Faults = new Set([1]);
+    let l2ShowCycle = false;
+
+    function renderLab2() {
+      const svg = document.getElementById("tannerSvg");
+      const NS = "http://www.w3.org/2000/svg";
+      svg.innerHTML = "";
+      const cfg = TANNER_MODES[l2Mode];
+
+      const fired = new Set();
+      TANNER_CHECKS.forEach((chk) => {
+        let p = 0;
+        cfg.edges.forEach(([c, q]) => {
+          if (c === chk.id && l2Faults.has(q)) p ^= 1;
+        });
+        if (p === 1) fired.add(chk.id);
+      });
+
+      const isCycleEdge = (c, q) =>
+        l2ShowCycle && cfg.highlightEdges.some(([hc, hq]) => hc === c && hq === q);
+
+      // Draw edges
+      cfg.edges.forEach(([c, q]) => {
+        const chk = TANNER_CHECKS[c];
+        const dq = TANNER_DATA[q];
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", dq.x);
+        line.setAttribute("y1", dq.y);
+        line.setAttribute("x2", chk.x);
+        line.setAttribute("y2", chk.y);
+        const cyc = isCycleEdge(c, q);
+        const lit = l2Faults.has(q) && fired.has(c);
+        if (cyc) {
+          line.setAttribute("stroke", "#6d28d9");
+          line.setAttribute("stroke-width", "3");
+        } else if (lit) {
+          line.setAttribute("stroke", "#c2410c");
+          line.setAttribute("stroke-width", "2.2");
+        } else {
+          line.setAttribute("stroke", "#d6d3cd");
+          line.setAttribute("stroke-width", "1.2");
+        }
+        svg.appendChild(line);
+      });
+
+      // Draw data qubits
+      TANNER_DATA.forEach((dq) => {
+        const isFault = l2Faults.has(dq.id);
+        const inCycle = l2ShowCycle && (dq.id === 1 || dq.id === 2);
+        const g = document.createElementNS(NS, "g");
+        g.style.cursor = "pointer";
+        const circ = document.createElementNS(NS, "circle");
+        circ.setAttribute("cx", dq.x);
+        circ.setAttribute("cy", dq.y);
+        circ.setAttribute("r", isFault ? 13.5 : 12);
+        circ.setAttribute("fill", isFault ? "#c2410c" : inCycle ? "#6d28d9" : "#1d4ed8");
+        circ.setAttribute("stroke", "#ffffff");
+        circ.setAttribute("stroke-width", "2");
+        g.appendChild(circ);
+
+        const txt = document.createElementNS(NS, "text");
+        txt.setAttribute("x", dq.x);
+        txt.setAttribute("y", dq.y + 4);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("font-size", "9.5");
+        txt.setAttribute("font-family", "ui-monospace, monospace");
+        txt.setAttribute("fill", "#ffffff");
+        txt.textContent = "q" + dq.id;
+        g.appendChild(txt);
+
+        g.addEventListener("click", () => {
+          if (l2Faults.has(dq.id)) l2Faults.delete(dq.id);
+          else l2Faults.add(dq.id);
+          renderLab2();
+        });
+        svg.appendChild(g);
+      });
+
+      // Draw checks
+      TANNER_CHECKS.forEach((chk) => {
+        const isFired = fired.has(chk.id);
+        const inCycle = l2ShowCycle && (chk.id === 0 || chk.id === 1);
+        const rect = document.createElementNS(NS, "rect");
+        rect.setAttribute("x", chk.x - 14);
+        rect.setAttribute("y", chk.y - 12);
+        rect.setAttribute("width", 28);
+        rect.setAttribute("height", 24);
+        rect.setAttribute("rx", 5);
+        rect.setAttribute("fill", isFired ? "#c2410c" : inCycle ? "#6d28d9" : "#e4e4e7");
+        rect.setAttribute("stroke", isFired ? "#7c2d12" : inCycle ? "#4c1d95" : "#a1a1aa");
+        rect.setAttribute("stroke-width", "1.4");
+        svg.appendChild(rect);
+
+        const txt = document.createElementNS(NS, "text");
+        txt.setAttribute("x", chk.x);
+        txt.setAttribute("y", chk.y + 4);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("font-size", "9.5");
+        txt.setAttribute("font-family", "ui-monospace, monospace");
+        txt.setAttribute("fill", isFired || inCycle ? "#ffffff" : "#3f3f46");
+        txt.textContent = "c" + chk.id;
+        svg.appendChild(txt);
+      });
+
+      // Metrics & circuit ticks
+      const w = cfg.weight;
+      const depth = 2 * w + 2;
+      document.getElementById("l2Weight").textContent = w.toFixed(1);
+      document.getElementById("l2Cycles").textContent = cfg.cycles4;
+      document.getElementById("l2Fired").textContent = `${fired.size} / 4`;
+      document.getElementById("l2Depth").textContent = `${depth} ticks`;
+
+      const strip = document.getElementById("l2TickStrip");
+      let ticksHtml = `<span class="tick">RX X-anc</span>`;
+      for (let i = 1; i <= w; i++) ticksHtml += `<span class="tick cx">X-CX ${i}</span>`;
+      ticksHtml += `<span class="tick meas">MX / RZ</span>`;
+      for (let i = 1; i <= w; i++) ticksHtml += `<span class="tick cx">Z-CX ${i}</span>`;
+      ticksHtml += `<span class="tick meas">MZ</span>`;
+      strip.innerHTML = ticksHtml;
+
+      const note = document.getElementById("l2Note");
+      if (l2ShowCycle) {
+        note.className = "callout";
+        note.innerHTML =
+          `<strong>4-cycle highlighted (<code>q1 → c0 → q2 → c1 → q1</code>):</strong> Notice how <code>q1</code> and <code>q2</code> share two checks. During Belief Propagation, confidence votes circulate around short loops like this — and switching to <strong>w = 6</strong> multiplies 4-cycles from <strong>4 to 18</strong>!`;
+      } else if (l2Faults.size === 0) {
+        note.className = "callout ok";
+        note.innerHTML = `<strong>No errors injected:</strong> All 4 checks report 0. Click any data qubit <code>q0–q7</code> to see how check weight affects how many alarms fire.`;
+      } else {
+        note.className = "callout" + (l2Mode === "heavy" ? " warn" : "");
+        note.innerHTML =
+          `<strong>${l2Faults.size} fault(s) active → ${fired.size} check(s) fired.</strong> In the <strong>w = ${w}</strong> layout, every round requires <strong>${2 * w} CX layers</strong> (${depth} total ticks), giving idle qubits more time to decohere.`;
+      }
+    }
+
+    document.getElementById("l2Light").addEventListener("click", () => {
+      l2Mode = "light";
+      document.getElementById("l2Light").classList.add("active");
+      document.getElementById("l2Heavy").classList.remove("active");
+      renderLab2();
+    });
+    document.getElementById("l2Heavy").addEventListener("click", () => {
+      l2Mode = "heavy";
+      document.getElementById("l2Heavy").classList.add("active");
+      document.getElementById("l2Light").classList.remove("active");
+      renderLab2();
+    });
+    document.getElementById("l2Cycle").addEventListener("click", () => {
+      l2ShowCycle = !l2ShowCycle;
+      document.getElementById("l2Cycle").classList.toggle("active", l2ShowCycle);
+      renderLab2();
+    });
+    document.getElementById("l2Clear").addEventListener("click", () => {
+      l2Faults = new Set();
+      renderLab2();
+    });
+
+    // =========================================================================
+    // LAB 3: Adaptive 256-Shot Sampler & Censoring Simulator
+    // =========================================================================
+    const L3_CODES = {
+      weak: {
+        label: "bb_v1_mixed_3_5-cf5649b397df ([[42,6,≤6]])",
+        r: 6, k: 6,
+        pl: 0.523, // corresponds to true_ler ~ 2.04e-2 over r*k = 36
+        targetNote: "High-error code: crosses 100 failures in just 1–2 batches (256–512 shots). Cheap to measure!"
+      },
+      median: {
+        label: "bb_v1_quad_4_2-2167d60e84d1 ([[24,4,≤4]])",
+        r: 4, k: 4,
+        pl: 0.166, // corresponds to true_ler ~ 1.13e-2 over r*k = 16
+        targetNote: "Median-cost M0 code: reaches 100 failures in ~3–4 batches (~768–1,024 shots)."
+      },
+      top1: {
+        label: "bb_v1_pair_2_2-5045b2a64d2f ([[72,2,≤7]], #1 best in M0)",
+        r: 7, k: 2,
+        pl: 0.00252, // true_ler = 1.80e-4 over r*k = 14
+        targetNote: "Ultra-low-error code: needs ~40,000 shots (~155 batches) to observe 100 failures — nearly 40× more expensive than the median code!"
+      },
+      censored: {
+        label: "bb_v1_pair_2_2-4faad046f1a9 ([[72,2,≤7]], #2 in M0 — CENSORED)",
+        r: 7, k: 2,
+        pl: 0.00227, // ~93 failures in 40,960 shots
+        deterministicTotalFails: 93,
+        targetNote: "Hits the 40,960-shot cap with fewer than 100 failures! INV-3 marks the row censored (true_ler = null) and ranks it by its 95% Wilson upper bound (true_ler_ub)."
+      }
+    };
+
+    let l3Key = "weak";
+    let l3Shots = 0;
+    let l3Fails = 0;
+    let l3Timer = null;
+
+    function wilsonUpper(fails, shots) {
+      const z = 1.959963984540054;
+      const p = fails / shots;
+      const denom = 1 + (z * z) / shots;
+      const center = p + (z * z) / (2 * shots);
+      const half = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * shots)) / shots);
+      return Math.min(1, (center + half) / denom);
+    }
+
+    function inv4Ler(pl, r, k) {
+      return 1 - Math.pow(Math.max(0, 1 - pl), 1 / (r * k));
+    }
+
+    function sampleBinomial(n, p) {
+      // Exact Bernoulli sum for n=256 is fast and authentic
+      let count = 0;
+      for (let i = 0; i < n; i++) {
+        if (Math.random() < p) count++;
+      }
+      return count;
+    }
+
+    function renderLab3() {
+      const cfg = L3_CODES[l3Key];
+      const failPct = Math.min(100, (l3Fails / 100) * 100);
+      const shotPct = Math.min(100, (l3Shots / 40960) * 100);
+
+      document.getElementById("l3FailText").textContent = `${l3Fails} / 100`;
+      document.getElementById("l3ShotText").textContent = `${l3Shots.toLocaleString()} / 40,960`;
+      document.getElementById("l3FailBar").style.width = `${failPct}%`;
+      document.getElementById("l3ShotBar").style.width = `${shotPct}%`;
+
+      const doneSuccess = l3Fails >= 100;
+      const doneCensored = !doneSuccess && l3Shots >= 40960;
+
+      const lerEl = document.getElementById("l3Ler");
+      const ciEl = document.getElementById("l3Ci");
+      const stEl = document.getElementById("l3Status");
+      const noteEl = document.getElementById("l3Note");
+
+      if (l3Shots === 0) {
+        lerEl.textContent = "—";
+        lerEl.style.color = "var(--ink)";
+        ciEl.textContent = `${cfg.label}`;
+        stEl.textContent = "READY";
+        stEl.style.color = "var(--muted)";
+        noteEl.className = "callout";
+        noteEl.innerHTML = `<strong>Selected:</strong> ${cfg.label}. ${cfg.targetNote}`;
+      } else if (doneSuccess) {
+        const pl = l3Fails / l3Shots;
+        const ler = inv4Ler(pl, cfg.r, cfg.k);
+        const ub = inv4Ler(wilsonUpper(l3Fails, l3Shots), cfg.r, cfg.k);
+        lerEl.textContent = ler.toExponential(2);
+        lerEl.style.color = "var(--ok)";
+        ciEl.textContent = `95% Wilson UB: ${ub.toExponential(2)} (r=${cfg.r}, k=${cfg.k})`;
+        stEl.textContent = "UN-CENSORED (PASS)";
+        stEl.style.color = "var(--ok)";
+        noteEl.className = "callout ok";
+        noteEl.innerHTML = `<strong>Stopped at ${l3Shots.toLocaleString()} shots (${l3Fails} failures):</strong> Enough precision for a valid point estimate <code>true_ler = ${ler.toExponential(2)}</code>. Included in LightGBM training.`;
+      } else if (doneCensored) {
+        const ub = inv4Ler(wilsonUpper(l3Fails, l3Shots), cfg.r, cfg.k);
+        lerEl.textContent = `null (≤ ${ub.toExponential(2)})`;
+        lerEl.style.color = "var(--error)";
+        ciEl.textContent = `true_ler = null · ranked by true_ler_ub (D-035)`;
+        stEl.textContent = "CENSORED (INV-3)";
+        stEl.style.color = "var(--error)";
+        noteEl.className = "callout warn";
+        noteEl.innerHTML = `<strong>Hit 40,960-shot cap with only ${l3Fails} failures (&lt; 100):</strong> Marked <code>censored = True</code>. Excluded from ML regression targets so we never train on a thin estimate, but still predicted and ranked using <code>true_ler_ub = ${ub.toExponential(2)}</code>.`;
+      } else {
+        const pl = l3Fails / l3Shots;
+        const ler = inv4Ler(pl, cfg.r, cfg.k);
+        lerEl.textContent = ler.toExponential(2);
+        lerEl.style.color = "var(--accent)";
+        ciEl.textContent = `Sampling in progress (${l3Shots / 256} batches)…`;
+        stEl.textContent = "RUNNING…";
+        stEl.style.color = "var(--accent)";
+      }
+    }
+
+    function stepLab3Batch(batchesPerTick = 1) {
+      const cfg = L3_CODES[l3Key];
+      for (let b = 0; b < batchesPerTick; b++) {
+        if (l3Fails >= 100 || l3Shots >= 40960) break;
+        l3Shots += 256;
+        if (cfg.deterministicTotalFails && l3Shots >= 40960) {
+          l3Fails = Math.min(99, Math.max(l3Fails, cfg.deterministicTotalFails));
+        } else {
+          let df = sampleBinomial(256, cfg.pl);
+          if (cfg.deterministicTotalFails && l3Fails + df >= 96) {
+            df = Math.max(0, 93 - l3Fails);
+          }
+          l3Fails += df;
+        }
+      }
+      renderLab3();
+      if (l3Fails >= 100 || l3Shots >= 40960) {
+        clearInterval(l3Timer);
+        l3Timer = null;
+      }
+    }
+
+    function resetLab3() {
+      if (l3Timer) { clearInterval(l3Timer); l3Timer = null; }
+      l3Shots = 0;
+      l3Fails = 0;
+      renderLab3();
+    }
+
+    document.getElementById("l3Presets").addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      l3Key = btn.dataset.code;
+      document.querySelectorAll("#l3Presets button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      resetLab3();
+    });
+    document.getElementById("l3Run").addEventListener("click", () => {
+      if (l3Fails >= 100 || l3Shots >= 40960) resetLab3();
+      if (l3Timer) clearInterval(l3Timer);
+      const speed = (l3Key === "top1" || l3Key === "censored") ? 5 : 1;
+      l3Timer = setInterval(() => stepLab3Batch(speed), 35);
+    });
+    document.getElementById("l3Step").addEventListener("click", () => {
+      if (l3Timer) { clearInterval(l3Timer); l3Timer = null; }
+      stepLab3Batch(1);
+    });
+    document.getElementById("l3Reset").addEventListener("click", resetLab3);
+
+    // =========================================================================
+    // LAB 4: Real M0 Measured Codes Interactive Scatter Plot (40 real rows)
+    // Source: evidence/m0-verdict/2026-10-03-1131f10/m0_results.json
+    // =========================================================================
+    const REAL_M0_SAMPLE = [
+      // All 10 true Top-10 codes (every one is bb_v1_pair_2_2, w=4, k=2)
+      { id: "bb_v1_pair_2_2-5045b2a64d2f", prog: "pair_2_2", w: 4, n: 72, k: 2, d: 7, ler: 1.802e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-4faad046f1a9", prog: "pair_2_2", w: 4, n: 72, k: 2, d: 7, ler: 1.989e-4, cens: true,  top10: true },
+      { id: "bb_v1_pair_2_2-f7093995b0f7", prog: "pair_2_2", w: 4, n: 60, k: 2, d: 6, ler: 2.991e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-258a1ca1e757", prog: "pair_2_2", w: 4, n: 56, k: 2, d: 6, ler: 3.019e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-8f2e984e645c", prog: "pair_2_2", w: 4, n: 44, k: 2, d: 6, ler: 3.229e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-4e534d84cc16", prog: "pair_2_2", w: 4, n: 48, k: 2, d: 6, ler: 3.261e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-7188fc8530c0", prog: "pair_2_2", w: 4, n: 52, k: 2, d: 6, ler: 3.261e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-75a132486696", prog: "pair_2_2", w: 4, n: 60, k: 2, d: 6, ler: 3.362e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-570f19471ff8", prog: "pair_2_2", w: 4, n: 48, k: 2, d: 6, ler: 3.397e-4, cens: false, top10: true },
+      { id: "bb_v1_pair_2_2-a9499274e0e1", prog: "pair_2_2", w: 4, n: 44, k: 2, d: 6, ler: 3.433e-4, cens: false, top10: true },
+      // Other pair_2_2 codes
+      { id: "bb_v1_pair_2_2-d3958dc3c8b2", prog: "pair_2_2", w: 4, n: 36, k: 2, d: 5, ler: 5.005e-4, cens: false, top10: false },
+      { id: "bb_v1_pair_2_2-72cfd154e275", prog: "pair_2_2", w: 4, n: 32, k: 2, d: 4, ler: 7.199e-4, cens: false, top10: false },
+      { id: "bb_v1_pair_2_2-fc3f55993ab1", prog: "pair_2_2", w: 4, n: 12, k: 2, d: 3, ler: 2.475e-3, cens: false, top10: false },
+      { id: "bb_v1_pair_2_2-37d2d59845a3", prog: "pair_2_2", w: 4, n: 36, k: 6, d: 3, ler: 2.664e-3, cens: false, top10: false },
+      // mod_2_3 (w=5)
+      { id: "bb_v1_mod_2_3-61b084ee499f", prog: "mod_2_3", w: 5, n: 72, k: 4, d: 7, ler: 9.419e-4, cens: false, top10: false },
+      { id: "bb_v1_mod_2_3-9be4ff41b72c", prog: "mod_2_3", w: 5, n: 72, k: 4, d: 6, ler: 1.132e-3, cens: false, top10: false },
+      { id: "bb_v1_mod_2_3-8e06f820914a", prog: "mod_2_3", w: 5, n: 30, k: 4, d: 4, ler: 2.968e-3, cens: false, top10: false },
+      { id: "bb_v1_mod_2_3-7878d7825dd9", prog: "mod_2_3", w: 5, n: 72, k: 8, d: 4, ler: 4.443e-3, cens: false, top10: false },
+      { id: "bb_v1_mod_2_3-8e07ea6dbef2", prog: "mod_2_3", w: 5, n: 60, k: 4, d: 3, ler: 1.205e-2, cens: false, top10: false },
+      // rare_2_3 (w=5)
+      { id: "bb_v1_rare_2_3-81a9faa0d712", prog: "rare_2_3", w: 5, n: 70, k: 6, d: 5, ler: 1.027e-3, cens: false, top10: false },
+      { id: "bb_v1_rare_2_3-a58490a2cb88", prog: "rare_2_3", w: 5, n: 42, k: 6, d: 3, ler: 2.863e-3, cens: false, top10: false },
+      // bb288_3_3 & sym_3_3 (w=6)
+      { id: "bb_v1_bb288_3_3-9ec57044ada0", prog: "bb288_3_3", w: 6, n: 72, k: 12, d: 6, ler: 2.145e-3, cens: false, top10: false },
+      { id: "bb_v1_bb288_3_3-d8540bc00983", prog: "bb288_3_3", w: 6, n: 72, k: 8, d: 6, ler: 4.118e-3, cens: false, top10: false },
+      { id: "bb_v1_bb288_3_3-1b010b5df9d9", prog: "bb288_3_3", w: 6, n: 36, k: 8, d: 4, ler: 6.368e-3, cens: false, top10: false },
+      { id: "bb_v1_sym_3_3-6d2a992b16a4", prog: "sym_3_3", w: 6, n: 72, k: 12, d: 6, ler: 2.378e-3, cens: false, top10: false },
+      { id: "bb_v1_sym_3_3-cca7df7feac9", prog: "sym_3_3", w: 6, n: 72, k: 8, d: 6, ler: 3.662e-3, cens: false, top10: false },
+      // diag_3_3 & tri_3_3 (w=6)
+      { id: "bb_v1_diag_3_3-0c177bd4cded", prog: "diag_3_3", w: 6, n: 72, k: 4, d: 6, ler: 3.915e-3, cens: false, top10: false },
+      { id: "bb_v1_diag_3_3-00cedb094a3c", prog: "diag_3_3", w: 6, n: 72, k: 12, d: 4, ler: 9.109e-3, cens: false, top10: false },
+      { id: "bb_v1_tri_3_3-57e54fc47d26", prog: "tri_3_3", w: 6, n: 72, k: 8, d: 6, ler: 3.247e-3, cens: false, top10: false },
+      { id: "bb_v1_tri_3_3-84fcf3be8f50", prog: "tri_3_3", w: 6, n: 54, k: 4, d: 6, ler: 9.925e-3, cens: false, top10: false },
+      // quad_4_2 & sq_4_2 (w=6)
+      { id: "bb_v1_quad_4_2-aee8035e81c8", prog: "quad_4_2", w: 6, n: 72, k: 8, d: 6, ler: 2.933e-3, cens: false, top10: false },
+      { id: "bb_v1_quad_4_2-aa6a3678854a", prog: "quad_4_2", w: 6, n: 70, k: 2, d: 9, ler: 4.431e-3, cens: false, top10: false },
+      { id: "bb_v1_quad_4_2-c7c6d07a81bf", prog: "quad_4_2", w: 6, n: 48, k: 4, d: 8, ler: 5.974e-3, cens: false, top10: false },
+      { id: "bb_v1_quad_4_2-b6b5d69ffdf6", prog: "quad_4_2", w: 6, n: 68, k: 2, d: 4, ler: 4.542e-2, cens: false, top10: false },
+      { id: "bb_v1_sq_4_2-49cc944f7473", prog: "sq_4_2", w: 6, n: 72, k: 8, d: 4, ler: 4.819e-3, cens: false, top10: false },
+      { id: "bb_v1_sq_4_2-4d4356520c61", prog: "sq_4_2", w: 6, n: 72, k: 2, d: 8, ler: 8.867e-3, cens: false, top10: false },
+      // rare_3_4 (w=7)
+      { id: "bb_v1_rare_3_4-6793f7622e98", prog: "rare_3_4", w: 7, n: 70, k: 6, d: 5, ler: 8.694e-3, cens: false, top10: false },
+      // mixed_3_5 (w=8, above threshold!)
+      { id: "bb_v1_mixed_3_5-cf5649b397df", prog: "mixed_3_5", w: 8, n: 42, k: 6, d: 6, ler: 2.038e-2, cens: false, top10: false },
+      { id: "bb_v1_mixed_3_5-84e479f0ae32", prog: "mixed_3_5", w: 8, n: 56, k: 6, d: 8, ler: 2.023e-2, cens: false, top10: false },
+      { id: "bb_v1_mixed_3_5-83b7f7ba10c0", prog: "mixed_3_5", w: 8, n: 70, k: 6, d: 8, ler: 2.295e-2, cens: false, top10: false }
+    ].map((row, idx) => ({ ...row, phi: (row.k * row.d * row.d) / row.n, idx }));
+
+    let l4Axis = "phi";
+    let l4Selected = 0;
+
+    function getAxisConfig(axis) {
+      if (axis === "phi") {
+        return {
+          label: "Φ = k · d_upper² / n  (Higher = Φ predicts better →)",
+          min: 0, max: 7.5,
+          ticks: [0, 1.5, 3.0, 4.5, 6.0, 7.5],
+          val: (r) => r.phi
+        };
+      }
+      if (axis === "negw") {
+        return {
+          label: "−Check Weight  (Higher = lighter checks →)",
+          min: -8.5, max: -3.5,
+          ticks: [-8, -7, -6, -5, -4],
+          val: (r) => -r.w + ((r.idx % 7) - 3) * 0.055 // tiny horizontal jitter for overlapping weight bands
+        };
+      }
+      if (axis === "d") {
+        return {
+          label: "Distance upper bound d_upper  (Higher →)",
+          min: 2.5, max: 9.5,
+          ticks: [3, 4, 5, 6, 7, 8, 9],
+          val: (r) => r.d + ((r.idx % 5) - 2) * 0.06
+        };
+      }
+      return {
+        label: "Logical qubits k  (Higher = Φ rewards more →)",
+        min: 1, max: 13,
+        ticks: [2, 4, 6, 8, 10, 12],
+        val: (r) => r.k + ((r.idx % 5) - 2) * 0.1
+      };
+    }
+
+    function renderLab4() {
+      const svg = document.getElementById("scatterSvg");
+      const NS = "http://www.w3.org/2000/svg";
+      svg.innerHTML = "";
+      const W = 760, H = 320;
+      const padL = 68, padR = 26, padT = 22, padB = 46;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      const cfg = getAxisConfig(l4Axis);
+      const yMin = -4.0, yMax = -1.2; // log10(LER): 1e-4 to ~6e-2
+      const sx = (v) => padL + ((v - cfg.min) / (cfg.max - cfg.min)) * plotW;
+      const sy = (ler) => {
+        const lv = Math.log10(ler);
+        return padT + plotH - ((lv - yMin) / (yMax - yMin)) * plotH;
+      };
+
+      // Grid lines Y (log10 LER)
+      [-4, -3, -2].forEach((exp) => {
+        const y = sy(Math.pow(10, exp));
+        const gl = document.createElementNS(NS, "line");
+        gl.setAttribute("x1", padL); gl.setAttribute("x2", W - padR);
+        gl.setAttribute("y1", y); gl.setAttribute("y2", y);
+        gl.setAttribute("stroke", "#ece9e2");
+        svg.appendChild(gl);
+
+        const lbl = document.createElementNS(NS, "text");
+        lbl.setAttribute("x", padL - 10);
+        lbl.setAttribute("y", y + 4);
+        lbl.setAttribute("text-anchor", "end");
+        lbl.setAttribute("font-size", "10.5");
+        lbl.setAttribute("font-family", "ui-monospace, monospace");
+        lbl.setAttribute("fill", "#71717a");
+        lbl.textContent = `1e${exp}`;
+        svg.appendChild(lbl);
+      });
+
+      // Grid lines X
+      cfg.ticks.forEach((tk) => {
+        const x = sx(tk);
+        const gl = document.createElementNS(NS, "line");
+        gl.setAttribute("x1", x); gl.setAttribute("x2", x);
+        gl.setAttribute("y1", padT); gl.setAttribute("y2", H - padB);
+        gl.setAttribute("stroke", "#ece9e2");
+        svg.appendChild(gl);
+
+        const lbl = document.createElementNS(NS, "text");
+        lbl.setAttribute("x", x);
+        lbl.setAttribute("y", H - padB + 16);
+        lbl.setAttribute("text-anchor", "middle");
+        lbl.setAttribute("font-size", "10.5");
+        lbl.setAttribute("font-family", "ui-monospace, monospace");
+        lbl.setAttribute("fill", "#71717a");
+        lbl.textContent = l4Axis === "negw" ? `w=${-tk}` : tk;
+        svg.appendChild(lbl);
+      });
+
+      // Sweet-spot callout zone (bottom-right = ideal ranking)
+      const hint = document.createElementNS(NS, "text");
+      hint.setAttribute("x", W - padR - 6);
+      hint.setAttribute("y", H - padB - 8);
+      hint.setAttribute("text-anchor", "end");
+      hint.setAttribute("font-size", "10");
+      hint.setAttribute("font-family", "ui-monospace, monospace");
+      hint.setAttribute("fill", "#15803d");
+      hint.textContent = "Ideal region: high score + low LER ↘";
+      svg.appendChild(hint);
+
+      // Axes border
+      const axX = document.createElementNS(NS, "line");
+      axX.setAttribute("x1", padL); axX.setAttribute("x2", W - padR);
+      axX.setAttribute("y1", H - padB); axX.setAttribute("y2", H - padB);
+      axX.setAttribute("stroke", "#a1a1aa");
+      svg.appendChild(axX);
+
+      const axY = document.createElementNS(NS, "line");
+      axY.setAttribute("x1", padL); axY.setAttribute("x2", padL);
+      axY.setAttribute("y1", padT); axY.setAttribute("y2", H - padB);
+      axY.setAttribute("stroke", "#a1a1aa");
+      svg.appendChild(axY);
+
+      // Axis titles
+      const xTitle = document.createElementNS(NS, "text");
+      xTitle.setAttribute("x", padL + plotW / 2);
+      xTitle.setAttribute("y", H - 8);
+      xTitle.setAttribute("text-anchor", "middle");
+      xTitle.setAttribute("font-size", "11.5");
+      xTitle.setAttribute("font-family", "system-ui, sans-serif");
+      xTitle.setAttribute("fill", "#52525b");
+      xTitle.textContent = cfg.label;
+      svg.appendChild(xTitle);
+
+      const yTitle = document.createElementNS(NS, "text");
+      yTitle.setAttribute("x", 16);
+      yTitle.setAttribute("y", padT + plotH / 2);
+      yTitle.setAttribute("text-anchor", "middle");
+      yTitle.setAttribute("font-size", "11.5");
+      yTitle.setAttribute("font-family", "system-ui, sans-serif");
+      yTitle.setAttribute("fill", "#52525b");
+      yTitle.setAttribute("transform", `rotate(-90 16 ${padT + plotH / 2})`);
+      yTitle.textContent = "Measured LER (lower = better ↓)";
+      svg.appendChild(yTitle);
+
+      // Plot points
+      REAL_M0_SAMPLE.forEach((row, i) => {
+        const cx = sx(cfg.val(row));
+        const cy = sy(row.ler);
+        const color = row.top10
+          ? "#15803d"
+          : row.w >= 8
+          ? "#c2410c"
+          : row.w >= 6
+          ? "#b45309"
+          : "#1d4ed8";
+
+        const g = document.createElementNS(NS, "g");
+        g.style.cursor = "pointer";
+
+        const c = document.createElementNS(NS, "circle");
+        c.setAttribute("cx", cx);
+        c.setAttribute("cy", cy);
+        c.setAttribute("r", i === l4Selected ? 8.5 : row.top10 ? 6.5 : 5.2);
+        c.setAttribute("fill", color);
+        c.setAttribute("fill-opacity", i === l4Selected ? "1" : "0.86");
+        c.setAttribute("stroke", i === l4Selected ? "#18181b" : "#ffffff");
+        c.setAttribute("stroke-width", i === l4Selected ? "2.2" : "1.2");
+        g.appendChild(c);
+
+        if (row.top10) {
+          const star = document.createElementNS(NS, "text");
+          star.setAttribute("x", cx);
+          star.setAttribute("y", cy + 3);
+          star.setAttribute("text-anchor", "middle");
+          star.setAttribute("font-size", "8.5");
+          star.setAttribute("fill", "#ffffff");
+          star.textContent = "★";
+          g.appendChild(star);
+        }
+
+        g.addEventListener("click", () => {
+          l4Selected = i;
+          renderLab4();
+        });
+        svg.appendChild(g);
+      });
+
+      const sel = REAL_M0_SAMPLE[l4Selected];
+      document.getElementById("l4Inspect").innerHTML =
+        `<strong>Selected Real M0 Code:</strong> <code>${sel.id}</code> ${sel.top10 ? "★ <strong>(True Top-10)</strong>" : ""}<br>` +
+        `Template: <code>bb_v1_${sel.prog}</code> (check weight <strong>w = ${sel.w}</strong>) · ` +
+        `Params: <code>[[${sel.n}, ${sel.k}, ≤${sel.d}]]</code> · ` +
+        `<code>phi_from_d_upper = ${sel.phi.toFixed(2)}</code> · ` +
+        `Measured rate: <strong>${sel.cens ? "≤ " + sel.ler.toExponential(2) + " (censored, true_ler_ub)" : sel.ler.toExponential(2) + " (true_ler)"}</strong>`;
+    }
+
+    document.getElementById("l4AxisBtns").addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      l4Axis = btn.dataset.axis;
+      document.querySelectorAll("#l4AxisBtns button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderLab4();
+    });
+
+    // =========================================================================
+    // LAB 5: Leave-One-Program-Out Fold Explorer & Size Scaling
+    // Exact counts & Spearman values from m0_results.json
+    // =========================================================================
+    const M0_PROGRAMS = [
+      { id: "pair_2_2",  count: 65, w: 4, top10: 10, rho: -0.922, reading: "Clear sub-threshold" },
+      { id: "quad_4_2",  count: 68, w: 6, top10: 0,  rho: -0.671, reading: "Clear sub-threshold" },
+      { id: "sq_4_2",    count: 42, w: 6, top10: 0,  rho: -0.197, reading: "Weak scaling" },
+      { id: "mod_2_3",   count: 21, w: 5, top10: 0,  rho: -0.517, reading: "Weak scaling" },
+      { id: "diag_3_3",  count: 17, w: 6, top10: 0,  rho: -0.559, reading: "Weak scaling" },
+      { id: "bb288_3_3", count: 7,  w: 6, top10: 0,  rho: -0.791, reading: "Clear sub-threshold" },
+      { id: "sym_3_3",   count: 7,  w: 6, top10: 0,  rho: -0.791, reading: "Clear sub-threshold" },
+      { id: "tri_3_3",   count: 7,  w: 6, top10: 0,  rho: +0.316, reading: "Fails (positive!)" },
+      { id: "mixed_3_5", count: 3,  w: 8, top10: 0,  rho:  0.000, reading: "Fails (above threshold)" },
+      { id: "rare_3_4",  count: 3,  w: 7, top10: 0,  rho: -1.000, reading: "Clear (3 codes)" },
+      { id: "rare_2_3",  count: 2,  w: 5, top10: 0,  rho: -1.000, reading: "Clear (2 codes)" }
+    ];
+    let heldOutIdx = 0; // default to pair_2_2 so bottleneck is obvious immediately
+
+    function renderLab5() {
+      const grid = document.getElementById("l5FoldGrid");
+      grid.innerHTML = M0_PROGRAMS.map((p, idx) => {
+        const isHeld = idx === heldOutIdx;
+        return `
+          <div class="fold-card ${isHeld ? "heldout" : "train"}" data-idx="${idx}">
+            <div class="fname">${p.id}</div>
+            <div class="fmeta">${p.count} codes · w=${p.w} · ${isHeld ? "TEST FOLD" : "train"}</div>
+            ${p.top10 > 0 ? `<span class="top-pill">★ ${p.top10}/10 Top Codes</span>` : ""}
+          </div>
+        `;
+      }).join("");
+
+      grid.querySelectorAll(".fold-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          heldOutIdx = Number(card.dataset.idx);
+          renderLab5();
+        });
+      });
+
+      const h = M0_PROGRAMS[heldOutIdx];
+      const trainCodes = 242 - h.count;
+      const note = document.getElementById("l5FoldNote");
+      if (h.top10 === 10) {
+        note.className = "callout warn";
+        note.innerHTML =
+          `<strong>Holding out <code>bb_v1_${h.id}</code> (Test: ${h.count} codes, Train: ${trainCodes} codes):</strong> Because <strong>all 10 of the true Top-10 codes</strong> live in this single fold — and every training template has heavier checks (<code>w ≥ 5</code>) — this ONE out-of-distribution fold decides the entire Recall@30-of-top-10 metric (<code>0.200 [0.000, 0.600]</code>). M1 fixes this by adding multiple code families.`;
+      } else {
+        note.className = "callout";
+        note.innerHTML =
+          `<strong>Holding out <code>bb_v1_${h.id}</code> (Test: ${h.count} codes, Train: ${trainCodes} codes):</strong> Contains <strong>0 of the Top-10 codes</strong>, so this fold contributes to the global Spearman correlation (<code>0.871</code>) but never gets tested on finding the top 10 winners.`;
+      }
+
+      // Render size-scaling bars
+      const list = document.getElementById("l5ScaleList");
+      // Map [-1.0, +0.4] -> [0%, 100%], where 0 is at 72%
+      const zeroPct = 72;
+      list.innerHTML = M0_PROGRAMS.map((p) => {
+        const mag = p.rho < 0 ? (-p.rho) * zeroPct : (p.rho / 0.4) * (100 - zeroPct);
+        const left = p.rho < 0 ? (zeroPct - mag) : zeroPct;
+        const color = p.rho <= -0.65 ? "#15803d" : p.rho < 0 ? "#b45309" : "#c2410c";
+        const sign = p.rho > 0 ? "+" : "";
+        return `
+          <div class="scale-row">
+            <span>${p.id}</span>
+            <span style="color:${color};font-weight:700;">${sign}${p.rho.toFixed(2)}</span>
+            <div class="scale-track">
+              <div class="scale-zero"></div>
+              <div class="scale-bar" style="left:${left.toFixed(1)}%;width:${Math.max(1.5, mag).toFixed(1)}%;background:${color};"></div>
+            </div>
+            <span class="s-tag" style="color:var(--muted);font-size:0.7rem;">${p.reading}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Initialize all labs
+    renderLab1(false);
+    renderLab2();
+    renderLab3();
+    renderLab4();
+    renderLab5();
+  </script>
+</body>
+</html>

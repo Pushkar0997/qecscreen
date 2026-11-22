@@ -1,16 +1,19 @@
 # qecscreen
 
 [![CI](https://github.com/Pushkar0997/qecscreen/actions/workflows/ci.yml/badge.svg)](https://github.com/Pushkar0997/qecscreen/actions/workflows/ci.yml)
+[![Interactive Explainer](https://img.shields.io/badge/Interactive%20Explainer-GitHub%20Pages-1d4ed8)](https://pushkar0997.github.io/qecscreen/)
 
 **Can we predict which quantum error-correcting codes actually work well in practice — without spending hundreds of hours simulating every candidate?**
 
 `qecscreen` is an open benchmark, dataset, and baseline suite for testing cheap **screening scores** used in quantum error correction (QEC) code search. It pairs real circuit-level simulations with simple structural models so researchers, students, and ML engineers can see what actually separates strong quantum codes from weak ones.
 
+> **New to QEC or want to play with the data interactively?** Open the **[Interactive Visual Explainer](https://pushkar0997.github.io/qecscreen/)** (`index.html`, deployable on GitHub Pages) — with live sliders for `Φ = kd²/n`, a clickable Tanner graph & circuit tick lab, an adaptive 256-shot censoring simulator, a real M0 scatter explorer, and a leave-one-program-out fold visualizer.
+
 ---
 
 ## Start here: the plain-English explanation
 
-If you are new to quantum error correction — or coming from software engineering or machine learning — here is the whole problem in 60 seconds (or jump straight to our illustrated [Visual Beginner's Guide](docs/explainer.md) with ASCII diagrams):
+If you are new to quantum error correction — or coming from software engineering or machine learning — here is the whole problem in 60 seconds (or jump to the **[Interactive Explainer](https://pushkar0997.github.io/qecscreen/)** or the offline [Markdown Visual Guide](docs/explainer.md)):
 
 1. **Quantum computers are noisy.** Physical quantum bits (qubits) make errors constantly. To run real computations, we group many noisy physical qubits together using a **quantum error-correcting code** (QEC code) to protect a smaller number of reliable **logical qubits**.
 2. **Finding good codes is a needle-in-a-haystack search.** Researchers and AI-driven search loops now generate thousands of candidate **quantum LDPC codes** (a promising family of codes that need far fewer physical qubits than older designs).
@@ -30,7 +33,8 @@ If you are new to quantum error correction — or coming from software engineeri
 
 **Milestone 0 (M0) closed on 2026-10-03.**
 - **Verdict:** **PROCEED, with the headline criterion FAILED** (`spec/evals.md §7`).
-- **Visual beginner's guide:** [docs/explainer.md](docs/explainer.md) (step-by-step diagrams of codes, Tanner graphs, circuits, decoders, and screening).
+- **Interactive web explainer:** [pushkar0997.github.io/qecscreen](https://pushkar0997.github.io/qecscreen/) ([`index.html`](index.html) — 5 hands-on interactive labs built on real M0 data).
+- **Markdown visual beginner's guide:** [docs/explainer.md](docs/explainer.md) (step-by-step ASCII diagrams of codes, Tanner graphs, circuits, decoders, and screening).
 - **Full M0 write-up:** [docs/m0-writeup.md](docs/m0-writeup.md) (written for both newcomers and specialists).
 - **Project story:** [NARRATIVE.md](NARRATIVE.md) (plain-language lab history).
 - **Next milestone:** **M1 has not started yet.**
@@ -321,8 +325,9 @@ QEC machine-learning benchmarks are notoriously easy to get subtly wrong. `qecsc
 ## Repository guide
 
 ```text
+index.html       Interactive GitHub Pages explainer (5 live labs on real M0 data)
 README.md        You are here — plain-English overview, results, usage, and roadmap
-docs/            Visual beginner's guide (explainer.md) and M0 write-up (m0-writeup.md)
+docs/            Markdown visual beginner's guide (explainer.md) and M0 write-up (m0-writeup.md)
 NARRATIVE.md     Plain-language history of what happened and why
 BRIEF.md         One-page status summary (3-minute read)
 CONTRACT.md      Hard invariants and pinned simulation constants (the ground rules)
