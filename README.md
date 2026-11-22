@@ -2,174 +2,170 @@
 
 [![CI](https://github.com/Pushkar0997/qecscreen/actions/workflows/ci.yml/badge.svg)](https://github.com/Pushkar0997/qecscreen/actions/workflows/ci.yml)
 
-## What this is
+**Can we predict which quantum error-correcting codes actually work well in practice — without spending hundreds of hours simulating every candidate?**
 
-Searches for good quantum LDPC codes, including AI-driven ones, generate many
-candidate codes and can afford circuit-level simulation for only a few. They
-choose those few with a cheap score, usually Φ = kd²/n. qecscreen measures how
-well such cheap scores find the codes that actually have the lowest
-circuit-level logical error rate. It provides a set of **measured** labels (Stim
-circuits decoded with BP+OSD, under one pinned and hashed protocol) and a
-screening baseline (Φ and a LightGBM model on cheap structural features) scored
-against those labels. It is for people who build or evaluate code-search loops,
-and for anyone who wants circuit-level labels to test their own screening score
-against.
+`qecscreen` is an open benchmark, dataset, and baseline suite for testing cheap **screening scores** used in quantum error correction (QEC) code search. It pairs real circuit-level simulations with simple structural models so researchers, students, and ML engineers can see what actually separates strong quantum codes from weak ones.
 
-## Status
+---
 
-**M0 closed on 2026-10-03.** Verdict: **PROCEED, with the headline criterion
-FAILED** (`spec/evals.md §7`). The write-up is
-[docs/m0-writeup.md](docs/m0-writeup.md). **M1 has not started.**
+## Start here: the plain-English explanation
 
-Everything below is about one population: 242 bivariate bicycle (BB) codes with
-n ≤ 72, at physical error rate p = 0.002. Nothing here is a claim about other
-code families, larger n, or other p.
+If you are new to quantum error correction — or coming from software engineering or machine learning — here is the whole problem in 60 seconds:
 
-## M0 results
+1. **Quantum computers are noisy.** Physical quantum bits (qubits) make errors constantly. To run real computations, we group many noisy physical qubits together using a **quantum error-correcting code** (QEC code) to protect a smaller number of reliable **logical qubits**.
+2. **Finding good codes is a needle-in-a-haystack search.** Researchers and AI-driven search loops now generate thousands of candidate **quantum LDPC codes** (a promising family of codes that need far fewer physical qubits than older designs).
+3. **Testing a candidate properly is slow.** To know how well a code really protects information on noisy hardware, you have to build its full error-checking circuit and simulate thousands of noisy runs (**circuit-level Monte Carlo simulation**). Testing just 242 small codes in our first milestone took **76.3 CPU core-hours**.
+4. **So search loops use a quick shortcut — and that shortcut may be broken.** Because full simulation is too expensive to run on every candidate, search loops screen candidates first with a back-of-the-envelope formula:
 
-The pre-registered question:
+   $$\Phi = \frac{k \cdot d^2}{n}$$
 
-> Does a LightGBM model on cheap structural features beat Φ at
-> Recall@30-of-top-10 on a construction-program-grouped split, by a margin that
-> survives bootstrap resampling?
+   where `n` is the number of physical data qubits, `k` is the number of protected logical qubits, and `d` is the code's **distance** (roughly, how many simultaneous errors it takes to fool the code). Higher `Φ` is assumed to mean a better code.
+5. **The problem:** `Φ` only looks at static math properties. It ignores how messy the error-checking circuit is to execute on real noisy gates and how hard it is for a **decoder** (the classical algorithm that fixes errors) to interpret the syndrome measurements. A code can look great under `Φ` and still fail badly when simulated at the circuit level.
 
-**No.** The model's margin over Φ at Recall@30-of-top-10 has a bootstrap
-interval that includes zero. The kill condition (Φ's Spearman already high
-*and* the model's advantage not surviving resampling) did not fire, so the
-project proceeds, with the headline recorded as a fail.
+**What `qecscreen` does:** Instead of guessing whether `Φ` works, `qecscreen` measures the real **circuit-level logical error rate** (how often a protected logical qubit actually fails under realistic gate noise) using a pinned, reproducible simulation pipeline (`Stim` + `BP+OSD`). It then tests whether a fast machine-learning model (LightGBM) trained on cheap graph and circuit features can rank candidate codes better than `Φ` — and publishes the measured dataset so anyone can test their own screening score against the same ground truth.
 
-Recall@30-of-top-10 is the share of the 10 codes with the lowest measured rate
-that appear among a method's 30 highest-ranked codes. The split is
-leave-one-program-out over the 11 construction programs (M0 has one family, so
-there is no family holdout). Intervals are 95% percentile intervals from 1,000
-bootstrap resamples of codes, paired over model and Φ (seed 20261001).
+---
 
-| 242 codes, leave-one-program-out | Model | Φ (from d_upper) | Model − Φ |
+## Status at a glance
+
+**Milestone 0 (M0) closed on 2026-10-03.**
+- **Verdict:** **PROCEED, with the headline criterion FAILED** (`spec/evals.md §7`).
+- **Full write-up:** [docs/m0-writeup.md](docs/m0-writeup.md) (written for both newcomers and specialists).
+- **Project story:** [NARRATIVE.md](NARRATIVE.md) (plain-language lab history).
+- **Next milestone:** **M1 has not started yet.**
+
+> **Important scope boundary:** Every result below covers **one specific population** — 242 **bivariate bicycle (BB)** quantum codes with at most 72 data qubits (`n ≤ 72`) tested at one physical gate error rate (`p = 0.002`). Nothing here is a claim about other code families, larger codes, or other noise levels.
+
+---
+
+## Key concepts explained (mini glossary)
+
+You do not need a PhD in QEC to read the rest of this page. Here is every technical term used in the results below:
+
+| Term | Plain-English meaning | Technical detail in `qecscreen` |
+|---|---|---|
+| **Quantum LDPC code** | An error-correcting code where each error check only touches a small, fixed number of qubits ("low-density parity-check"). | Defined by two binary parity-check matrices `H_X` and `H_Z` over GF(2). |
+| **Bivariate bicycle (BB) code** | A well-known, hardware-friendly family of quantum LDPC codes built from two compact polynomials (e.g., IBM's gross code belongs to this family). | M0 enumerates all admissible BB codes with `n ≤ 72` and `d_upper ≥ 3` across 11 polynomial templates. |
+| **`n`, `k`, and `d_upper`** | `n` = physical data qubits used; `k` = logical qubits protected; `d` = code distance (minimum error weight that causes an undetectable failure). | Exact distance is computationally hard; `d_upper` is an **upper bound** from a randomized search (`true distance ≤ d_upper`). `d_exact` is null on every M0 row. |
+| **Proxy score `Φ = kd²/n`** | The standard quick formula used to estimate code quality without running a full circuit simulation. | Computed using `d_upper` and stored as `phi_from_d_upper`. |
+| **Circuit-level LER (`true_ler`)** | The real measured failure rate: how likely a logical qubit is to suffer an error during one round of error checking, assuming every gate, reset, idle step, and measurement can fail. | Normalized per round, per logical qubit: `1 - (1 - P_L) ** (1 / (r * k))` ([INV-4](CONTRACT.md#inv-4--ler-normalisation-is-pinned-to-exactly-one-formula)). Lower is better. |
+| **Stim & BP+OSD** | **Stim** simulates noisy quantum circuits rapidly; **BP+OSD** is the classical decoder that looks at error signals (syndromes) and tries to deduce what went wrong. | Pinned to `Stim 1.16.0` and `ldpc 2.4.1` (`BpOsdDecoder`, min-sum, 30 iterations, scaling 0.625, OSD-CS order 10). |
+| **Censored code** | A code that performed so well that it did not reach 100 failures even at our maximum simulation budget (40,960 runs). We know its failure rate is very low, so we record an **upper bound** (`true_ler_ub`) instead of guessing a noisy point estimate. | `censored = True` when `failures < 100`. Only 1 of 242 M0 codes is censored (93 failures in 40,960 shots). |
+| **Leave-one-program-out split** | A strict fairness test for ML: instead of randomly hiding individual codes (which leaks near-identical siblings from the same recipe into training), we hold out an entire **construction template** at a time and force the model to predict on a recipe it has never seen. | 11 construction programs (`construction_program_id`) → 11 folds. Random row splits are banned ([INV-2](CONTRACT.md#inv-2--splits-are-by-construction-program-never-by-row)). |
+| **Recall@30-of-top-10** | "If you can only afford to simulate your top 30 picks, how many of the true top 10 best codes did you catch?" Ranges from `0.0` (caught none) to `1.0` (caught all 10). | M0's pre-registered headline metric. |
+| **Spearman correlation** | Measures how well a score ranks *all* 242 codes from best to worst overall (`1.0` = perfect ordering, `0.0` = random, `-1.0` = backwards). | Secondary ranking metric; used in M0's kill condition. |
+| **Bootstrap 95% CI** | A statistical confidence range (`[low, high]`) built by resampling codes 1,000 times. If the range for `Model − Φ` includes `0.0`, the difference could be due to chance. | Paired over codes, 1,000 resamples, pinned seed `20261001`. |
+| **Label-noise ceiling** | A sanity check: if we redraw each code's error rate within its own measurement uncertainty, could even the true ranking still recover the top 10? A ceiling of `1.000` proves the measurements are sharp enough — any miss is the model's fault, not noisy labels. | 1,000 Beta-binomial draws, pinned seed `20261002`. Reported only; decides nothing. |
+
+---
+
+## M0 results: what we tested and what happened
+
+Before running a single simulation, we pre-registered one clear pass/fail question:
+
+> **Does a fast LightGBM model using 28 cheap structural and circuit features beat `Φ = kd²/n` at finding the true top 10 codes inside its top 30 picks (`Recall@30-of-top-10`), on a strict template-grouped split, by a margin that survives bootstrap resampling?**
+
+### The short answer: **No — yet the project proceeds anyway.**
+
+Here is why both halves of that verdict matter:
+
+1. **Headline criterion FAILED (finding the very best 10 codes):**
+   The LightGBM model caught **2 of the top 10** codes (`0.200`), while `Φ` caught **0 of 10** (`0.000`). However, the 95% bootstrap confidence interval for the difference `Model − Φ` is `[0.000, 0.600]`, which touches zero. Because we do not round up uncertain results, the headline test is recorded as a **FAIL**.
+2. **Kill condition NOT met (ranking all 242 codes overall):**
+   Our pre-registered rule to shut the project down required `Φ` to already rank codes well *and* the model's advantage to disappear. The exact opposite happened across the full dataset: `Φ`'s overall Spearman rank correlation with the true circuit-level error rate is only **0.242**, whereas LightGBM achieves **0.871** — a lead of **+0.629** (`[0.521, 0.750]`) that clearly survives resampling.
+
+In plain words: **cheap structural features clearly carry real signal that `Φ` misses**, so the core hypothesis is alive — but M0's small single-family setup was not enough to prove reliable top-10 discovery on unseen templates.
+
+### Full M0 scoreboard
+
+All numbers come from leave-one-program-out evaluation across the 11 BB templates (242 codes; M0 has one code family, so there is no cross-family holdout yet). Intervals are 95% paired bootstrap intervals over codes (1,000 resamples, seed `20261001`). Source: [`m0_results.txt`](evidence/m0-verdict/2026-10-03-1131f10/m0_results.txt).
+
+| Metric (242 codes, leave-one-program-out) | LightGBM Model | `Φ` (from `d_upper`) | Model − `Φ` | What it tells us |
+|---|---|---|---|---|
+| **Recall@30-of-top-10** *(headline)* | 0.200 `[0.000, 0.600]` | 0.000 `[0.000, 0.000]` | 0.200 `[0.000, 0.600]` | Interval includes 0 → **headline FAIL** |
+| Recall, censored code excluded | 0.100 | 0.000 | — | Drops from 2/10 to 1/10 without the #2 code |
+| **Spearman rank correlation** | 0.871 `[0.838, 0.894]` | 0.242 `[0.118, 0.354]` | 0.629 `[0.521, 0.750]` | Strong global ordering signal → **kill condition not met** |
+| Spearman, censored code excluded | 0.870 | 0.243 | — | Essentially unchanged |
+| **Label-noise ceiling** (Recall@30-of-top-10) | 1.000 `[1.000, 1.000]` | — | — | Labels are clean; model error, not noise |
+
+### Four takeaways from M0
+
+- **Why Recall@30 was so noisy (the single-fold bottleneck):** All 10 of the genuinely best codes in M0 came from **one single template**, `pair_2_2`. Under leave-one-program-out evaluation, the single fold that held out `pair_2_2` had to predict every single top-10 code without ever seeing a `pair_2_2` example during training. That means **one fold decided the entire headline metric**, making the confidence interval wide (`[0.000, 0.600]`) and causing the point estimate to drop from `0.200` to `0.100` if the one censored code (ranked #2) is excluded. It was *not* caused by measurement noise — the label-noise ceiling is a perfect `1.000`.
+- **Why `Φ = kd²/n` scored exactly zero on Recall@30:** Every top-10 code encodes only `k = 2` logical qubits and has a modest proxy score (`Φ ≤ 1.64`). Because `Φ` strongly rewards larger `k`, at least **70 codes with both higher `k` and higher `Φ`** ranked ahead of every single top-10 code — even though those higher-`k` codes suffered much worse circuit-level error rates.
+- **Simple check weight gets surprisingly far (exploratory, post hoc):** After recording the verdict, we checked how well individual features ranked all 242 codes on their own (point values only, no intervals; see [docs/m0-writeup.md](docs/m0-writeup.md), not part of the verdict). Predicting lower error rates for codes with lower **mean check weight** (`-check_weight_mean`, meaning each error check involves fewer qubits and therefore fewer noisy two-qubit gates) reached a Spearman correlation of **0.719**, compared to **0.310** for `d_upper` alone and **−0.026** for `k` alone. Be careful over-interpreting this: mean check weight takes only five distinct values in M0 and mostly reflects which template a code came from, and it says nothing about catching the top 10.
+- **The cost asymmetry makes screening valuable:** The exact codes a researcher wants to discover — the ones with the lowest logical error rates — are the hardest and most expensive to verify, because you must run far more shots to observe 100 failures. The top 10 codes required **24,320 to 40,960 shots each** (hitting the 40,960 cap on the censored code), compared to a median of just **1,024 shots** across all 242 codes. Spending simulation budget on bad candidates wastes huge amounts of compute.
+
+---
+
+## The M0 dataset (qecscreen-bench M0 snapshot)
+
+Anyone can download and analyze the measured M0 dataset directly from this repository — no quantum hardware, no paid compute, and no re-simulation required.
+
+### How the dataset was built
+
+- **Code population:** Every admissible bivariate bicycle (BB) code with `n ≤ 72` and `d_upper ≥ 3` across 11 polynomial templates — **244 codes enumerated exhaustively** (not randomly sampled).
+- **2 excluded codes (D-036):** Two `mixed_3_5` codes with `l = 2` were excluded because cyclic wrap-around (`x³ = x`) causes two monomial terms in polynomial `B` to collide and cancel over GF(2). The pinned syndrome-extraction schedule refuses to build a circuit that would measure the wrong checks. **242 of 244 codes have a measured row.** The two excluded IDs and reasons are stored in the measurements Parquet file's schema metadata (`qecscreen.excluded_codes`).
+- **One pinned simulation protocol:** Every single row shares `protocol_hash` `6230a7a8a31d8b202e5454c49cf7823b77f95d8452a7d27e273ce9a89fcb32fe` ([CONTRACT.md, protocol v1](CONTRACT.md#exact-values--protocol-v1)):
+  - **Noise model:** `uniform_depolarizing_v1` at physical error rate **`p = 0.002`** (depolarizing errors on idle qubits, two-qubit depolarizing errors after every CX gate, and reset/measurement errors at `p`; noiseless initial state preparation and final data readout).
+  - **Experiment:** **Z-basis quantum memory**, run for `r = d_upper` rounds of syndrome extraction using a pinned X-then-Z monomial-matching gate schedule (`bb_monomial_matching_xz_phased_v2`).
+  - **Simulator & decoder:** `Stim 1.16.0` paired with `ldpc 2.4.1` **BP+OSD** (min-sum, 30 iterations, scaling 0.625, OSD-CS order 10).
+- **Label definition & uncertainty:** `true_ler` is the logical error rate **per round, per logical qubit**:
+  `1 - (1 - P_L) ** (1 / (r * k))`, where `P_L` is the fraction of shots in which any logical observable failed ([INV-4](CONTRACT.md#inv-4--ler-normalisation-is-pinned-to-exactly-one-formula)). Every row also stores raw `shots`, `failures`, and a 95% Wilson confidence interval (`true_ler_ci_low`, `true_ler_ci_high`).
+- **Adaptive sampling & censoring:** Each code is sampled in batches of 256 shots until it accumulates at least **100 logical failures**, stopping at a cap of **40,960 shots**. If a code reaches 40,960 shots with fewer than 100 failures, it is marked **censored**: `true_ler` is left `null`, and only its statistical upper bound `true_ler_ub` is reported. **1 code is censored** (0.4%; 93 failures in 40,960 shots). In ranking metrics, censored rows rank by `true_ler_ub` (D-035), and every metric also reports its value with censored rows excluded.
+- **Distance provenance:** `d_upper` comes from a randomized, decoder-assisted distance search, meaning the true code distance satisfies `true distance ≤ d_upper`. `d_exact` is `null` on every M0 row. `Φ` is computed from `d_upper` and named `phi_from_d_upper` ([INV-5](CONTRACT.md#inv-5--distance-is-labelled-as-bound-or-exact-never-conflated)).
+
+### The three committed Parquet files
+
+Committed byte-for-byte (D-037) in [`evidence/m0-verdict/2026-10-03-1131f10/data/`](evidence/m0-verdict/2026-10-03-1131f10/data/) under **CC BY 4.0** (joined on `code_id`):
+
+| File | Rows | SHA-256 | What is inside |
 |---|---|---|---|
-| Recall@30-of-top-10 | 0.200 [0.000, 0.600] | 0.000 [0.000, 0.000] | 0.200 [0.000, 0.600] |
-| Recall, censored code excluded | 0.100 | 0.000 | — |
-| Spearman with the measured ranking | 0.871 [0.838, 0.894] | 0.242 [0.118, 0.354] | 0.629 [0.521, 0.750] |
-| Spearman, censored code excluded | 0.870 | 0.243 | — |
-| Label-noise ceiling, Recall@30-of-top-10 | 1.000 [1.000, 1.000] | | |
+| `m0_measurements.parquet` | 242 | `5c644c028ff81803e904bda86a2714f4f8169aa8de717462a735f603d650d696` | Ground-truth measurements (`true_*`), counts, intervals, and provenance |
+| `m0_features.parquet` | 242 | `49e28025ca8bbddf376613ed72382536ef569e94ebef1dfc154789c63b0632a6` | 28 cheap structural & circuit features (`feature_set` = `m0_features_v1`) |
+| `m0_predictions.parquet` | 242 | `ba6f75f41c3fbd0e858c7bb6dbe7f3e6facbabc7d1594a408f5564a5f3e5e5ea` | Out-of-fold LightGBM outputs (`pred_log10_ler`, `fold`, `model_version`) |
 
-The label-noise ceiling is the recall of the observed ranking against labels
-redrawn from their own binomial noise: mean and [5th, 95th] percentile over
-1,000 draws (seed 20261002). It is reported, not used for any decision. Source:
-[`m0_results.txt`](evidence/m0-verdict/2026-10-03-1131f10/m0_results.txt).
+Measurements (`true_*`) and model predictions (`pred_*`) are deliberately kept in separate files so a model's guess can never be mistaken for a real simulation ([INV-1](CONTRACT.md#inv-1--the-surrogate-is-never-the-ground-truth)).
 
-**Why recall did not separate.** All ten of the best codes come from one
-template, `pair_2_2`. Under leave-one-program-out, the single fold that holds
-out `pair_2_2` produces every one of their predictions, so one fold decides the
-headline metric, and every bootstrap resample reuses that fold's predictions.
-That is why the interval runs from 0 to 0.6, and why the point estimate moves
-from 0.200 to 0.100 when the one censored code (the second-best by its upper
-bound) is dropped. It is not label noise: the ceiling is 1.000.
-
-**Φ rewards k.** Every top-10 code has k = 2 and Φ ≤ 1.64. For each of them at
-least 70 codes with both higher k and higher Φ rank above it in Φ's order.
-Φ's Recall@30-of-top-10 is therefore exactly zero.
-
-**Check weight alone reaches 0.719 (exploratory, post hoc).** After the verdict,
-single-feature scores were ranked against the same truth: minus the mean check
-weight has Spearman **0.719**, d_upper 0.310, and k −0.026 (point values, no
-intervals; [write-up](docs/m0-writeup.md), not part of the verdict). Mean check
-weight takes five distinct values here and varies mostly between templates, so
-this may largely reflect template identity. It says nothing about the top 10.
-
-**The cost asymmetry.** The codes a screen most needs to find are the most
-expensive to measure. The ten best codes took 24,320 to 40,960 shots each
-(40,960 is the cap, reached by the censored code), against a median of 1,024
-over all 242. The whole pilot took 76.3 core-hours of decoding on free Kaggle
-CPUs.
-
-## The dataset
-
-**Scope.** Every admissible BB code with n ≤ 72 and d_upper ≥ 3, enumerated
-rather than sampled, from 11 polynomial templates: 244 codes. Two are excluded
-(D-036): both are `mixed_3_5` codes with l = 2, where x³ = x makes a monomial of
-B repeat and cancel over GF(2), so the pinned syndrome schedule cannot extract
-their checks and refuses to build them. **242 of 244 codes have a row.** The
-excluded ids and reasons are in the measurements file's Parquet schema metadata,
-key `qecscreen.excluded_codes`.
-
-**Protocol.** One protocol for every row, identified by `protocol_hash`
-`6230a7a8a31d8b202e5454c49cf7823b77f95d8452a7d27e273ce9a89fcb32fe`
-([CONTRACT.md, protocol v1](CONTRACT.md#exact-values--protocol-v1)):
-
-- Noise: `uniform_depolarizing_v1` at **p = 0.002** (depolarizing idles,
-  two-qubit depolarizing after every CX, reset and measurement errors at p;
-  noiseless initial preparation and final readout).
-- **Z-basis memory**, r = d_upper rounds of syndrome extraction, X-then-Z
-  monomial-matching schedule.
-- Decoder: BP+OSD from `ldpc` 2.4.1 (min-sum, 30 iterations, scaling 0.625,
-  OSD-CS order 10), pinned. Sampling with Stim 1.16.0.
-
-**The label.** `true_ler` is the logical error rate **per round, per logical
-qubit**: `1 - (1 - P_L) ** (1 / (r * k))`, where P_L is the fraction of shots in
-which any logical observable failed
-([INV-4](CONTRACT.md#inv-4--ler-normalisation-is-pinned-to-exactly-one-formula)).
-Each row also has its shots, failures and a 95% Wilson interval
-(`true_ler_ci_low`, `true_ler_ci_high`).
-
-**Censoring.** A code is sampled in batches of 256 shots until it records at
-least 100 logical failures, up to 40,960 shots. Below 100 failures the row is
-censored: `true_ler` is null and only the upper bound `true_ler_ub` is a
-statement about it. **One code is censored** (0.4%; 93 failures in 40,960
-shots). In ranking, a censored row ranks by its `true_ler_ub` (D-035), and every
-ranking metric also reports its value with censored rows excluded.
-
-**Distance.** `d_upper` is an upper bound from a randomised, decoder-assisted
-search: the true distance is ≤ d_upper. `d_exact` is null on every row, because
-no distance here was computed by an exact method. Φ is computed from d_upper and
-named `phi_from_d_upper`.
-
-**Three files, joined on `code_id`.** Committed byte-for-byte as a snapshot
-(D-037) in
-[`evidence/m0-verdict/2026-10-03-1131f10/data/`](evidence/m0-verdict/2026-10-03-1131f10/data/):
-
-| File | Rows | sha256 | Holds |
-|---|---|---|---|
-| `m0_measurements.parquet` | 242 | `5c644c028ff81803e904bda86a2714f4f8169aa8de717462a735f603d650d696` | Measurements, `true_*` |
-| `m0_features.parquet` | 242 | `49e28025ca8bbddf376613ed72382536ef569e94ebef1dfc154789c63b0632a6` | 28 cheap features, `feature_set` = `m0_features_v1` |
-| `m0_predictions.parquet` | 242 | `ba6f75f41c3fbd0e858c7bb6dbe7f3e6facbabc7d1594a408f5564a5f3e5e5ea` | Out-of-fold model output, `pred_log10_ler`, `fold`, `model_version` |
-
-Measurements are `true_*`, predictions are `pred_*`, and the two never share a
-file or a column
-([INV-1](CONTRACT.md#inv-1--the-surrogate-is-never-the-ground-truth)).
-
-Columns of `m0_measurements.parquet` (from `spec/architecture.md §3`):
+<details>
+<summary><strong>Click to view the full column dictionary for <code>m0_measurements.parquet</code> (28 columns)</strong></summary>
 
 | Column | Type | Meaning |
 |---|---|---|
-| `code_id` | str | `{program_id}-{sha256(params_json)[:12]}`; the join key |
-| `construction_program_id` | str | `bb_v1_<template>`; the grouping key for splits |
+| `code_id` | str | `{program_id}-{sha256(params_json)[:12]}`; unique join key |
+| `construction_program_id` | str | `bb_v1_<template>`; grouping key for train/test splits |
 | `family` | str | `BB` for every M0 row |
-| `params_json`, `seed` | str, int64 | Regenerate the code's check matrices |
-| `n`, `k` | int32 | Block length; logical qubits (GF(2) rank) |
-| `d_exact` | int32, nullable | Null unless provably exact; null on every M0 row |
-| `d_upper` | int32 | Distance upper bound |
-| `phi_from_d_upper` | float64 | kd²/n using d_upper |
-| `n_ancilla`, `n_total` | int32 | Physical qubit budget |
-| `protocol_hash` | str | SHA-256 of the protocol; one value in this file |
-| `commit_sha` | str | Commit that produced the row (`1131f10…` for all 242) |
-| `sampling_seed` | int64 | Seed given to the Stim sampler, derived from the row |
-| `stim_version`, `cpu_class` | str | Provenance (`1.16.0`, `x86_64/sse2`) |
-| `p` | float64 | Physical error rate (0.002) |
-| `rounds` | int32 | r, equal to d_upper |
-| `shots`, `failures` | int64 | Raw counts |
+| `params_json`, `seed` | str, int64 | Exact parameters to regenerate the code's parity-check matrices |
+| `n`, `k` | int32 | Physical data qubits (`n`) and logical qubits (`k`, exact GF(2) rank) |
+| `d_exact` | int32, nullable | Exact distance (only populated if provably exact; null on every M0 row) |
+| `d_upper` | int32 | Distance upper bound from randomized decoder-assisted search |
+| `phi_from_d_upper` | float64 | Proxy score `k * (d_upper ** 2) / n` |
+| `n_ancilla`, `n_total` | int32 | Ancilla (check) qubits and total physical qubits (`n + n_ancilla`) |
+| `protocol_hash` | str | SHA-256 of the simulation/decoding protocol; identical across all 242 rows |
+| `commit_sha` | str | Git commit that produced the row (`1131f10…` for all 242) |
+| `sampling_seed` | int64 | Deterministic seed passed to the Stim sampler |
+| `stim_version`, `cpu_class` | str | Execution provenance (`1.16.0`, `x86_64/sse2`) |
+| `p` | float64 | Physical error rate (`0.002`) |
+| `rounds` | int32 | Syndrome-extraction rounds (`r`, equal to `d_upper`) |
+| `shots`, `failures` | int64 | Total simulated shots and observed logical failures |
 | `true_ler` | float64, nullable | Per-round, per-logical-qubit Z-memory LER; null if censored |
-| `true_ler_ub` | float64 | Wilson upper bound, on every row |
-| `true_ler_ci_low`, `true_ler_ci_high` | float64 | 95% Wilson interval |
-| `censored` | bool | `failures < 100` |
-| `decode_seconds` | float64 | Decoding time, cost telemetry |
-| `schema_version` | int32 | 1 |
-| `created_at` | str | ISO 8601, UTC |
+| `true_ler_ub` | float64 | 95% Wilson upper bound on LER, present on every row |
+| `true_ler_ci_low`, `true_ler_ci_high` | float64 | 95% Wilson confidence interval on `true_ler` |
+| `censored` | bool | `True` when `failures < 100` |
+| `decode_seconds` | float64 | Wall-clock CPU decoding time (cost telemetry) |
+| `schema_version` | int32 | Schema version (`1`) |
+| `created_at` | str | UTC timestamp (ISO 8601) |
 
-## How to use it
+</details>
 
-Install from a clone. These are the commands CI runs on Python 3.11, 3.12 and
-3.13 (CI runs the full suite, `pytest -m "slow or not slow"`; plain `pytest`
-runs the default, faster subset):
+---
+
+## How to install and use `qecscreen`
+
+Everything runs on a standard **CPU** — no quantum hardware, no GPU, no API keys, and no paid cloud services.
+
+### Installation
+
+These are the exact commands tested by CI on Python 3.11, 3.12, and 3.13 (CI runs the full test suite with `pytest -m "slow or not slow"`; plain `pytest` runs the faster default subset):
 
 ```bash
 git clone https://github.com/Pushkar0997/qecscreen
@@ -180,11 +176,9 @@ python -m qecscreen.selfcheck
 pytest
 ```
 
-Runs on CPU only. No API keys and no paid services. Run the examples below from
-the repository root: the snapshot is in the repository, not in the installed
-package.
+Run the Python examples below from the **repository root**, since the M0 dataset snapshot lives inside `evidence/` in the repository rather than inside the installed wheel.
 
-### a. Load the labels and rank the codes
+### a. Load the M0 dataset and inspect the 10 best codes
 
 ```python
 import pandas as pd
@@ -201,19 +195,17 @@ print(len(m), "rows;", m["censored"].sum(), "censored;",
       m["protocol_hash"].nunique(), "protocol_hash")
 ```
 
-Output from the committed snapshot: ten `bb_v1_pair_2_2` codes, all k = 2, the
-censored one second, ending `242 rows; 1 censored; 1 protocol_hash`.
+Output from the committed snapshot: ten `bb_v1_pair_2_2` codes, all `k = 2`, the censored one second, ending `242 rows; 1 censored; 1 protocol_hash`.
 
-### b. Score your own ranking against the M0 labels
+### b. Score your own screening idea against the M0 labels
 
-`qecscreen.metrics.recall_at_k` and `qecscreen.metrics.spearman` take the
-measurements frame and the name of any numeric column you add to it, oriented
-**higher = predicted better**. They need no other setup: the frame already
-carries `protocol_hash`, `censored`, `true_ler` and `true_ler_ub`. Each returns
-the value, the number of censored rows, and the value with them excluded.
-`qecscreen.metrics.bootstrap_compare` gives the paired interval against Φ, the
-same bootstrap as the table above, with your column as `model_col`. All three
-are covered by `tests/test_metrics.py`. With a trivial score:
+Have a new heuristic, analytical formula, or ML model? Add it as a numeric column on the measurements DataFrame — oriented so that **higher value = predicted better code** — and evaluate it directly with `qecscreen.metrics`.
+
+- `recall_at_k` and `spearman` return the score, the count of censored rows, and the score with censored rows excluded.
+- `bootstrap_compare` computes the exact same 1,000-resample paired bootstrap confidence interval against `Φ` used in the M0 verdict table.
+- Every metric automatically enforces the **INV-6 protocol guard** (refusing to mix rows simulated under different protocols).
+
+All three functions are covered by `tests/test_metrics.py`. Example with a trivial score (`-n`, guessing that smaller codes have lower error rates):
 
 ```python
 import pandas as pd
@@ -246,7 +238,7 @@ except ValueError as e:
 
 Output from the committed snapshot:
 
-```
+```text
 Recall@30-of-top-10  my_score           0.000  censored 1, without them  0.000
 Recall@30-of-top-10  phi_from_d_upper   0.000  censored 1, without them  0.000
 Spearman             my_score          -0.043  censored 1, without them -0.033
@@ -255,21 +247,13 @@ Spearman, my_score - phi: -0.285 [-0.428, -0.145]
 refused: refusing to combine 2 distinct protocols: [' ...
 ```
 
-Φ's lines match the verdict (0.000, and 0.242 / 0.243). To use features, merge
-`m0_features.parquet` on `code_id`. If your score is fitted to these labels,
-evaluate it out of fold with folds grouped by `construction_program_id`
-(`qecscreen.splits.grouped_kfold`), never on rows it was trained on.
+Notice that `Φ`'s lines reproduce the verdict (`0.000`, and `0.242` / `0.243`). To use the 28 structural features, merge `m0_features.parquet` on `code_id`. **If your score is trained on these labels, always evaluate out-of-fold grouped by `construction_program_id`** (`qecscreen.splits.grouped_kfold`), never on codes it trained on or via a random split.
 
-### c. Reproduce the M0 numbers
+### c. Reproduce the M0 numbers from the raw pilot archive
 
-Run once by the maintainer; results and input hashes in `spec/evals.md §7`.
-Not re-run for this README.
+Run once by the maintainer; results and input hashes are recorded in `spec/evals.md §7`. Not re-run for this README.
 
-Install at commit `17263bf` or later (a clone of `main` qualifies), **not** at
-`1131f10`. `1131f10` is the commit that ran the pilot and that every row
-records, but at that commit assembly refuses the two D-036 codes and the
-label-noise ceiling does not exist. The evaluation ran from source equal to
-`17263bf`.
+Install at commit `17263bf` or later (a clone of `main` qualifies), **not** at `1131f10`. `1131f10` is the commit that ran the Kaggle pilot and that every row records, but at that commit assembly refuses the two D-036 codes and the label-noise ceiling does not exist yet. The evaluation ran from source equal to `17263bf`.
 
 Save this as `rerun_m0.py` in the repository root:
 
@@ -288,118 +272,90 @@ write_features(compute_features(pd.read_parquet("data/m0_measurements.parquet"))
 run_m0_evaluation("data/m0_measurements.parquet", "data/m0_features.parquet", "evidence/m0-rerun")
 ```
 
-Bash:
+Verify the pilot archive checksum and run the script:
 
 ```bash
+# Bash
 (cd evidence/pilot/final-1131f10 && sha256sum -c m0-pilot.tar.sha256)
 python rerun_m0.py
 ```
 
-PowerShell:
-
 ```powershell
+# PowerShell
 (Get-FileHash evidence\pilot\final-1131f10\m0-pilot.tar -Algorithm SHA256).Hash.ToLower()
 # expect ccef076d29db82a25148f55fafe3f3e6c9cb5d15943817266daf015dbc511aa8
 python rerun_m0.py
 ```
 
-The writers refuse to overwrite, so `data/` must not already hold the three
-files, and the output directory must lie under `evidence/`. Compare the printed
-table with the one above. Seeds are pinned (bootstrap 20261001, ceiling
-20261002).
+The writers refuse to overwrite existing files, so `data/` must not already contain the three Parquet files, and the output directory must lie under `evidence/`. Seeds are pinned (`20261001` for bootstrap, `20261002` for the label-noise ceiling).
 
-### d. Run your own pilot on Kaggle
+### d. Re-running the full Kaggle pilot
 
-`notebooks/pilot.ipynb` runs one session of the M0 pilot; the full runbook is
-in [`spec/architecture.md §2`](spec/architecture.md#m0-pilot-runbook-d-033). In
-short: install pinned to one full 40-character commit for every session;
-session 1 is a 12-code, 3-hour probe whose cost report you check locally before
-going on; later sessions attach the previous version's `m0-pilot.tar` as input
-and resume from it; each session stops starting codes after 10.5 hours. When
-242 of 244 are done, `assemble_measurements` writes the measurements file. The
-M0 pilot took three sessions and 76.3 core-hours. The runner enumerates the
-pinned M0 population and refuses any other, so it repeats M0; it does not yet
-run a population of your choosing.
+`notebooks/pilot.ipynb` executes one session of the M0 pilot; the step-by-step runbook is in [`spec/architecture.md §2`](spec/architecture.md#m0-pilot-runbook-d-033). In summary: install pinned to one full 40-character commit SHA across all sessions; Session 1 runs a 12-code, 3-hour probe whose cost report is checked locally before scaling up; subsequent sessions attach the previous session's `m0-pilot.tar` and resume from disk, stopping cleanly at 10.5 hours to stay safely inside Kaggle's 12-hour limit. The M0 pilot finished in 3 sessions (76.3 core-hours). Note that the runner is currently pinned to the M0 population and refuses custom populations.
 
-### e. Not supported yet
+### e. What is NOT supported yet
 
-From the capability register (`spec/architecture.md §4`) and the backlog
-(`spec/tasks.md`):
+From the capability register (`spec/architecture.md §4`) and backlog (`spec/tasks.md`):
 
-- **Other code families** (GB, HGP, TB). BB only. Planned for M1.
-- **Other physical error rates.** One p, 0.002. Planned for M1.
-- **Exact distance.** Only d_upper; may never be supported.
-- **A scoring CLI or a `score(code)` function.** None exists. The benchmark CLI
-  is planned for M2, a scoring function for M4.
-- **A Zenodo or HuggingFace release, or a DOI.** Planned for M1. Until then the
-  committed snapshot is the copy to use.
+- **Other code families (GB, HGP, TB):** Currently BB codes only. Planned for M1.
+- **Multiple physical error rates (`p`):** Currently one error rate (`p = 0.002`). Multi-`p` sweeps are planned for M1.
+- **Exact code distance (`d_exact`):** Only `d_upper` bounds are computed; exact distance may never be supported at scale.
+- **Scoring CLI or `score(code)` API:** Not built yet. Benchmark CLI is planned for M2; a ready-to-use scoring function for M4.
+- **Zenodo / HuggingFace release and DOI:** Planned for M1. Until then, use the committed snapshot in `evidence/m0-verdict/2026-10-03-1131f10/data/`.
 
-## Using it correctly
+---
 
-Each pitfall is an invariant in [CONTRACT.md](CONTRACT.md):
+## Five common pitfalls (and the rules that prevent them)
 
-- **No random splits.** Siblings from one template are near-duplicates; split by
-  `construction_program_id`
-  ([INV-2](CONTRACT.md#inv-2--splits-are-by-construction-program-never-by-row)).
-- **Never compare rows across protocol hashes.** Different noise or decoder
-  moves rates more than codes do
-  ([INV-6](CONTRACT.md#inv-6--every-row-stores-a-protocol-hash-and-rows-with-different-hashes-are-never-compared)).
-- **d_upper is a bound.** The true distance is ≤ d_upper; say which you used
-  ([INV-5](CONTRACT.md#inv-5--distance-is-labelled-as-bound-or-exact-never-conflated)).
-- **Censored rows are bounds.** Use `true_ler_ub`, never a point estimate, and
-  exclude them from regression targets
-  ([INV-3](CONTRACT.md#inv-3--every-label-carries-its-shot-count-and-interval-and-thin-labels-are-censored-not-guessed)).
-- **Predictions are not measurements.** `pred_log10_ler` is model output; never
-  report it as a code's rate
-  ([INV-1](CONTRACT.md#inv-1--the-surrogate-is-never-the-ground-truth)).
+QEC machine-learning benchmarks are notoriously easy to get subtly wrong. `qecscreen` encodes its safeguards as testable invariants in [CONTRACT.md](CONTRACT.md):
 
-## Repository map
+1. **Do not use random train/test splits ([INV-2](CONTRACT.md#inv-2--splits-are-by-construction-program-never-by-row)).** Codes generated by the same polynomial template are near-duplicates. Splitting rows randomly leaks family structure into the test set and produces artificially high scores. Always group splits by `construction_program_id`.
+2. **Never compare error rates across different protocols ([INV-6](CONTRACT.md#inv-6--every-row-stores-a-protocol-hash-and-rows-with-different-hashes-are-never-compared)).** Changing the noise model, gate schedule, or decoder moves logical error rates more than changing the code itself. Always verify a single `protocol_hash`.
+3. **Never mistake `d_upper` for exact distance ([INV-5](CONTRACT.md#inv-5--distance-is-labelled-as-bound-or-exact-never-conflated)).** `d_upper` is an upper bound (`true distance ≤ d_upper`); always label whether a distance is exact or bounded.
+4. **Treat censored codes as bounds, not point estimates ([INV-3](CONTRACT.md#inv-3--every-label-carries-its-shot-count-and-interval-and-thin-labels-are-censored-not-guessed)).** Fewer than 100 observed failures is too thin for a reliable LER estimate. Rank censored codes by `true_ler_ub` and exclude them from regression training targets.
+5. **Never report model predictions as measured error rates ([INV-1](CONTRACT.md#inv-1--the-surrogate-is-never-the-ground-truth)).** `pred_log10_ler` is a surrogate guess; only `true_ler` comes from real circuit simulation.
 
-```
-src/qecscreen/   the package: protocol (constants, LER formula), codes/, circuits/,
-                 evaluate/ (sampling, decoding, pilot), features/, models/,
+---
+
+## Repository guide
+
+```text
+README.md        You are here — plain-English overview, results, usage, and roadmap
+docs/            In-depth write-ups (start with docs/m0-writeup.md)
+NARRATIVE.md     Plain-language history of what happened and why
+BRIEF.md         One-page status summary (3-minute read)
+CONTRACT.md      Hard invariants and pinned simulation constants (the ground rules)
+AGENTS.md        Working rules for AI coding agents
+spec/            Detailed engineering specs: plan, architecture, decisions (D-001…), evals, tasks
+src/qecscreen/   Python package: protocol, codes/, circuits/, evaluate/, features/, models/,
                  splits.py, metrics.py, verdict.py
-notebooks/       thin Kaggle/Colab runners (pilot.ipynb, calibrate.ipynb); no logic
-evidence/        committed run outputs: calibration/, pilot/ (the archives),
-                 m0-verdict/ (results and the dataset snapshot)
-spec/            plan, architecture, decisions (D-001…), evals (verdicts), tasks
-docs/            the M0 write-up
+tests/           Unit, golden-value, and invariant-guard tests (mirrors src/)
+notebooks/       Thin Kaggle/Colab execution runners (pilot.ipynb, calibrate.ipynb)
+evidence/        Committed run outputs with SHA-256 checksums, including the M0 data snapshot
 ```
 
-`CONTRACT.md` holds the invariants and pinned values; `AGENTS.md` the working
-rules; `tests/` mirrors `src/`.
+**How this project is built:** `qecscreen` follows a spec-driven workflow. `CONTRACT.md` defines non-negotiable scientific invariants (each backed by automated tests), `spec/decisions.md` records every design choice and rejected alternative, and `evidence/` stores immutable run outputs with checksums so every claim in `spec/evals.md` is verifiable.
 
-## How this was built
-
-The project is spec-driven: `CONTRACT.md` states the invariants and pinned
-protocol values, each with the test that detects a violation, and every design
-choice is a numbered decision in `spec/decisions.md` with the alternatives
-rejected. Run outputs are committed under `evidence/` with their sha256 hashes,
-and the verdict cites them. [NARRATIVE.md](NARRATIVE.md) tells the story in
-plain language.
+---
 
 ## Roadmap
 
-These are plans, not results (`spec/plan.md`). M1 has not started.
+> These are **plans, not results** (`spec/plan.md`). **M1 has not started.**
 
-- **M1, Dataset v0.1:** more families (GB, HGP), three qubit budgets and three
-  values of p, ~2,000 rows, a Zenodo DOI.
-- **M2, Benchmark and baselines:** frozen splits with family holdout as the
-  headline, a scoring CLI, a preprint.
-- **M3, GNN surrogate:** a Tanner-graph model compared with LightGBM and Φ on
-  the same holdout.
-- **M4, Package and outreach:** a pip-installable scoring function and a worked
-  search-loop example.
+| Milestone | Planned goal | Key deliverables |
+|---|---|---|
+| **M1 — Dataset v0.1** *(Next)* | Broaden beyond small BB codes and fix the single-fold bottleneck | Add Generalized Bicycle (GB) and Hypergraph Product (HGP) families; 3 qubit budgets; 3 values of `p`; ~2,000 measured rows; citable Zenodo DOI |
+| **M2 — Benchmark & Baselines** | Establish the cross-family benchmark | Frozen splits with **held-out code family** as the headline metric; scoring CLI; research preprint |
+| **M3 — GNN Surrogate** | Test whether graph structure helps generalization | Tanner-graph GNN compared head-to-head against LightGBM and `Φ` on the frozen family holdout |
+| **M4 — Package & Outreach** | Make screening plug-and-play for code-search loops | Pip-installable `score(code)` function and a worked automated search-loop example |
 
-## Citation, licence, contributing
+---
 
-- **Citation:** use [CITATION.cff](CITATION.cff) (GitHub's "Cite this
-  repository" reads it).
-- **Licence:** source under the **Apache License 2.0** ([LICENSE](LICENSE),
-  [NOTICE](NOTICE)). The M0 dataset snapshot in
-  [`evidence/m0-verdict/2026-10-03-1131f10/data/`](evidence/m0-verdict/2026-10-03-1131f10/data/)
-  is licensed under CC-BY-4.0
-  ([its LICENSE](evidence/m0-verdict/2026-10-03-1131f10/data/LICENSE)); the
-  source stays Apache-2.0. Copyright 2026 Pushkar Kumar.
-- **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md). Every commit needs a
-  DCO sign-off (`git commit -s`).
+## Citation, licence, and contributing
+
+- **Citation:** Use [CITATION.cff](CITATION.cff) (GitHub's **"Cite this repository"** button reads it automatically).
+- **Licence:**
+  - **Source software:** **Apache License 2.0** ([LICENSE](LICENSE), [NOTICE](NOTICE)).
+  - **M0 dataset snapshot** (`evidence/m0-verdict/2026-10-03-1131f10/data/`): **CC BY 4.0** ([data LICENSE](evidence/m0-verdict/2026-10-03-1131f10/data/LICENSE)). Attribution is required per `CITATION.cff`.
+  - Copyright 2026 Pushkar Kumar.
+- **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md). Every commit requires a Developer Certificate of Origin (DCO) sign-off (`git commit -s`).
