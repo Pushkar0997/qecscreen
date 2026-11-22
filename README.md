@@ -10,7 +10,7 @@
 
 ## Start here: the plain-English explanation
 
-If you are new to quantum error correction — or coming from software engineering or machine learning — here is the whole problem in 60 seconds:
+If you are new to quantum error correction — or coming from software engineering or machine learning — here is the whole problem in 60 seconds (or jump straight to our illustrated [Visual Beginner's Guide](docs/explainer.md) with ASCII diagrams):
 
 1. **Quantum computers are noisy.** Physical quantum bits (qubits) make errors constantly. To run real computations, we group many noisy physical qubits together using a **quantum error-correcting code** (QEC code) to protect a smaller number of reliable **logical qubits**.
 2. **Finding good codes is a needle-in-a-haystack search.** Researchers and AI-driven search loops now generate thousands of candidate **quantum LDPC codes** (a promising family of codes that need far fewer physical qubits than older designs).
@@ -30,7 +30,8 @@ If you are new to quantum error correction — or coming from software engineeri
 
 **Milestone 0 (M0) closed on 2026-10-03.**
 - **Verdict:** **PROCEED, with the headline criterion FAILED** (`spec/evals.md §7`).
-- **Full write-up:** [docs/m0-writeup.md](docs/m0-writeup.md) (written for both newcomers and specialists).
+- **Visual beginner's guide:** [docs/explainer.md](docs/explainer.md) (step-by-step diagrams of codes, Tanner graphs, circuits, decoders, and screening).
+- **Full M0 write-up:** [docs/m0-writeup.md](docs/m0-writeup.md) (written for both newcomers and specialists).
 - **Project story:** [NARRATIVE.md](NARRATIVE.md) (plain-language lab history).
 - **Next milestone:** **M1 has not started yet.**
 
@@ -321,7 +322,7 @@ QEC machine-learning benchmarks are notoriously easy to get subtly wrong. `qecsc
 
 ```text
 README.md        You are here — plain-English overview, results, usage, and roadmap
-docs/            In-depth write-ups (start with docs/m0-writeup.md)
+docs/            Visual beginner's guide (explainer.md) and M0 write-up (m0-writeup.md)
 NARRATIVE.md     Plain-language history of what happened and why
 BRIEF.md         One-page status summary (3-minute read)
 CONTRACT.md      Hard invariants and pinned simulation constants (the ground rules)
